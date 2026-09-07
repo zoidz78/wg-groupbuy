@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>团购收款看板</title>
+<style>
+  :root {
+    --bg: #efe7d8;
+    --paper: #fffcf6;
+    --ink: #2b2420;
+    --muted: #8a7f6e;
+    --line: #ddd2bd;
+    --red: #b5482a;
+    --green: #5c7a5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    margin: 0;
+    padding: 20px 14px 60px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink);
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+
+  .shopHead { text-align: center; margin-bottom: 18px; }
+  .shopSub { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+  .shopName {
+    font-family: Georgia, "Iowan Old Style", "Songti SC", serif;
+    font-size: 26px;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+  .shopNote { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .ticket {
+    background: var(--paper);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    padding: 16px 16px 4px;
+    margin-bottom: 16px;
+  }
+  .statRow { display: flex; justify-content: space-between; padding: 10px 0; }
+  .statRow + .statRow { border-top: 1px dashed var(--line); }
+  .statLabel { font-size: 13px; color: var(--muted); }
+  .statValue { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 600; }
+  .statValue.big { font-size: 19px; }
+  .statValue.green { color: var(--green); }
+  .statValue.red { color: var(--red); }
+
+  .progressTrack { height: 6px; background: var(--line); border-radius: 3px; margin: 2px 0 6px; overflow: hidden; }
+  .progressFill { height: 100%; background: var(--green); transition: width 0.3s ease; }
+  .progressLabel { font-size: 12px; color: var(--muted); padding-bottom: 14px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 13px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+    border-radius: 6px; cursor: pointer; user-select: none;
+  }
+  .tab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .rowMain { flex: 1; min-width: 0; }
+  .rowName { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rowItems { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .rowRight { text-align: right; flex-shrink: 0; }
+  .rowTotal { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .payBtn {
+    font-size: 11px; padding: 4px 10px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer; user-select: none; display: inline-block;
+  }
+  .payBtn.on { background: var(--green); border-color: var(--green); color: white; }
+
+  .sectionTitle {
+    font-family: Georgia, serif; font-size: 16px; margin: 22px 0 10px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--line);
+  }
+  .flavorGrid { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 10px; font-size: 13px; }
+  .flavorGrid .h { color: var(--muted); font-size: 11px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .flavorQty, .flavorAmt { font-family: "SF Mono", Menlo, Consolas, monospace; text-align: right; }
+  .flavorAmt { color: var(--muted); }
+  .grandRow { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--ink); font-weight: 700; }
+
+  .toolbar {
+    display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; flex-wrap: wrap;
+  }
+  .toolBtn {
+    font-size: 12px; padding: 7px 12px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    cursor: pointer;
+  }
+  .toolBtn input { display: none; }
+  .footNote { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="page" id="app"></div>
+
+  <script>
+    const DEFAULT_DATA_URL = "./data-2026-09-07.json";
+    let DATA = null;
+    let paidState = {};
+    let filter = "all";
+
+    function storageKey() {
+      return "groupbuy_paid_" + (DATA.groupName || "default");
+    }
+
+    function loadPaidState() {
+      try {
+        const raw = localStorage.getItem(storageKey());
+        paidState = raw ? JSON.parse(raw) : {};
+      } catch (e) { paidState = {}; }
+    }
+
+    function savePaidState() {
+      try { localStorage.setItem(storageKey(), JSON.stringify(paidState)); } catch (e) {}
+    }
+
+    function cost(items) {
+      return Object.entries(items).reduce(
+        (sum, [key, qty]) => sum + (DATA.products[key] ? DATA.products[key].price * qty : 0), 0
+      );
+    }
+    function boxCount(items) {
+      return Object.values(items).reduce((a, b) => a + b, 0);
+    }
+
+    function render() {
+      const app = document.getElementById("app");
+      const members = DATA.orders.map((m, i) => ({
+        ...m, id: i, total: cost(m.items), boxes: boxCount(m.items)
+      }));
+      const grandTotal = members.reduce((s, m) => s + m.total, 0);
+      const totalBoxes = members.reduce((s, m) => s + m.boxes, 0);
+      const paidCount = members.filter(m => paidState[m.name]).length;
+      const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
+
+      const flavorTotals = {};
+      Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
+      members.forEach(m => Object.entries(m.items).forEach(([k, qty]) => flavorTotals[k] += qty));
+
+      const visible = members.filter(m => {
+        if (filter === "paid") return paidState[m.name];
+        if (filter === "unpaid") return !paidState[m.name];
+        return true;
+      });
+
+      app.innerHTML = `
+        <div class="shopHead">
+          <p class="shopSub">${DATA.productLabel || ""}</p>
+          <h1 class="shopName">${DATA.groupName || "Group Buy"}</h1>
+          <p class="shopNote">${DATA.note || ""}</p>
+        </div>
+
+        <div class="ticket">
+          <div class="statRow"><span class="statLabel">Members</span><span class="statValue">${members.length}</span></div>
+          <div class="statRow"><span class="statLabel">Total boxes</span><span class="statValue">${totalBoxes}</span></div>
+          <div class="statRow"><span class="statLabel">Order total</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">Collected</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">Outstanding</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
+          <div style="padding-bottom:14px">
+            <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
+            <div class="progressLabel">${paidCount} of ${members.length} paid</div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab ${filter === "all" ? "active" : ""}" data-filter="all">All</div>
+          <div class="tab ${filter === "unpaid" ? "active" : ""}" data-filter="unpaid">Unpaid</div>
+          <div class="tab ${filter === "paid" ? "active" : ""}" data-filter="paid">Paid</div>
+        </div>
+
+        <div id="rows">
+          ${visible.map(m => `
+            <div class="row">
+              <div class="rowMain">
+                <div class="rowName">${m.name}</div>
+                <div class="rowItems">${Object.entries(m.items).map(([k, qty]) => `${DATA.products[k].label} x${qty}`).join(", ")}</div>
+              </div>
+              <div class="rowRight">
+                <div class="rowTotal">$${m.total.toFixed(2)}</div>
+                <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "Paid ✓" : "Mark paid"}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+
+        <div class="sectionTitle">Prep summary — boxes to order per flavor</div>
+        <div class="flavorGrid">
+          <div class="h">Flavor</div><div class="h flavorQty">Boxes</div><div class="h flavorAmt">Amount</div>
+          ${Object.entries(DATA.products).map(([k, info]) => `
+            <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}</span></div>
+            <div class="flavorQty">${flavorTotals[k]}</div>
+            <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
+          `).join("")}
+          <div class="grandRow">Total</div>
+          <div class="flavorQty grandRow">${totalBoxes}</div>
+          <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
+        </div>
+
+        <div class="toolbar">
+          <label class="toolBtn">📂 Load new order (JSON)
+            <input type="file" id="fileInput" accept="application/json">
+          </label>
+          <div class="toolBtn" id="downloadBtn">⬇️ Download current data.json</div>
+        </div>
+        <p class="footNote">Paid status is saved in this browser only. Edit data.json to reuse this page for a new group buy.</p>
+      `;
+
+      document.querySelectorAll(".tab").forEach(el => {
+        el.addEventListener("click", () => { filter = el.dataset.filter; render(); });
+      });
+      document.querySelectorAll(".payBtn").forEach(el => {
+        el.addEventListener("click", () => {
+          const name = el.dataset.name;
+          paidState[name] = !paidState[name];
+          savePaidState();
+          render();
+        });
+      });
+      document.getElementById("fileInput").addEventListener("change", handleFileUpload);
+      document.getElementById("downloadBtn").addEventListener("click", downloadData);
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (!parsed.products || !parsed.orders) throw new Error("Missing products or orders");
+          DATA = parsed;
+          loadPaidState();
+          render();
+        } catch (err) {
+          alert("Couldn't read that file: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadData() {
+      const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Boot: try fetching data.json (works once hosted); fall back to a message if missing.
+    fetch(DEFAULT_DATA_URL)
+      .then(r => { if (!r.ok) throw new Error("no data.json found"); return r.json(); })
+      .then(json => { DATA = json; loadPaidState(); render(); })
+      .catch(() => {
+        document.getElementById("app").innerHTML =
+          `<div class="shopHead"><h1 class="shopName">No data.json found</h1>
+          <p class="shopNote">Place a data.json file next to this index.html, or use "Load new order" below once the page loads.</p></div>
+          <div class="toolbar">
+            <label class="toolBtn">📂 Load order (JSON)
+              <input type="file" id="fileInput" accept="application/json">
+            </label>
+          </div>`;
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            DATA = JSON.parse(evt.target.result);
+            loadPaidState();
+            render();
+          };
+          reader.readAsText(file);
+        });
+      });
+  </script>
+</body>
+</html>
