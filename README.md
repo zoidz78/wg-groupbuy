@@ -1,45 +1,43 @@
-# WG团购群 — Group Buy Collection Dashboard
+# WG团购群 — 收款看板：数据结构与工作流程
 
-A simple, self-hosted receipt-style dashboard for tracking group buy orders and
-payment collection. Built for the WG团购群 group, but reusable for any group buy —
-just swap the data.
+本项目维护一个收据风格的团购收款看板。
+存在两个并行的输出方式；如果不确定用户想更新哪一个，请先询问：
 
-**Live site:** https://zoidz78.github.io/wg-groupbuy/
+1. **GitHub 静态网站**（`index.html` + `manifest.json` + 每场团购一个
+   `data-<日期>.json`）——免费托管，任何有链接的人都能查看，付款状态
+   通过 localStorage 保存在各自浏览器中。
+2. **Claude Artifact**（单个 `.jsx` 文件，数据写在代码里的
+   `GROUP_BUYS` 数组中）——付款状态通过 `window.storage`
+   （shared: true）在所有拥有该 artifact 链接的人之间实时共享，
+   按日期分组保存。
 
-## What it does
+## 收到一条原始接龙消息时
 
-- Shows every member's order broken down flavor-by-flavor with a subtotal per item,
-  then their total
-- Tracks who's paid with a tap ("标记已付款" / "已付款 ✓")
-- Running totals: participants, quantity per unit (盒/kg/etc.), order total,
-  collected, outstanding
-- A prep/shopping list showing how much of each flavor to order overall
-- Filter by 全部 / 未付款 / 已付款
-- Supports multiple group buys as tabs (by date) once more than one exists
-- Auto light/dark mode, responsive for both phone and desktop
+用户会粘贴一段微信风格的接龙消息：先是商品/价格列表，然后是逐条编号的
+成员留言，格式往往不统一（有些按口味逐一列出，有些把多人的订单合并写
+在一起，有些用简写如"各1"表示每样一份，用"原味"/"鲜肉"泛指基础/招牌
+口味）。
 
-## Files
+处理步骤：
 
-| File | Purpose |
-|---|---|
-| `index.html` | The whole app — reads `manifest.json` and the referenced `data-*.json` files. You should rarely need to touch this. |
-| `manifest.json` | Lists every group buy: `{ date, label, file }`. Newest date shows first. |
-| `data-<date>.json` | One file per group buy: products, prices, and every member's order. |
+1. 将商品列表提取到 `products` 字段中：短英文键 → `{label（中文名）, price}`。
+   如果商品线没有变化，请沿用相同的键（sig、corn、mush、seaweed、chive、
+   shrimp、salted、century）——新商品才建立新的短键。
+2. 将每条成员留言解析进 `orders` 字段：`{ name, items: {key: 数量, ...} }`。
+   姓名要原样保留，包括表情符号/特殊字符。
+3. 遇到含糊的口味指代（例如"原味"或裸写的"鲜肉"，通常指基础/招牌口味）
+   凭经验判断；如果确实无法判断，应向用户明确指出这个假设，而不是默默
+   猜测。
+4. **务必用脚本核对总额**（不要手工加总）再展示数字——核算每位成员的
+   费用、总盒数，以及总金额，并与消息中提到的起送门槛做合理性检查。
+5. 按下方结构输出 `data-<日期>.json`。如果消息中带有日期就用消息里的
+   日期；否则要询问用户，不要自行假设。
+6. 如果是 GitHub 版本，同时给出更新后的 `manifest.json`，在其中追加一条
+   新记录：`{ "date": "...", "label": "M/D", "file": "data-<日期>.json" }`。
+   如果是 artifact 版本，则改为在 `.jsx` 文件的 `GROUP_BUYS` 数组中追加
+   一个新对象。
 
-## Adding a new group buy
-
-1. Create a new `data-<date>.json` file (see schema below).
-2. Add one line to `manifest.json`:
-   ```json
-   { "date": "2026-09-14", "label": "9/14", "file": "data-2026-09-14.json" }
-   ```
-3. Upload both files to this repo (Add file → Upload files). `index.html` doesn't
-   need to change.
-
-Once there are 2+ entries in `manifest.json`, a tab row appears at the top of the
-page letting you switch between group buys.
-
-## `data-<date>.json` schema
+## `data-<日期>.json` 数据结构
 
 ```json
 {
@@ -57,23 +55,82 @@ page letting you switch between group buys.
 }
 ```
 
-- `products` — short key → `{ label (Chinese), price, unit? }`. `unit` is optional
-  and defaults to `"盒"` (box) — set it explicitly (e.g. `"kg"`) for anything sold
-  by weight or other non-box unit.
-- `orders` — one entry per paying line item. `items` quantities can be decimals
-  (e.g. `0.5` for a half portion/half kilo).
-- **Combined orders**: if two members order together and pay as one lump sum, use
-  a single entry with both names as one string, e.g. `"name": "Lesley & Choies"`.
+说明：
 
-## Notes
+- `groupName` 在各场团购之间保持"WG团购群"不变（作为页面标题显示），
+  除非另有说明。
+- 没有 `productLabel` 或配送备注字段——这些应用户要求已从页面上移除，
+  除非用户要求，否则不要重新加回去。
+- 页面上所有的界面文字都是中文（标签、按钮、区块标题）——新增的任何
+  文字都要保持中文，与现有风格一致。
 
-- Paid/unpaid status is saved in **each visitor's own browser** (localStorage) —
-  it isn't shared across devices or people. For a version where "paid" status is
-  shared live across everyone with the link, see the companion Claude artifact
-  version of this project.
-- All UI text is Mandarin by design — keep any new strings in Mandarin to match.
+### 新增商品
 
-## Hosting
+当某场团购出现了以前没有过的商品时：
 
-This repo is served via **GitHub Pages** (Settings → Pages → Deploy from branch →
-`main` / root). Any push to `main` updates the live site within a minute or so.
+1. 给它起一个新的英文短键（snake_case，例如 `pork_belly`）——即使中文
+   名称相似，也不要复用或叠加已有的键。
+2. `price` 设为消息中给出的单价。
+3. 只要商品不是按标准"盒"计价，就要添加 `unit` 字段——例如按"$X/斤"
+   或"$X/kg"计价的商品用 `"unit": "kg"`，或使用消息中出现的其他单位
+   （斤、包、份等——用消息里实际出现的字即可）。标准盒装商品则完全省
+   略 `unit` 字段，系统会自动默认为"盒"。
+4. 如果某商品的价格或单位在不同场次团购之间发生变化（例如季节性调
+   价），只更新当次日期文件里的数据——不要改动以往的历史文件。
+
+### 小数/部分数量
+
+数量可以是任意小数，不限于整数——这正是"半份""1.5kg"等表达方式的
+实现方式：例如 `{ "pork_belly": 0.5 }`。这个规则同样适用于按盒计价的
+商品，只要卖家允许半盒购买。不要把数量四舍五入成整数——按成员实际下
+的单精确录入。
+
+### 合并/拼单订单
+
+当两个或以上的成员一起拼单、并作为一笔总款支付（而不是各自单独结
+算）时，把它表示成**一条** `orders` 记录，`name` 为合并后的姓名，
+例如 `"name": "Lesley & Choies"`。这样会生成一条明细行，配一个"标记
+已付款"开关——适用于团长只收一笔款、不需要拆分的情况。除非用户特别
+要求，否则不要尝试在一条合并订单内部再做人均分摊——那是目前尚不支持
+的另一个功能。
+
+### 价格/品种缺失或待确认的商品
+
+如果某位成员点了一件价目表上完全没有的商品，或者指代的品种/规格不
+清楚（例如只写"彩虹蟠桃"而价目表上有好几种蟠桃），**不要直接从订单
+中剔除**：
+
+1. 仍然把它加进该成员的 `items` 里，正常记录数量。
+2. 在 `products` 里为它新建一个键，`"price": null`，并加上
+   `"unverified": true`。
+3. 页面会把这类商品用醒目的黄色标出（会员明细行和备货清单里都有），
+   并显示"缺失/待确认"标签，金额显示为"待确认"，不计入总金额，
+   同时在页面顶部弹出提醒横幅，说明有几项待核实。
+4. 在回复用户时，把这些项目单独列出来，说明为什么无法确定价格/品
+   种，等用户确认后再补上准确的 `price`（并按需去掉 `unverified`
+   字段）。
+
+## 设计规范（已确定，除非用户要求否则不要重新讨论）
+
+- 收据风格的视觉设计：暖色牛皮纸背景、虚线分隔、等宽数字字体、衬线
+  标题字体。
+- 通过 `prefers-color-scheme` 自动切换浅色/深色模式（没有手动开
+  关）。
+- 响应式布局：手机上单列显示，屏宽超过860px时成员卡片改为两列网
+  格。
+- 每张成员卡片：每个口味单独一行并附小计，最后是总计行——而不是拼
+  成一整段文字。
+- 筛选标签：全部 / 未付款 / 已付款。
+- 付款按钮文字："标记已付款" / "已付款 ✓"。
+- 总额按单位分组显示，不会不加区分地混在一起——如果同时有"盒"和
+  "kg"的商品，汇总部分会分别显示各单位的行/数值（例如"总数量
+  （盒）: 45"和"总数量（kg）: 3.5"），而不是显示一个没有意义的合并
+  数字。
+- 备货清单只显示实际有人下单的商品，不显示商品目录里数量为零的项
+  目——这样即使价目表很长（例如水果蔬菜大团），清单也不会被一堆
+  "0"占满。
+
+## 新聊天中建议的第一条消息
+
+> "新的一场团购，日期是[日期]。更新[GitHub 文件 / artifact]。这是接
+> 龙内容：[粘贴消息]"
