@@ -47,10 +47,10 @@ WG团购群制作，但换一套数据后也可用于任何团购。
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
   },
   "orders": [
-    { "name": "Caroline 琛琛", "items": { "sig": 3 } },
-    { "name": "Peter", "items": { "sig": 1, "shrimp": 1 } },
-    { "name": "Amy", "items": { "pork_belly": 0.5 } },
-    { "name": "Lesley & Choies", "items": { "corn": 2 } }
+    { "name": "小明", "items": { "sig": 3 } },
+    { "name": "小华", "items": { "sig": 1, "shrimp": 1 } },
+    { "name": "阿强", "items": { "pork_belly": 0.5 } },
+    { "name": "小美 & 阿杰", "items": { "corn": 2 } }
   ]
 }
 ```
@@ -61,7 +61,7 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - `orders` —— 每条明细对应一笔要收的款。`items` 里的数量可以是小数
   （例如`0.5`表示半份/半公斤）。
 - **合并订单**：如果两位成员一起拼单、并作为一笔总款支付，用**一
-  条**记录、姓名合并成一个字符串表示，例如`"name": "Lesley & Choies"`。
+  条**记录、姓名合并成一个字符串表示，例如`"name": "小美 & 阿杰"`。
 - **价格/品种缺失或待确认的商品**：如果某件商品价格暂时无法确定
   （例如价目表上没有，或指代不清楚），仍然把它加进该成员的
   `items` 里，但在 `products` 中把该商品的 `"price"` 设为 `null`，
