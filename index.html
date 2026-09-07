@@ -71,16 +71,32 @@
   }
   .buyTab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
-  .ticket {
+  .ticket, .card {
     background: var(--paper);
     border-radius: 4px;
     border: 1px solid var(--line);
     padding: 16px 16px 4px;
     margin-bottom: 16px;
   }
+  .card { padding: 16px 16px 18px; }
+  .card .sectionTitle { margin-top: 0; }
   .statRow { display: flex; justify-content: space-between; padding: 10px 0; }
   .statRow + .statRow { border-top: 1px dashed var(--line); }
+  .statRow.unitRow { cursor: pointer; }
+  .statRow.unitRow:active { opacity: 0.7; }
+  .unitChevron { color: var(--muted); margin-left: 4px; font-size: 15px; }
   .statLabel { font-size: 13px; color: var(--muted); }
+
+  .unitOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .unitOverlayCard {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 18px 16px; max-width: 380px; width: 100%; max-height: 80vh;
+    overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  }
   .statValue { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 600; }
   .statValue.big { font-size: 19px; }
   .statValue.green { color: var(--green); }
@@ -99,24 +115,25 @@
   .tab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
   .row {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
-    padding: 10px 12px; margin-bottom: 8px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px 18px 16px; margin-bottom: 16px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
   }
-  .rowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-  .rowName { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .rowName { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .itemLine {
     display: flex; justify-content: space-between; gap: 8px;
-    font-size: 12.5px; color: var(--muted); padding: 2px 0;
+    font-size: 14px; color: var(--muted); padding: 4px 0;
   }
   .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
   .rowTotalLine {
     display: flex; justify-content: space-between;
-    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);
-    font-size: 14px; font-weight: 700;
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+    font-size: 16px; font-weight: 700;
   }
   .rowTotalLine .rowTotalAmt { font-family: "SF Mono", Menlo, Consolas, monospace; }
   .payBtn {
-    font-size: 11px; padding: 4px 10px; border-radius: 12px;
+    font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
     border: 1px solid var(--line); background: var(--bg); color: var(--muted);
     cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
   }
@@ -182,6 +199,7 @@
     let DATA = null;
     let paidState = {};
     let filter = "all";
+    let openUnit = null; // which unit's detail overlay is currently open, if any
 
     function currentSourceKey() {
       const gb = GROUP_BUYS[activeIndex];
@@ -231,6 +249,21 @@
       });
       return totals;
     }
+    // Which distinct products contribute to each unit bucket, with their
+    // quantities — used to power the tap-to-see-detail overlay instead of
+    // crowding the summary card itself.
+    function unitProductBreakdown(itemsList) {
+      const map = {}; // unit -> { productKey: qty }
+      itemsList.forEach(items => {
+        Object.entries(items).forEach(([key, qty]) => {
+          const u = unitOf(key);
+          if (!DATA.products[key]) return;
+          if (!map[u]) map[u] = {};
+          map[u][key] = (map[u][key] || 0) + qty;
+        });
+      });
+      return map;
+    }
     function formatQty(qty) {
       // trims trailing zeros: 1.50 -> 1.5, 3.00 -> 3
       return Number(qty.toFixed(2)).toString();
@@ -246,7 +279,7 @@
       const gb = GROUP_BUYS[index];
       fetch(gb.file)
         .then(r => r.json())
-        .then(json => { DATA = json; loadPaidState(); filter = "all"; render(); });
+        .then(json => { DATA = json; loadPaidState(); filter = "all"; openUnit = null; render(); });
     }
 
     function render() {
@@ -256,6 +289,7 @@
       }));
       const grandTotal = members.reduce((s, m) => s + m.total, 0);
       const grandUnitTotals = unitTotals(members.map(m => m.items));
+      const grandUnitBreakdown = unitProductBreakdown(members.map(m => m.items));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
 
@@ -289,7 +323,10 @@
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
           ${Object.entries(grandUnitTotals).map(([u, qty]) => `
-            <div class="statRow"><span class="statLabel">总数量（${u}）</span><span class="statValue">${formatQty(qty)}</span></div>
+            <div class="statRow unitRow" data-unit="${u}">
+              <span class="statLabel">总数量（${u}）<span class="unitChevron">›</span></span>
+              <span class="statValue">${formatQty(qty)}</span>
+            </div>
           `).join("")}
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
@@ -324,26 +361,28 @@
           `).join("")}
         </div>
 
-        <div class="sectionTitle">备货清单 — 各口味所需数量</div>
-        <div class="flavorGrid">
-          <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
-          ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
-            if (info.unverified) {
+        <div class="card">
+          <div class="sectionTitle">备货清单 — 各口味所需数量</div>
+          <div class="flavorGrid">
+            <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
+            ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
+              if (info.unverified) {
+                return `
+                  <div>${info.label} <span class="unverifiedTag">缺失/待确认</span></div>
+                  <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                  <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+                `;
+              }
               return `
-                <div>${info.label} <span class="unverifiedTag">缺失/待确认</span></div>
-                <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-                <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+                <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+                <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
               `;
-            }
-            return `
-              <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
-              <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-              <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
-            `;
-          }).join("")}
-          <div class="grandRow">合计</div>
-          <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
-          <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
+            }).join("")}
+            <div class="grandRow">合计</div>
+            <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
+            <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
+          </div>
         </div>
 
         <div class="toolbar">
@@ -353,6 +392,8 @@
           <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
         </div>
         <p class="footNote">付款状态仅保存在此浏览器中。新增团购请在 manifest.json 中添加条目。</p>
+
+        ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
       `;
 
       document.querySelectorAll(".buyTab").forEach(el => {
@@ -369,8 +410,39 @@
           render();
         });
       });
+      document.querySelectorAll(".unitRow").forEach(el => {
+        el.addEventListener("click", () => { openUnit = el.dataset.unit; render(); });
+      });
+      const overlayEl = document.getElementById("unitOverlay");
+      if (overlayEl) {
+        overlayEl.addEventListener("click", () => { openUnit = null; render(); });
+      }
       document.getElementById("fileInput").addEventListener("change", handleFileUpload);
       document.getElementById("downloadBtn").addEventListener("click", downloadData);
+    }
+
+    function renderUnitOverlay(u, breakdown) {
+      const entries = Object.entries(breakdown);
+      const subtotal = entries.reduce((s, [key, qty]) => {
+        const info = DATA.products[key];
+        if (!info || info.unverified) return s;
+        return s + info.price * qty;
+      }, 0);
+      return `
+        <div class="unitOverlay" id="unitOverlay">
+          <div class="unitOverlayCard">
+            <div class="sectionTitle" style="margin-top:0">总数量（${u}）明细</div>
+            ${entries.map(([key, qty]) => {
+              const info = DATA.products[key];
+              const unverified = !!info.unverified;
+              const amt = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
+              return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
+            }).join("")}
+            <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">$${subtotal.toFixed(2)}</span></div>
+            <div class="footNote" style="margin-top:14px">点击任意处关闭</div>
+          </div>
+        </div>
+      `;
     }
 
     function handleFileUpload(e) {
