@@ -13,6 +13,19 @@
     --line: #ddd2bd;
     --red: #b5482a;
     --green: #5c7a5e;
+    --green-btn: #4f7f5b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1815;
+      --paper: #262019;
+      --ink: #f1e9dd;
+      --muted: #a99d8c;
+      --line: #3d352c;
+      --red: #e08064;
+      --green: #8fbb96;
+      --green-btn: #4f7f5b;
+    }
   }
   * { box-sizing: border-box; }
   body {
@@ -23,6 +36,14 @@
     color: var(--ink);
   }
   .page { max-width: 480px; margin: 0 auto; }
+
+  @media (min-width: 860px) {
+    .page { max-width: 760px; }
+    .ticket { padding: 20px 24px 8px; }
+    #rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #rows .row { margin-bottom: 0; }
+    .flavorGrid { max-width: 460px; }
+  }
 
   .shopHead { text-align: center; margin-bottom: 18px; }
   .shopSub { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
@@ -62,21 +83,28 @@
   .tab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
   .row {
-    display: flex; align-items: center; gap: 10px;
     background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
     padding: 10px 12px; margin-bottom: 8px;
   }
-  .rowMain { flex: 1; min-width: 0; }
-  .rowName { font-size: 14.5px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rowItems { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .rowRight { text-align: right; flex-shrink: 0; }
-  .rowTotal { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .rowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .rowName { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .itemLine {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-size: 12.5px; color: var(--muted); padding: 2px 0;
+  }
+  .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
+  .rowTotalLine {
+    display: flex; justify-content: space-between;
+    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);
+    font-size: 14px; font-weight: 700;
+  }
+  .rowTotalLine .rowTotalAmt { font-family: "SF Mono", Menlo, Consolas, monospace; }
   .payBtn {
     font-size: 11px; padding: 4px 10px; border-radius: 12px;
     border: 1px solid var(--line); background: var(--bg); color: var(--muted);
-    cursor: pointer; user-select: none; display: inline-block;
+    cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
   }
-  .payBtn.on { background: var(--green); border-color: var(--green); color: white; }
+  .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
 
   .sectionTitle {
     font-family: Georgia, serif; font-size: 16px; margin: 22px 0 10px;
@@ -156,63 +184,65 @@
       app.innerHTML = `
         <div class="shopHead">
           <p class="shopSub">${DATA.productLabel || ""}</p>
-          <h1 class="shopName">${DATA.groupName || "Group Buy"}</h1>
+          <h1 class="shopName">${DATA.groupName || "团购"}</h1>
           <p class="shopNote">${DATA.note || ""}</p>
         </div>
 
         <div class="ticket">
-          <div class="statRow"><span class="statLabel">Members</span><span class="statValue">${members.length}</span></div>
-          <div class="statRow"><span class="statLabel">Total boxes</span><span class="statValue">${totalBoxes}</span></div>
-          <div class="statRow"><span class="statLabel">Order total</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
-          <div class="statRow"><span class="statLabel">Collected</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
-          <div class="statRow"><span class="statLabel">Outstanding</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
+          <div class="statRow"><span class="statLabel">总盒数</span><span class="statValue">${totalBoxes}</span></div>
+          <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
           <div style="padding-bottom:14px">
             <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
-            <div class="progressLabel">${paidCount} of ${members.length} paid</div>
+            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人</div>
           </div>
         </div>
 
         <div class="tabs">
-          <div class="tab ${filter === "all" ? "active" : ""}" data-filter="all">All</div>
-          <div class="tab ${filter === "unpaid" ? "active" : ""}" data-filter="unpaid">Unpaid</div>
-          <div class="tab ${filter === "paid" ? "active" : ""}" data-filter="paid">Paid</div>
+          <div class="tab ${filter === "all" ? "active" : ""}" data-filter="all">全部</div>
+          <div class="tab ${filter === "unpaid" ? "active" : ""}" data-filter="unpaid">未付款</div>
+          <div class="tab ${filter === "paid" ? "active" : ""}" data-filter="paid">已付款</div>
         </div>
 
         <div id="rows">
           ${visible.map(m => `
             <div class="row">
-              <div class="rowMain">
+              <div class="rowHead">
                 <div class="rowName">${m.name}</div>
-                <div class="rowItems">${Object.entries(m.items).map(([k, qty]) => `${DATA.products[k].label} x${qty}`).join(", ")}</div>
+                <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
               </div>
-              <div class="rowRight">
-                <div class="rowTotal">$${m.total.toFixed(2)}</div>
-                <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "Paid ✓" : "Mark paid"}</div>
-              </div>
+              ${Object.entries(m.items).map(([k, qty]) => {
+                const info = DATA.products[k];
+                const sub = info.price * qty;
+                return `<div class="itemLine"><span>${info.label} x${qty}</span><span class="itemAmt">$${sub.toFixed(2)}</span></div>`;
+              }).join("")}
+              <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
             </div>
           `).join("")}
         </div>
 
-        <div class="sectionTitle">Prep summary — boxes to order per flavor</div>
+        <div class="sectionTitle">备货清单 — 各口味所需盒数</div>
         <div class="flavorGrid">
-          <div class="h">Flavor</div><div class="h flavorQty">Boxes</div><div class="h flavorAmt">Amount</div>
+          <div class="h">口味</div><div class="h flavorQty">盒数</div><div class="h flavorAmt">金额</div>
           ${Object.entries(DATA.products).map(([k, info]) => `
             <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}</span></div>
             <div class="flavorQty">${flavorTotals[k]}</div>
             <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
           `).join("")}
-          <div class="grandRow">Total</div>
+          <div class="grandRow">合计</div>
           <div class="flavorQty grandRow">${totalBoxes}</div>
           <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
         </div>
 
         <div class="toolbar">
-          <label class="toolBtn">📂 Load new order (JSON)
+          <label class="toolBtn">📂 导入新订单（JSON）
             <input type="file" id="fileInput" accept="application/json">
           </label>
-          <div class="toolBtn" id="downloadBtn">⬇️ Download current data.json</div>
+          <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
         </div>
-        <p class="footNote">Paid status is saved in this browser only. Edit data.json to reuse this page for a new group buy.</p>
+        <p class="footNote">付款状态仅保存在此浏览器中。下次团购请修改 data.json 重复使用此页面。</p>
       `;
 
       document.querySelectorAll(".tab").forEach(el => {
@@ -242,7 +272,7 @@
           loadPaidState();
           render();
         } catch (err) {
-          alert("Couldn't read that file: " + err.message);
+          alert("无法读取此文件：" + err.message);
         }
       };
       reader.readAsText(file);
@@ -264,10 +294,10 @@
       .then(json => { DATA = json; loadPaidState(); render(); })
       .catch(() => {
         document.getElementById("app").innerHTML =
-          `<div class="shopHead"><h1 class="shopName">No data.json found</h1>
-          <p class="shopNote">Place a data.json file next to this index.html, or use "Load new order" below once the page loads.</p></div>
+          `<div class="shopHead"><h1 class="shopName">未找到 data.json</h1>
+          <p class="shopNote">请将 data.json 文件放在 index.html 同一目录下，或点击下方按钮导入订单。</p></div>
           <div class="toolbar">
-            <label class="toolBtn">📂 Load order (JSON)
+            <label class="toolBtn">📂 导入订单（JSON）
               <input type="file" id="fileInput" accept="application/json">
             </label>
           </div>`;
