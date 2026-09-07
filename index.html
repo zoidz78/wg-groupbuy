@@ -170,8 +170,29 @@
         (sum, [key, qty]) => sum + (DATA.products[key] ? DATA.products[key].price * qty : 0), 0
       );
     }
-    function boxCount(items) {
-      return Object.values(items).reduce((a, b) => a + b, 0);
+    function unitOf(key) {
+      return (DATA.products[key] && DATA.products[key].unit) || "盒";
+    }
+    // Sums quantities per unit type (e.g. {"盒": 45, "kg": 3.5}) instead of
+    // blindly adding boxes and kilos together into one meaningless number.
+    function unitTotals(itemsList) {
+      const totals = {};
+      itemsList.forEach(items => {
+        Object.entries(items).forEach(([key, qty]) => {
+          const u = unitOf(key);
+          totals[u] = (totals[u] || 0) + qty;
+        });
+      });
+      return totals;
+    }
+    function formatQty(qty) {
+      // trims trailing zeros: 1.50 -> 1.5, 3.00 -> 3
+      return Number(qty.toFixed(2)).toString();
+    }
+    function formatUnitTotals(totals) {
+      return Object.entries(totals)
+        .map(([u, qty]) => `${formatQty(qty)}${u}`)
+        .join(" + ");
     }
 
     function loadGroupBuy(index) {
@@ -185,10 +206,10 @@
     function render() {
       const app = document.getElementById("app");
       const members = DATA.orders.map((m, i) => ({
-        ...m, id: i, total: cost(m.items), boxes: boxCount(m.items)
+        ...m, id: i, total: cost(m.items)
       }));
       const grandTotal = members.reduce((s, m) => s + m.total, 0);
-      const totalBoxes = members.reduce((s, m) => s + m.boxes, 0);
+      const grandUnitTotals = unitTotals(members.map(m => m.items));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
 
@@ -217,7 +238,9 @@
 
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
-          <div class="statRow"><span class="statLabel">总盒数</span><span class="statValue">${totalBoxes}</span></div>
+          ${Object.entries(grandUnitTotals).map(([u, qty]) => `
+            <div class="statRow"><span class="statLabel">总数量（${u}）</span><span class="statValue">${formatQty(qty)}</span></div>
+          `).join("")}
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
           <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
@@ -243,23 +266,23 @@
               ${Object.entries(m.items).map(([k, qty]) => {
                 const info = DATA.products[k];
                 const sub = info.price * qty;
-                return `<div class="itemLine"><span>${info.label} x${qty}</span><span class="itemAmt">$${sub.toFixed(2)}</span></div>`;
+                return `<div class="itemLine"><span>${info.label} x${formatQty(qty)}${unitOf(k)}</span><span class="itemAmt">$${sub.toFixed(2)}</span></div>`;
               }).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
             </div>
           `).join("")}
         </div>
 
-        <div class="sectionTitle">备货清单 — 各口味所需盒数</div>
+        <div class="sectionTitle">备货清单 — 各口味所需数量</div>
         <div class="flavorGrid">
-          <div class="h">口味</div><div class="h flavorQty">盒数</div><div class="h flavorAmt">金额</div>
+          <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
           ${Object.entries(DATA.products).map(([k, info]) => `
-            <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}</span></div>
-            <div class="flavorQty">${flavorTotals[k]}</div>
+            <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+            <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
             <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
           `).join("")}
           <div class="grandRow">合计</div>
-          <div class="flavorQty grandRow">${totalBoxes}</div>
+          <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
           <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
         </div>
 
