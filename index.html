@@ -14,6 +14,11 @@
     --red: #b5482a;
     --green: #5c7a5e;
     --green-btn: #4f7f5b;
+    --warn-bg: #fdf0d5;
+    --warn-border: #e0a838;
+    --warn-text: #8a5a00;
+    --warn-tag-bg: #e0a838;
+    --warn-tag-text: #3a2800;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -25,6 +30,11 @@
       --red: #e08064;
       --green: #8fbb96;
       --green-btn: #4f7f5b;
+      --warn-bg: #3a2f10;
+      --warn-border: #caa23a;
+      --warn-text: #f0c869;
+      --warn-tag-bg: #caa23a;
+      --warn-tag-text: #2a1f00;
     }
   }
   * { box-sizing: border-box; }
@@ -112,6 +122,34 @@
   }
   .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
 
+  .itemLine.unverified {
+    color: var(--warn-text);
+    background: var(--warn-bg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 600;
+  }
+  .unverifiedTag {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    background: var(--warn-tag-bg);
+    color: var(--warn-tag-text);
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-left: 6px;
+  }
+  .warnBanner {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
   .sectionTitle {
     font-family: Georgia, serif; font-size: 16px; margin: 22px 0 10px;
     padding-bottom: 6px; border-bottom: 1px solid var(--line);
@@ -172,6 +210,14 @@
     }
     function unitOf(key) {
       return (DATA.products[key] && DATA.products[key].unit) || "盒";
+    }
+    function isUnverified(key) {
+      return !!(DATA.products[key] && DATA.products[key].unverified);
+    }
+    function countUnverifiedLines(members) {
+      let n = 0;
+      members.forEach(m => Object.keys(m.items).forEach(k => { if (isUnverified(k)) n++; }));
+      return n;
     }
     // Sums quantities per unit type (e.g. {"盒": 45, "kg": 3.5}) instead of
     // blindly adding boxes and kilos together into one meaningless number.
@@ -236,6 +282,10 @@
           </div>
         ` : ""}
 
+        ${countUnverifiedLines(members) > 0 ? `
+          <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
+        ` : ""}
+
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
           ${Object.entries(grandUnitTotals).map(([u, qty]) => `
@@ -265,8 +315,9 @@
               </div>
               ${Object.entries(m.items).map(([k, qty]) => {
                 const info = DATA.products[k];
-                const sub = info.price * qty;
-                return `<div class="itemLine"><span>${info.label} x${formatQty(qty)}${unitOf(k)}</span><span class="itemAmt">$${sub.toFixed(2)}</span></div>`;
+                const unverified = isUnverified(k);
+                const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
               }).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
             </div>
@@ -276,11 +327,20 @@
         <div class="sectionTitle">备货清单 — 各口味所需数量</div>
         <div class="flavorGrid">
           <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
-          ${Object.entries(DATA.products).map(([k, info]) => `
-            <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
-            <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-            <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
-          `).join("")}
+          ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
+            if (info.unverified) {
+              return `
+                <div>${info.label} <span class="unverifiedTag">缺失/待确认</span></div>
+                <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+              `;
+            }
+            return `
+              <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+              <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+              <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
+            `;
+          }).join("")}
           <div class="grandRow">合计</div>
           <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
           <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>

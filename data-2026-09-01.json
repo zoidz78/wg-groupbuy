@@ -1,0 +1,684 @@
+{
+  "groupName": "WG团购群",
+  "products": {
+    "peach_box_czd": {
+      "label": "川中岛水蜜桃礼盒",
+      "price": 25.8
+    },
+    "peach_mix4": {
+      "label": "缤纷桃4粒拼装礼盒",
+      "price": 12.8
+    },
+    "mushroom_mix": {
+      "label": "什锦菌菇",
+      "price": 3
+    },
+    "strawberry": {
+      "label": "澳洲草莓",
+      "price": 5.8
+    },
+    "grape_jufeng": {
+      "label": "福安巨峰",
+      "price": 12.8,
+      "unit": "箱"
+    },
+    "grape_xiaoguangtou": {
+      "label": "小光头辽宁巨峰",
+      "price": 19.8,
+      "unit": "箱"
+    },
+    "grape_raisin_xj": {
+      "label": "新疆黑加仑黑提",
+      "price": 10.8,
+      "unit": "箱"
+    },
+    "peach_loose_bj": {
+      "label": "散装白金水蜜桃(2kg/包)",
+      "price": 14,
+      "unit": "包"
+    },
+    "peach_loose_czd": {
+      "label": "散装川中岛水蜜桃(2kg/包)",
+      "price": 14,
+      "unit": "包"
+    },
+    "peach_rainbow_oil": {
+      "label": "散装彩虹油蟠桃(2kg/包)",
+      "price": 16,
+      "unit": "包"
+    },
+    "peach_rainbow_loose": {
+      "label": "散装彩虹毛蟠桃(2kg/包)",
+      "price": 14,
+      "unit": "包"
+    },
+    "orange_locsweet": {
+      "label": "Loc sweet甜橙(3kg/包)",
+      "price": 15,
+      "unit": "包"
+    },
+    "tangerine_seedless": {
+      "label": "无籽蜜橘(2kg/包)",
+      "price": 10,
+      "unit": "包"
+    },
+    "pear_shaanxi": {
+      "label": "散装陕西酥梨(3kg/包)",
+      "price": 15,
+      "unit": "包"
+    },
+    "mango_pzh": {
+      "label": "攀枝花凯特大芒果(2粒/份)",
+      "price": 7,
+      "unit": "份"
+    },
+    "kiwi": {
+      "label": "红心奇异果(2盒/份)",
+      "price": 9,
+      "unit": "份"
+    },
+    "banana_ph": {
+      "label": "菲律宾长香蕉(900g/份)",
+      "price": 2.9,
+      "unit": "份"
+    },
+    "persimmon": {
+      "label": "火晶柿子(2盒/份)",
+      "price": 9,
+      "unit": "份"
+    },
+    "cabbage_baby": {
+      "label": "娃娃菜(300g*2包/份)",
+      "price": 4.4,
+      "unit": "份"
+    },
+    "sweetpotato_durian": {
+      "label": "榴莲蜜薯(500g*2包/份)",
+      "price": 5.6,
+      "unit": "份"
+    },
+    "mushroom_king": {
+      "label": "杏鲍菇(200g*2盒/份)",
+      "price": 3.2,
+      "unit": "份"
+    },
+    "pomegranate": {
+      "label": "会理软籽石榴(4粒/份)",
+      "price": 10,
+      "unit": "份"
+    },
+    "corn_km": {
+      "label": "金马伦爆汁白玉米(4根/份)",
+      "price": 10,
+      "unit": "份"
+    },
+    "broccoli": {
+      "label": "西兰花",
+      "price": 5,
+      "unit": "份"
+    },
+    "qinglongcai": {
+      "label": "青龙菜(2包/份)",
+      "price": 3.5,
+      "unit": "份"
+    },
+    "apple_envy": {
+      "label": "Envy苹果(5粒/份)",
+      "price": 10.5,
+      "unit": "份"
+    },
+    "lettuce_youmai": {
+      "label": "油麦菜",
+      "price": 4,
+      "unit": "份"
+    },
+    "broccolini": {
+      "label": "西兰苔",
+      "price": 5,
+      "unit": "份"
+    },
+    "beef_shank": {
+      "label": "五香卤牛腱肉",
+      "price": 18,
+      "unit": "份"
+    },
+    "duck_gizzard": {
+      "label": "双椒鸭胗",
+      "price": 5.8,
+      "unit": "份"
+    },
+    "duck_wing_salt": {
+      "label": "盐焗鸭翅",
+      "price": 6.5,
+      "unit": "份"
+    },
+    "pork_tongue": {
+      "label": "川卤猪舌头(2只/份)",
+      "price": 8,
+      "unit": "份"
+    },
+    "celery": {
+      "label": "长嫩芹菜",
+      "price": 3.5,
+      "unit": "份"
+    },
+    "chili_th": {
+      "label": "泰国小红尖椒",
+      "price": 1.9,
+      "unit": "份"
+    },
+    "redpomelo": {
+      "label": "红文旦柚",
+      "price": 7.8,
+      "unit": "粒"
+    },
+    "wtmelon": {
+      "label": "泰国薄皮黑籽小西瓜",
+      "price": 5.8,
+      "unit": "粒"
+    },
+    "melon_wang": {
+      "label": "86王哈密瓜",
+      "price": 6.5,
+      "unit": "粒"
+    },
+    "cabbage_bj": {
+      "label": "北京包菜",
+      "price": 2.5,
+      "unit": "粒"
+    },
+    "duck_pipi": {
+      "label": "特色片皮鸭",
+      "price": 26,
+      "unit": "只"
+    },
+    "chicken_shred": {
+      "label": "香酥手撕鸡",
+      "price": 20,
+      "unit": "只"
+    },
+    "duck_shred": {
+      "label": "手撕香酥鸭",
+      "price": 24,
+      "unit": "只"
+    },
+    "flour": {
+      "label": "Baker's Choice特级面粉",
+      "price": 3,
+      "unit": "袋"
+    },
+    "vinegar": {
+      "label": "恒顺镇江香醋",
+      "price": 2.9,
+      "unit": "瓶"
+    },
+    "chili_oil_yao": {
+      "label": "幺麻子藤椒油",
+      "price": 9.2,
+      "unit": "瓶"
+    },
+    "soy_sauce_light": {
+      "label": "海天味极鲜",
+      "price": 8.5,
+      "unit": "瓶"
+    },
+    "egg_my": {
+      "label": "马来西亚土鸡蛋",
+      "price": 9.3,
+      "unit": "盘"
+    },
+    "egg_aa": {
+      "label": "AA级大鸡蛋",
+      "price": 8.5,
+      "unit": "盘"
+    },
+    "blueberry_sa": {
+      "label": "CORE南非巨无霸大蓝莓",
+      "price": 7.9,
+      "unit": "桶"
+    },
+    "honey_plum": {
+      "label": "蜂糖李",
+      "price": 10,
+      "unit": "kg"
+    },
+    "dazao": {
+      "label": "脆甜大荔冬枣",
+      "price": 10.5,
+      "unit": "kg"
+    },
+    "tomato_provence": {
+      "label": "普罗旺斯番茄",
+      "price": 6,
+      "unit": "kg"
+    },
+    "chili_luosi": {
+      "label": "螺丝椒",
+      "price": 6,
+      "unit": "kg"
+    },
+    "chili_yangjiao": {
+      "label": "羊角椒",
+      "price": 6,
+      "unit": "kg"
+    },
+    "ginger_young": {
+      "label": "仔姜",
+      "price": 6,
+      "unit": "kg"
+    },
+    "yam": {
+      "label": "铁棍山药",
+      "price": 6,
+      "unit": "kg"
+    },
+    "garlic_sprout": {
+      "label": "青蒜苗",
+      "price": 4.5,
+      "unit": "kg"
+    },
+    "cherry_tomato": {
+      "label": "番夫子釜山88小番茄",
+      "price": 12.8,
+      "unit": "kg"
+    },
+    "prune": {
+      "label": "新鲜西梅",
+      "price": 10.8,
+      "unit": "kg"
+    },
+    "jiaobaisun": {
+      "label": "茭白笋",
+      "price": 6,
+      "unit": "kg"
+    },
+    "mushroom_white": {
+      "label": "白色口蘑",
+      "price": 10.8,
+      "unit": "kg"
+    },
+    "lotus_root": {
+      "label": "洪湖莲藕",
+      "price": null,
+      "unit": "kg",
+      "unverified": true
+    },
+    "peach_rainbow_unclear": {
+      "label": "彩虹蟠桃(品种待确认，6粒)",
+      "price": null,
+      "unverified": true
+    }
+  },
+  "orders": [
+    {
+      "name": "蒸汽秋葵",
+      "items": {
+        "redpomelo": 1,
+        "wtmelon": 1,
+        "strawberry": 1,
+        "celery": 1,
+        "cabbage_bj": 1,
+        "chili_th": 1,
+        "flour": 1,
+        "vinegar": 1,
+        "chicken_shred": 1
+      }
+    },
+    {
+      "name": "傀儡娃娃",
+      "items": {
+        "duck_shred": 1,
+        "redpomelo": 1,
+        "tomato_provence": 1,
+        "ginger_young": 1,
+        "chili_luosi": 1
+      }
+    },
+    {
+      "name": "LR",
+      "items": {
+        "peach_mix4": 1,
+        "grape_jufeng": 1
+      }
+    },
+    {
+      "name": "仧偕",
+      "items": {
+        "tomato_provence": 1
+      }
+    },
+    {
+      "name": "大燕子",
+      "items": {
+        "redpomelo": 1,
+        "honey_plum": 1
+      }
+    },
+    {
+      "name": "出去走走",
+      "items": {
+        "redpomelo": 2
+      }
+    },
+    {
+      "name": "Can.J",
+      "items": {
+        "peach_loose_czd": 1,
+        "mango_pzh": 1
+      }
+    },
+    {
+      "name": "李梦",
+      "items": {
+        "peach_loose_bj": 0.5,
+        "grape_raisin_xj": 1,
+        "yam": 1,
+        "lotus_root": 1
+      }
+    },
+    {
+      "name": "W_W",
+      "items": {
+        "redpomelo": 1,
+        "kiwi": 1,
+        "banana_ph": 1
+      }
+    },
+    {
+      "name": "Lillian",
+      "items": {
+        "orange_locsweet": 1
+      }
+    },
+    {
+      "name": "Eileen",
+      "items": {
+        "grape_jufeng": 1
+      }
+    },
+    {
+      "name": "noture",
+      "items": {
+        "peach_loose_bj": 1,
+        "lettuce_youmai": 1,
+        "chili_oil_yao": 1,
+        "soy_sauce_light": 1
+      }
+    },
+    {
+      "name": "薇",
+      "items": {
+        "kiwi": 1,
+        "mango_pzh": 2
+      }
+    },
+    {
+      "name": "半江渔火",
+      "items": {
+        "egg_my": 1,
+        "pomegranate": 1
+      }
+    },
+    {
+      "name": "coralreefs",
+      "items": {
+        "egg_aa": 1,
+        "redpomelo": 1,
+        "cabbage_bj": 1,
+        "lettuce_youmai": 1
+      }
+    },
+    {
+      "name": "CYQ",
+      "items": {
+        "redpomelo": 1,
+        "persimmon": 0.5,
+        "grape_xiaoguangtou": 1,
+        "mango_pzh": 1
+      }
+    },
+    {
+      "name": "Sadddie",
+      "items": {
+        "beef_shank": 2,
+        "duck_gizzard": 1,
+        "duck_wing_salt": 1,
+        "pork_tongue": 1
+      }
+    },
+    {
+      "name": "崔崔",
+      "items": {
+        "egg_my": 1,
+        "cherry_tomato": 0.5
+      }
+    },
+    {
+      "name": "Caroline 琛琛",
+      "items": {
+        "mango_pzh": 1,
+        "kiwi": 1,
+        "redpomelo": 2,
+        "grape_xiaoguangtou": 1,
+        "cabbage_baby": 1,
+        "jiaobaisun": 1,
+        "sweetpotato_durian": 1,
+        "mushroom_white": 1,
+        "mushroom_king": 1
+      }
+    },
+    {
+      "name": "摇粒绒是我我我我我",
+      "items": {
+        "sweetpotato_durian": 1,
+        "mushroom_mix": 1,
+        "grape_jufeng": 1,
+        "strawberry": 1,
+        "duck_pipi": 1,
+        "peach_loose_bj": 1,
+        "wtmelon": 1,
+        "persimmon": 1,
+        "pomegranate": 0.5
+      }
+    },
+    {
+      "name": "starlight",
+      "items": {
+        "blueberry_sa": 1,
+        "broccoli": 1,
+        "mushroom_mix": 1
+      }
+    },
+    {
+      "name": "Peter",
+      "items": {
+        "kiwi": 1,
+        "pomegranate": 0.5,
+        "wtmelon": 1,
+        "banana_ph": 1,
+        "redpomelo": 1,
+        "sweetpotato_durian": 1,
+        "prune": 0.5
+      }
+    },
+    {
+      "name": "Junie",
+      "items": {
+        "peach_loose_czd": 1,
+        "dazao": 1
+      }
+    },
+    {
+      "name": "我睡着的时候不困",
+      "items": {
+        "corn_km": 1,
+        "redpomelo": 1
+      }
+    },
+    {
+      "name": "小美",
+      "items": {
+        "pomegranate": 0.5,
+        "tangerine_seedless": 1
+      }
+    },
+    {
+      "name": "Sherry Liu",
+      "items": {
+        "redpomelo": 1,
+        "peach_rainbow_unclear": 1
+      }
+    },
+    {
+      "name": "等放假ing",
+      "items": {
+        "blueberry_sa": 1,
+        "corn_km": 1,
+        "redpomelo": 1
+      }
+    },
+    {
+      "name": "刘超",
+      "items": {
+        "egg_my": 1
+      }
+    },
+    {
+      "name": "咕咾又",
+      "items": {
+        "peach_loose_bj": 0.5
+      }
+    },
+    {
+      "name": "^_^Wu",
+      "items": {
+        "peach_box_czd": 1,
+        "honey_plum": 1,
+        "dazao": 1,
+        "cherry_tomato": 1,
+        "orange_locsweet": 0.5,
+        "sweetpotato_durian": 1
+      }
+    },
+    {
+      "name": "银银茵茵盈盈",
+      "items": {
+        "peach_rainbow_oil": 0.5
+      }
+    },
+    {
+      "name": "wyh",
+      "items": {
+        "tomato_provence": 1,
+        "redpomelo": 1
+      }
+    },
+    {
+      "name": "may",
+      "items": {
+        "peach_rainbow_oil": 1,
+        "honey_plum": 1,
+        "melon_wang": 1,
+        "qinglongcai": 1,
+        "corn_km": 0.5,
+        "egg_my": 1
+      }
+    },
+    {
+      "name": "北海",
+      "items": {
+        "blueberry_sa": 1,
+        "mushroom_mix": 1
+      }
+    },
+    {
+      "name": "肉松",
+      "items": {
+        "redpomelo": 1,
+        "wtmelon": 1,
+        "peach_rainbow_loose": 1,
+        "melon_wang": 1
+      }
+    },
+    {
+      "name": "H",
+      "items": {
+        "grape_xiaoguangtou": 2,
+        "kiwi": 1,
+        "apple_envy": 1,
+        "flour": 1
+      }
+    },
+    {
+      "name": "Huuuuuzz",
+      "items": {
+        "cabbage_baby": 1,
+        "lettuce_youmai": 1,
+        "garlic_sprout": 0.5
+      }
+    },
+    {
+      "name": "Choies",
+      "items": {
+        "grape_jufeng": 1,
+        "strawberry": 1,
+        "cherry_tomato": 0.5,
+        "tangerine_seedless": 0.5
+      }
+    },
+    {
+      "name": "Charlene",
+      "items": {
+        "grape_jufeng": 1,
+        "egg_my": 1,
+        "chili_luosi": 1
+      }
+    },
+    {
+      "name": "幸运的笑笑子",
+      "items": {
+        "honey_plum": 1
+      }
+    },
+    {
+      "name": "HanMin",
+      "items": {
+        "peach_loose_bj": 0.5,
+        "redpomelo": 1,
+        "persimmon": 0.5,
+        "wtmelon": 1
+      }
+    },
+    {
+      "name": "微微",
+      "items": {
+        "grape_jufeng": 1,
+        "broccolini": 1
+      }
+    },
+    {
+      "name": "Yang Yan",
+      "items": {
+        "sweetpotato_durian": 1,
+        "pear_shaanxi": 0.6667,
+        "yam": 1
+      }
+    },
+    {
+      "name": "Melissa Yu",
+      "items": {
+        "grape_xiaoguangtou": 1,
+        "lettuce_youmai": 1,
+        "dazao": 1,
+        "chili_yangjiao": 1
+      }
+    },
+    {
+      "name": "陈小Sun而已",
+      "items": {
+        "mango_pzh": 1,
+        "peach_loose_czd": 1
+      }
+    }
+  ]
+}
