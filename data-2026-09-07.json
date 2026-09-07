@@ -1,7 +1,5 @@
 {
   "groupName": "WG团购群",
-  "productLabel": "🥣千里香小馄饨",
-  "note": "当天现包新鲜送货，满20盒送货，下周二送",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
     "corn": { "label": "玉米鲜肉馄饨", "price": 6.8 },

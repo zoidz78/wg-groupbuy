@@ -46,14 +46,20 @@
   }
 
   .shopHead { text-align: center; margin-bottom: 18px; }
-  .shopSub { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
   .shopName {
     font-family: Georgia, "Iowan Old Style", "Songti SC", serif;
     font-size: 26px;
     letter-spacing: 0.5px;
     margin: 0;
   }
-  .shopNote { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .buyTabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  .buyTab {
+    padding: 7px 16px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+    border-radius: 20px; cursor: pointer; user-select: none;
+  }
+  .buyTab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
   .ticket {
     background: var(--paper);
@@ -132,13 +138,20 @@
   <div class="page" id="app"></div>
 
   <script>
-    const DEFAULT_DATA_URL = "./data-2026-09-07.json";
+    const MANIFEST_URL = "./manifest.json";
+    let GROUP_BUYS = [];
+    let activeIndex = 0;
     let DATA = null;
     let paidState = {};
     let filter = "all";
 
+    function currentSourceKey() {
+      const gb = GROUP_BUYS[activeIndex];
+      return gb ? gb.file : "current";
+    }
+
     function storageKey() {
-      return "groupbuy_paid_" + (DATA.groupName || "default");
+      return "groupbuy_paid_" + currentSourceKey();
     }
 
     function loadPaidState() {
@@ -159,6 +172,14 @@
     }
     function boxCount(items) {
       return Object.values(items).reduce((a, b) => a + b, 0);
+    }
+
+    function loadGroupBuy(index) {
+      activeIndex = index;
+      const gb = GROUP_BUYS[index];
+      fetch(gb.file)
+        .then(r => r.json())
+        .then(json => { DATA = json; loadPaidState(); filter = "all"; render(); });
     }
 
     function render() {
@@ -183,10 +204,16 @@
 
       app.innerHTML = `
         <div class="shopHead">
-          <p class="shopSub">${DATA.productLabel || ""}</p>
           <h1 class="shopName">${DATA.groupName || "团购"}</h1>
-          <p class="shopNote">${DATA.note || ""}</p>
         </div>
+
+        ${GROUP_BUYS.length > 1 ? `
+          <div class="buyTabs">
+            ${GROUP_BUYS.map((gb, i) => `
+              <div class="buyTab ${i === activeIndex ? "active" : ""}" data-index="${i}">${gb.label || gb.date}</div>
+            `).join("")}
+          </div>
+        ` : ""}
 
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
@@ -242,9 +269,12 @@
           </label>
           <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
         </div>
-        <p class="footNote">付款状态仅保存在此浏览器中。下次团购请修改 data.json 重复使用此页面。</p>
+        <p class="footNote">付款状态仅保存在此浏览器中。新增团购请在 manifest.json 中添加条目。</p>
       `;
 
+      document.querySelectorAll(".buyTab").forEach(el => {
+        el.addEventListener("click", () => loadGroupBuy(parseInt(el.dataset.index, 10)));
+      });
       document.querySelectorAll(".tab").forEach(el => {
         el.addEventListener("click", () => { filter = el.dataset.filter; render(); });
       });
@@ -288,30 +318,38 @@
       URL.revokeObjectURL(url);
     }
 
-    // Boot: try fetching data.json (works once hosted); fall back to a message if missing.
-    fetch(DEFAULT_DATA_URL)
-      .then(r => { if (!r.ok) throw new Error("no data.json found"); return r.json(); })
-      .then(json => { DATA = json; loadPaidState(); render(); })
-      .catch(() => {
-        document.getElementById("app").innerHTML =
-          `<div class="shopHead"><h1 class="shopName">未找到 data.json</h1>
-          <p class="shopNote">请将 data.json 文件放在 index.html 同一目录下，或点击下方按钮导入订单。</p></div>
-          <div class="toolbar">
-            <label class="toolBtn">📂 导入订单（JSON）
-              <input type="file" id="fileInput" accept="application/json">
-            </label>
-          </div>`;
-        document.getElementById("fileInput").addEventListener("change", (e) => {
-          const file = e.target.files[0];
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            DATA = JSON.parse(evt.target.result);
-            loadPaidState();
-            render();
-          };
-          reader.readAsText(file);
-        });
+    function showUploadFallback(message) {
+      document.getElementById("app").innerHTML =
+        `<div class="shopHead"><h1 class="shopName">${message}</h1></div>
+        <div class="toolbar">
+          <label class="toolBtn">📂 导入订单（JSON）
+            <input type="file" id="fileInput" accept="application/json">
+          </label>
+        </div>`;
+      document.getElementById("fileInput").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          GROUP_BUYS = [];
+          DATA = JSON.parse(evt.target.result);
+          loadPaidState();
+          render();
+        };
+        reader.readAsText(file);
       });
+    }
+
+    // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
+    fetch(MANIFEST_URL)
+      .then(r => { if (!r.ok) throw new Error("no manifest"); return r.json(); })
+      .then(manifest => {
+        GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
+        if (!GROUP_BUYS.length) throw new Error("empty manifest");
+        activeIndex = 0;
+        return fetch(GROUP_BUYS[0].file).then(r => r.json());
+      })
+      .then(json => { DATA = json; loadPaidState(); render(); })
+      .catch(() => showUploadFallback("未找到 manifest.json 或数据文件"));
   </script>
 </body>
 </html>
