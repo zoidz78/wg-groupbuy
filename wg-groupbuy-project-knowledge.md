@@ -691,6 +691,28 @@ in a private/incognito window. If still wrong, view page source and confirm the 
 **Red 🔧 banner at the top of the page:** a Firestore read/write failed — the banner
 shows the actual error message, which is the fastest way to debug it.
 
+**"🖨️ 导出报告" needed several clicks before the print dialog actually opened**
+(fixed 2026-09-08): `exportReport()` reset some UI state (filter/edit mode/open
+panels) and called `render()`, then called `window.print()` inside a
+`requestAnimationFrame` callback — the reasoning at the time was probably "give the
+DOM a frame to settle before printing," but it wasn't actually needed: the print
+content (`renderPrintSection()`) is built from the full, unfiltered member list on
+*every* render regardless of the on-screen filter, and `@media print` hides
+everything else via pure CSS, so nothing about print correctness depended on that
+delay. What it did cause: deferring `window.print()` even by one animation frame
+pushes it just outside the "direct result of a user gesture" window some browsers
+require before honoring `print()`/`open()` — Safari and, notably, WeChat's in-app
+browser (the actual audience for a WeChat group-buy link) are both strict about
+this. That's why it was flaky rather than consistently broken: whether a given
+click's deferred call still landed inside that browser's grace window varied.
+**Fix:** call `window.print()` synchronously, in the same tick as the click handler
+— no `requestAnimationFrame`, no other async hop in between. General rule for
+anything else that opens a native browser dialog (`print()`, `open()`, a file
+picker, etc.): call it directly from the event handler, not after an intervening
+`render()`-triggered layout wait, a `Promise`, or a timer — if state needs to
+change first, do the state change and `render()` synchronously, then call the
+dialog-opening API immediately after, still inside the same handler invocation.
+
 **A product's icon shows the default 🛒 instead of something specific:** its Chinese
 label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
 "Product emoji icons" above) rather than hardcoding an icon into a product's `label`.
@@ -732,3 +754,88 @@ ever recurs — check the browser console's expanded stack trace to know which:
 Both fixes are defensive at the `adjustmentsForMember()`/render layer, not a promise
 that every future adjustment type will be handled — check all four call sites by hand
 whenever a new `type` value is introduced.
+
+### Defensive audit (2026-09-08): missing/malformed data no longer crashes the page
+
+The `printItemsLine()` bug above was one specific instance of a general risk this
+architecture has: **the whole page is a single `app.innerHTML = ...` template string
+(see `render()`), so any single thrown error while building it — anywhere — takes down
+rendering for every visitor, not just the one feature that has the bug.** Prompted by
+that bug recurring in spirit (a user report of "prevent this from happening again"),
+every place that reads a *number* or a *product lookup* from data the organizer
+hand-types was audited for the same failure shape: assuming a field exists/is the right
+type, then immediately calling `.toFixed()` or doing arithmetic on it. Found and fixed:
+
+- **A member's `items` referencing a product key that's missing from that round's
+  `products` map** (a typo made while hand-authoring `data-<date>.json`, or a key
+  renamed/removed after orders already referenced it) used to crash the *on-screen*
+  member-card loop in `render()` outright (`info.price` on `undefined`) — this was the
+  most likely one to actually get hit, since it's hand-authored data. Now shows a
+  visible `⚠️ <key> 商品未找到，请检查 data 文件` line instead of throwing;
+  `printItemsLine()` and `buildMemberMessage()` already had this guard (`if (!info)
+  return`), the primary on-screen card loop just hadn't.
+- **A member entry missing its `items` field entirely** (e.g. `{"name": "X"}` with no
+  `items` key — an easy thing to drop while hand-typing a long `orders` array) used to
+  crash `Object.entries(m.items)` wherever a member is touched (cost, the card loop,
+  the message builder, the print line). Fixed once, at the single point every one of
+  those reads from: `DATA.orders.map((m, i) => ({ ...m, items: m.items || {}, id: i
+  }))` in `render()`.
+- **A malformed entry in the `adjustments` Firestore doc** (e.g. a stray `null` — from
+  a bad manual Firestore-console edit, or a bug in a bulk-import payload) used to crash
+  `Object.values(adjustments).map(a => a.member)` in both `allMemberNamesInOrder()` and
+  the walk-in-name computation inside `render()` — neither guarded `a` being truthy
+  before reading `.member`, even though the established pattern for this exact risk
+  (`e && e.member`) already existed in `invalidAdjustmentEntries()` a few lines away.
+  Now both do `a && a.member`.
+- **A product with a missing/`null` `price` but no explicit `unverified: true` flag**
+  (forgetting to set the flag is an easy slip — two separate fields to remember) used to
+  crash the on-screen 备货清单 stocking list AND its print-report twin
+  (`info.price.toFixed(2)` on `null`/`undefined`). `isUnverified(key)` now treats
+  `info.price == null` as unverified too, regardless of the explicit flag, so all three
+  places that used to check `info.unverified` directly (备货清单 ×2, `renderUnitOverlay`)
+  now call `isUnverified()` instead and get the fix automatically — as does anywhere
+  that already called `isUnverified()` (the member card, `buildMemberMessage()`,
+  `printItemsLine()`), with zero further changes needed there.
+- **`cost()`** used to do `DATA.products[key].price * qty` unconditionally once the
+  product existed — a `price` of `undefined` (field omitted, as opposed to explicitly
+  `null`) produces `NaN`, which doesn't crash (`NaN.toFixed(2)` prints `"NaN"` rather
+  than throwing) but silently poisons every downstream total (grand total, collected,
+  per-member totals) into showing `$NaN`. Now explicitly treats `price == null` as $0,
+  same as a missing product.
+- **`formatQty()`/`formatAmt()`** called `.toFixed()` straight on their argument —
+  `.toFixed` doesn't exist on strings, so a quantity accidentally written as a quoted
+  string in `data-<date>.json` (`"0.5"` instead of `0.5` — an easy slip when hand-typing
+  or copy-pasting JSON) would throw and, per the single-template-string architecture,
+  crash the entire page. Both now do `Number(x)` first, so a string coerces cleanly
+  and even a genuinely non-numeric value degrades to displaying `"NaN"` rather than
+  throwing.
+- **`loadGroupBuy()`** (switching rounds via the tab bar) had no `.catch()` at all on
+  its fetch/JSON-parse chain — a 404'd or syntactically invalid `data-<date>.json`
+  (again: hand-authored, so a missing comma/bracket/quote is a real possibility) failed
+  completely silently; the tab click just did nothing, with no clue why, and no way to
+  tell whether it was still loading or had already failed. Now catches the error, rolls
+  `activeIndex` back to whichever round was already showing (so `DATA` still points at
+  something real and the tab bar isn't stranded on a broken tab with no way back), and
+  shows the actual error message in the same `storageDebug` 🔧 banner Firestore errors
+  already use. The very first boot load (fetching `manifest.json` then the newest
+  round) already had a fallback (`showLoadErrorFallback`, which replaces the whole page
+  since there's no previously-working round to fall back to there) — its error message
+  was hardcoded and uninformative regardless of cause; it now includes the real
+  `Error.message` (e.g. the JSON parser's own syntax-error text and position).
+- Added `if (!DATA) return;` at the very top of `render()` as cheap defense in depth —
+  every current call path already only calls `render()` once `DATA` is set (or, on a
+  failed round switch, leaves the *previous* round's `DATA` in place), so this
+  shouldn't be reachable today, but costs nothing and means a future subscription or
+  handler that forgets that invariant fails quietly instead of throwing on
+  `DATA.orders`.
+
+**The general principle, for anything added later:** any value that ultimately traces
+back to hand-typed JSON (`data-<date>.json`'s `orders`/`products`, a bulk-import paste)
+or an open-write Firestore doc should be treated as untrusted shape/type — check
+existence before dereferencing (`DATA.products[k]` can be `undefined`), and wrap
+anything reaching `.toFixed()` in `Number(...)` rather than assuming the caller already
+passed a real number. Because `render()` is one giant template string, there is no
+"just this one card fails to render" outcome — a single unguarded assumption anywhere
+takes the *entire* page down for *every* visitor until someone finds and fixes it. When
+in doubt, prefer degrading to a visible "⚠️ / 待确认" marker over either a silent wrong
+number or a thrown error.

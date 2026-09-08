@@ -602,9 +602,18 @@
     }
 
     function cost(items) {
-      return Object.entries(items).reduce(
-        (sum, [key, qty]) => sum + (DATA.products[key] ? DATA.products[key].price * qty : 0), 0
-      );
+      // `price == null` (covers a missing field as well as an explicit
+      // `null`) counts as $0, same as a product that doesn't exist at all —
+      // otherwise an unverified/placeholder product with no `price` field
+      // yet (forgotten, not explicitly `null`) would multiply `undefined *
+      // qty` into NaN and poison every total downstream (grand total,
+      // collected, per-member totals — none of them would throw, since
+      // NaN.toFixed() happily prints "NaN", but every dollar figure on the
+      // page would silently read "$NaN" instead of a number).
+      return Object.entries(items).reduce((sum, [key, qty]) => {
+        const info = DATA.products[key];
+        return sum + (info && info.price != null ? info.price * qty : 0);
+      }, 0);
     }
     function unitOf(key) {
       return (DATA.products[key] && DATA.products[key].unit) || "盒";
@@ -645,8 +654,17 @@
     function roundGramsDown(grams) {
       return Math.floor(grams / 100) * 100;
     }
+    // A product counts as "unverified" (shows 待确认 instead of a dollar
+    // amount, everywhere) either because it's explicitly flagged that way,
+    // or because its `price` is missing/null — the latter matters because a
+    // hand-authored data-<date>.json that simply forgets to write a `price`
+    // for a placeholder product (without also remembering to set
+    // `unverified: true`) would otherwise silently compute `undefined * qty`
+    // → NaN, and show "$NaN" across the card, the totals, and the stocking
+    // list instead of a clear "price not set yet" marker.
     function isUnverified(key) {
-      return !!(DATA.products[key] && DATA.products[key].unverified);
+      const info = DATA.products[key];
+      return !!(info && (info.unverified || info.price == null));
     }
     function countUnverifiedLines(members) {
       let n = 0;
@@ -663,8 +681,9 @@
     // building it aborts the entire render — nothing gets displayed or wired
     // up). Anything failing this check is silently excluded from
     // adjustmentsForMember() below rather than ever reaching a `.toFixed()`
-    // call; see countInvalidAdjustments()/renderInvalidAdjustmentsBanner()
-    // for how it's surfaced instead of just vanishing unexplained.
+    // call; see invalidAdjustmentEntries() below and its use in render()
+    // (the `badAdjustments` banner) for how it's surfaced instead of just
+    // vanishing unexplained.
     function isValidAdjustmentShape(a) {
       if (!a || typeof a !== "object" || !a.member) return false;
       if (a.type === "weight") return typeof a.actualGrams === "number";
@@ -744,7 +763,12 @@
     // matches how this group already writes these messages by hand (e.g.
     // "16", "6.7", not "$16.00", "$6.70").
     function formatAmt(x) {
-      return Number(x.toFixed(2)).toString();
+      // Number(x) first: x is normally already a real number here, but this
+      // is cheap insurance against a stray string sneaking in (`x.toFixed`
+      // doesn't exist on strings and would throw) — see the matching note on
+      // formatQty() below, which is at more direct risk since its input
+      // often comes straight from hand-authored data-<date>.json.
+      return Number(Number(x).toFixed(2)).toString();
     }
 
     // The "actual weight" note for one member's item, if one was recorded —
@@ -825,9 +849,11 @@
     // member/cost computation just to list names.
     function allMemberNamesInOrder() {
       const baseNames = DATA.orders.map(o => o.name);
+      // `a &&` guards against a malformed (e.g. null) Firestore entry — see
+      // the matching comment in render() where the same pattern is used.
       const walkinNames = Array.from(new Set(
         Object.values(adjustments)
-          .map(a => a.member)
+          .map(a => a && a.member)
           .filter(name => name && !baseNames.includes(name))
       ));
       return [...baseNames, ...walkinNames];
@@ -911,7 +937,15 @@
     }
     function formatQty(qty) {
       // trims trailing zeros: 1.50 -> 1.5, 3.00 -> 3
-      return Number(qty.toFixed(2)).toString();
+      // Number(qty) first: this is called all over (member cards, print,
+      // stocking totals, messages) with quantities that often come straight
+      // from a member's `items` in hand-authored data-<date>.json, which has
+      // no type checking at all — a value accidentally quoted as a string
+      // (e.g. "0.5" instead of 0.5, an easy slip when copy-pasting or typing
+      // JSON by hand) would otherwise hit `qty.toFixed`, which doesn't exist
+      // on strings, and throw — crashing the whole page for every visitor,
+      // not just showing a wrong number for that one line.
+      return Number(Number(qty).toFixed(2)).toString();
     }
     function formatUnitTotals(totals) {
       return Object.entries(totals)
@@ -920,10 +954,11 @@
     }
 
     function loadGroupBuy(index) {
+      const previousIndex = activeIndex; // restored on failure — see .catch below
       activeIndex = index;
       const gb = GROUP_BUYS[index];
       fetch(gb.file)
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(json => {
           DATA = json;
           filter = "all";
@@ -944,6 +979,22 @@
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
+        })
+        .catch(e => {
+          // A bad fetch (404) or a JSON syntax error in a hand-authored
+          // data-<date>.json (a stray/missing comma, quote or bracket) used
+          // to fail completely silently here — the tab click just did
+          // nothing, with no clue why. Roll back to whichever round was
+          // already showing (don't leave `DATA` pointing at nothing, and
+          // don't strand the person on a blank page with no tabs to click
+          // back with — see showLoadErrorFallback, which replaces the whole
+          // page including the tab bar, and is only safe to use for the
+          // very first load where there's no working round to fall back to)
+          // and surface the real error in the same on-page banner Firestore
+          // errors already use, instead of a silent no-op.
+          activeIndex = previousIndex;
+          storageDebug = `加载「${gb.label || gb.date}」的数据文件出错：${e.message}——请检查 ${gb.file} 的 JSON 格式是否正确（常见问题：多了/少了逗号、引号或括号）`;
+          render();
         });
     }
 
@@ -1171,6 +1222,13 @@
 
     function render() {
       const app = document.getElementById("app");
+      // Defense in depth: every current caller already only calls render()
+      // once DATA is loaded (or, on a failed round switch, leaves the
+      // previous round's DATA in place — see loadGroupBuy's .catch), so this
+      // shouldn't ever be reachable. Guarding it anyway costs nothing and
+      // means a future subscription/handler that forgets that rule fails
+      // quietly instead of throwing on `DATA.orders` and crashing the page.
+      if (!DATA) return;
 
       // `id` doubles as this member's position in the original 接龙 (data-<date>.json's
       // `orders` array is already in the order the message listed them) — shown as a
@@ -1179,12 +1237,26 @@
       // Walk-ins (added later via adjustments) never had a 接龙 position, so they get
       // a string id instead and are left unnumbered — see the `typeof m.id === "number"`
       // checks below.
-      const baseMembers = DATA.orders.map((m, i) => ({ ...m, id: i }));
+      // `items` defaults to {} for a member entry that's missing it (a
+      // hand-authored data-<date>.json row with no `items` key at all) — every
+      // consumer of a member object (cost(), effectiveItems(), the item loop
+      // below, buildMemberMessage(), printItemsLine()) does `Object.entries`/
+      // `Object.keys` on `.items` and would otherwise throw immediately on
+      // that one bad row and take the whole render down with it. Fixing it
+      // once here, at the single point every one of those reads from, means
+      // none of them need their own defensive check for this particular case.
+      const baseMembers = DATA.orders.map((m, i) => ({ ...m, items: m.items || {}, id: i }));
       // Walk-ins: names that only show up in adjustments (e.g. someone who
-      // bought extra on delivery day but wasn't in the original 接龙).
+      // bought extra on delivery day but wasn't in the original 接龙). Guard
+      // `a &&` before `.member` — Firestore's write rules are open to anyone
+      // with the link, so a stray malformed entry (e.g. `null`, from a bad
+      // manual edit or bulk-import payload) is a real possibility, and
+      // without this guard it throws here and takes the whole render down —
+      // same failure mode as the isValidAdjustmentShape() entries get
+      // filtered against elsewhere, just not funneled through that filter.
       const walkinNames = Array.from(new Set(
         Object.values(adjustments)
-          .map(a => a.member)
+          .map(a => a && a.member)
           .filter(name => name && !baseMembers.some(m => m.name === name))
       ));
       const walkinMembers = walkinNames.map((name, i) => ({ name, items: {}, id: `walkin-${i}`, isWalkin: true }));
@@ -1278,6 +1350,20 @@
               ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
               ${Object.entries(m.items).map(([k, qty]) => {
                 const info = DATA.products[k];
+                // A member's `items` can reference a product key that isn't
+                // (or isn't anymore) in this round's `products` map — a typo
+                // made while hand-authoring data-<date>.json, or a key that
+                // got renamed/removed after orders were already written
+                // against it. This is the exact class of bug that crashed
+                // the whole page for everyone before (see Troubleshooting in
+                // the knowledge doc) — show a visible warning line instead
+                // of calling `info.price` on `undefined` and taking every
+                // visitor's render down with it. cost()/effectiveItems()
+                // already treat a missing product as worth $0/excluded, so
+                // this is purely a "notice me" display, not a money change.
+                if (!info) {
+                  return `<div class="itemLine unverified"><span>⚠️ ${escapeHtml(k)} x${formatQty(qty)}<span class="unverifiedTag">商品未找到，请检查 data 文件</span></span><span class="itemAmt">待确认</span></div>`;
+                }
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
                 return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
@@ -1299,7 +1385,12 @@
           <div class="flavorGrid">
             <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
             ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
-              if (info.unverified) {
+              // isUnverified() (not a bare `info.unverified` check) so a
+              // product missing its `price` is caught here too, even if
+              // whoever wrote data-<date>.json forgot to also set
+              // `unverified: true` — otherwise `info.price.toFixed(2)` below
+              // throws on a null/undefined price and crashes the whole page.
+              if (isUnverified(k)) {
                 return `
                   <div>${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
                   <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
@@ -1542,7 +1633,7 @@
       const parts = Object.entries(m.items).map(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return "";
-        return info.unverified
+        return isUnverified(k)
           ? `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}(待确认)`
           : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
       }).filter(Boolean);
@@ -1601,7 +1692,12 @@
             <thead><tr><th>口味</th><th>数量</th><th>金额</th></tr></thead>
             <tbody>
               ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
-                if (info.unverified) {
+                // isUnverified() here too — see the matching comment on the
+                // on-screen 备货清单 above; a price-less product without an
+                // explicit unverified flag would otherwise crash the print
+                // report's rendering (and the print section is built into
+                // every normal render(), not just when actually printing).
+                if (isUnverified(k)) {
                   return `<tr><td>${emojiLabel(info)}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
                 }
                 return `<tr><td>${emojiLabel(info)}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
@@ -1617,9 +1713,13 @@
 
     function renderUnitOverlay(u, breakdown) {
       const entries = Object.entries(breakdown);
+      // isUnverified(), not a bare `info.unverified` check — see the matching
+      // comment on the 备货清单 sections above (same reasoning: a price-less
+      // product without the flag set shouldn't silently count as $0/show
+      // "$NaN" here either).
       const subtotal = entries.reduce((s, [key, qty]) => {
         const info = DATA.products[key];
-        if (!info || info.unverified) return s;
+        if (!info || isUnverified(key)) return s;
         return s + info.price * qty;
       }, 0);
       return `
@@ -1628,7 +1728,7 @@
             <div class="sectionTitle" style="margin-top:0">总数量（${u}）明细</div>
             ${entries.map(([key, qty]) => {
               const info = DATA.products[key];
-              const unverified = !!info.unverified;
+              const unverified = isUnverified(key);
               const amt = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
               return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
             }).join("")}
@@ -1670,11 +1770,22 @@
         window.removeEventListener("afterprint", restore);
       };
       window.addEventListener("afterprint", restore);
-      requestAnimationFrame(() => {
-        window.print();
-        // Safety net for browsers that don't fire afterprint reliably.
-        setTimeout(restore, 2000);
-      });
+      // window.print() is called synchronously here, in the same tick as the
+      // click handler — NOT deferred via requestAnimationFrame (as this used
+      // to do). Deferring it even by one frame pushes it just far enough
+      // outside the click's "user gesture" window that some browsers (Safari,
+      // and especially WeChat's in-app browser — exactly what this group
+      // uses) silently ignore the print() call rather than opening the
+      // dialog, which is what made this take several clicks to work: each
+      // click's deferred call either did or didn't land inside that
+      // browser's grace window. Nothing about the print OUTPUT needed that
+      // delay — renderPrintSection() already builds from the full,
+      // unfiltered member list on every render() regardless of `filter`, and
+      // @media print hides everything else via pure CSS — so there was
+      // nothing to wait a frame for in the first place.
+      window.print();
+      // Safety net for browsers that don't fire afterprint reliably.
+      setTimeout(restore, 2000);
     }
 
     function showLoadErrorFallback(message) {
@@ -1706,19 +1817,25 @@
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
     fetch(MANIFEST_URL)
-      .then(r => { if (!r.ok) throw new Error("no manifest"); return r.json(); })
+      .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
       .then(manifest => {
         GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
-        if (!GROUP_BUYS.length) throw new Error("empty manifest");
+        if (!GROUP_BUYS.length) throw new Error("manifest.json 里没有任何 groupBuys 条目");
         activeIndex = 0;
-        return fetch(GROUP_BUYS[0].file).then(r => r.json());
+        return fetch(GROUP_BUYS[0].file)
+          .then(r => { if (!r.ok) throw new Error(`${GROUP_BUYS[0].file}: HTTP ${r.status}`); return r.json(); });
       })
       .then(json => {
         DATA = json;
         subscribeToPaidState(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
       })
-      .catch(() => showLoadErrorFallback("未找到 manifest.json 或数据文件"));
+      // Include the real error (e.g. a JSON syntax error's message and
+      // position) rather than a generic string — this is the very first
+      // load, so unlike loadGroupBuy() above there's no previously-working
+      // round to fall back to and no tab bar to preserve; a clear message is
+      // the best that can be done here.
+      .catch(e => showLoadErrorFallback(`加载出错：${e.message}——请检查 manifest.json 和最新的 data-*.json 文件是否已上传、格式是否正确`));
   </script>
 </body>
 </html>
