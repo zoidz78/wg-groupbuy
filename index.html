@@ -1426,6 +1426,14 @@
           : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
       }).filter(Boolean);
       const adjParts = adjustmentsForMember(m.name).map(a => {
+        // "weight" entries are informational only — no amountDelta at all by
+        // design (see the "实际到手重量" adjustment type) — so they must be
+        // handled separately, same as adjustmentLineHtml()/buildMemberMessage()
+        // already do, instead of falling into the amountDelta branch below.
+        if (a.type === "weight") {
+          const info = a.itemKey && DATA.products[a.itemKey];
+          return `${info ? emojiLabel(info) : ""}实收${formatQty(a.actualGrams)}g`;
+        }
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
