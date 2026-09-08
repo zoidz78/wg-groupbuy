@@ -1,0 +1,14 @@
+{
+  "description": "Wording for the '复制付款消息' (copy payment message) button in index.html. Edit THIS file to change how the message reads — do not edit index.html for wording changes. {placeholders} are filled in automatically from that member's real order (product name+emoji, quantity, unit, amount, adjustment note, total) — keep them in the text, just move/reword what's around them. Re-upload this file to the repo root to apply changes; no index.html edit or redeploy of the app itself needed.",
+  "greeting": "{name} 你好，你的订单：",
+  "itemLine": "{item} x{qty}{unit} {amount}",
+  "unverifiedAmount": "待确认",
+  "unverifiedSuffix": "（缺失/待确认）",
+  "adjItemLine": "↳ {item} {qtySign}{qty}{unit}{noteSuffix} {amount}",
+  "adjNoteSuffix": "（{note}）",
+  "adjOtherLine": "↳ {note} {amount}",
+  "adjDefaultNote": "退款/补款",
+  "totalLine": "合计：${total}",
+  "closingPaid": "已收到你的付款，谢谢！🙏",
+  "closingUnpaid": "麻烦付款哈，谢谢！🙏"
+}

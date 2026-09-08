@@ -296,6 +296,24 @@
     // shopping-cart icon for anything unmatched or while it's still loading.
     const EMOJI_MAP_URL = "./product-emoji-map.json";
     let EMOJI_MAP = { defaultEmoji: "🛒", categories: [] };
+    // Wording for the WeChat copy-payment-message button (see
+    // message-template.json). This default is used until that file loads,
+    // and stays in effect if it 404s — kept identical to the shipped JSON so
+    // there's no visible difference either way.
+    const MESSAGE_TEMPLATE_URL = "./message-template.json";
+    let MESSAGE_TEMPLATE = {
+      greeting: "{name} 你好，你的订单：",
+      itemLine: "{item} x{qty}{unit} {amount}",
+      unverifiedAmount: "待确认",
+      unverifiedSuffix: "（缺失/待确认）",
+      adjItemLine: "↳ {item} {qtySign}{qty}{unit}{noteSuffix} {amount}",
+      adjNoteSuffix: "（{note}）",
+      adjOtherLine: "↳ {note} {amount}",
+      adjDefaultNote: "退款/补款",
+      totalLine: "合计：${total}",
+      closingPaid: "已收到你的付款，谢谢！🙏",
+      closingUnpaid: "麻烦付款哈，谢谢！🙏"
+    };
     let GROUP_BUYS = [];
     let activeIndex = 0;
     let DATA = null;
@@ -484,36 +502,55 @@
       return out;
     }
 
+    // Fills {placeholders} in a MESSAGE_TEMPLATE string with values. Missing
+    // keys become "" rather than throwing, so a template file that's missing
+    // a field degrades gracefully instead of breaking the whole message.
+    function fillTemplate(tpl, vars) {
+      return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ""));
+    }
+
     // Builds the plain-text WeChat message for one member — their itemized
     // order, any shortage/refund/extra adjustments (with the reason, so the
     // total doesn't look arbitrary), and the final amount due. Meant to be
     // copied and pasted straight into a WeChat DM or the group chat; never
     // sent automatically, so it's fine if the organizer wants to hand-edit
     // it (e.g. to append payment/QR info) before sending.
+    //
+    // All ITEM DATA (product names/emoji/prices/adjustments/totals) comes
+    // from data-*.json, product-emoji-map.json and Firestore, same as
+    // everywhere else on the page. Only the WORDING around that data — the
+    // greeting, line phrasing, and closing lines — comes from
+    // message-template.json (MESSAGE_TEMPLATE below), so changing how the
+    // message reads is a JSON edit, not an index.html edit.
     function buildMemberMessage(m) {
-      const gb = GROUP_BUYS[activeIndex];
+      const t = MESSAGE_TEMPLATE;
       const lines = [];
-      lines.push(`【${DATA.groupName || "团购"}】${gb ? (gb.label || gb.date) : ""}`);
-      lines.push(`${m.name} 你好，你的订单：`);
+      lines.push(fillTemplate(t.greeting, { name: m.name }));
       Object.entries(m.items).forEach(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return;
         const unverified = isUnverified(k);
-        const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-        lines.push(`${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)} ${amtText}${unverified ? "（缺失/待确认）" : ""}`);
+        const amount = unverified ? t.unverifiedAmount : `$${(info.price * qty).toFixed(2)}`;
+        let line = fillTemplate(t.itemLine, { item: emojiLabel(info), qty: formatQty(qty), unit: unitOf(k), amount });
+        if (unverified) line += t.unverifiedSuffix;
+        lines.push(line);
       });
       adjustmentsForMember(m.name).forEach(a => {
         const sign = a.amountDelta >= 0 ? "+" : "";
+        const amount = `${sign}$${a.amountDelta.toFixed(2)}`;
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
-          lines.push(`↳ ${emojiLabel(info)} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `（${a.note}）` : ""} ${sign}$${a.amountDelta.toFixed(2)}`);
+          const noteSuffix = a.note ? fillTemplate(t.adjNoteSuffix, { note: a.note }) : "";
+          lines.push(fillTemplate(t.adjItemLine, {
+            item: emojiLabel(info), qtySign, qty: formatQty(a.qtyDelta), unit: unitOf(a.itemKey), noteSuffix, amount
+          }));
         } else {
-          lines.push(`↳ ${a.note || "退款/补款"} ${sign}$${a.amountDelta.toFixed(2)}`);
+          lines.push(fillTemplate(t.adjOtherLine, { note: a.note || t.adjDefaultNote, amount }));
         }
       });
-      lines.push(`合计：$${m.total.toFixed(2)}`);
-      lines.push(paidState[m.name] ? "已收到你的付款，谢谢！🙏" : "麻烦付款哈，谢谢！🙏");
+      lines.push(fillTemplate(t.totalLine, { total: m.total.toFixed(2) }));
+      lines.push(paidState[m.name] ? t.closingPaid : t.closingUnpaid);
       return lines.join("\n");
     }
 
@@ -1117,6 +1154,14 @@
     fetch(EMOJI_MAP_URL)
       .then(r => r.ok ? r.json() : null)
       .then(map => { if (map) { EMOJI_MAP = map; if (DATA) render(); } })
+      .catch(() => {});
+
+    // Loads the copy-message wording. Not render-affecting (the message is
+    // only built when the button is tapped), so no re-render needed here —
+    // just swap in whatever loaded, or silently keep the built-in default.
+    fetch(MESSAGE_TEMPLATE_URL)
+      .then(r => r.ok ? r.json() : null)
+      .then(tpl => { if (tpl) MESSAGE_TEMPLATE = Object.assign({}, MESSAGE_TEMPLATE, tpl); })
       .catch(() => {});
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.

@@ -22,6 +22,8 @@ Files in this project:
 | `index.html` | The whole app. Generic — never hardcodes a group's data, only the Firebase project it talks to. Rarely needs editing. |
 | `manifest.json` | Lists every round: `{ date, label, file }`, newest first. |
 | `data-<date>.json` | One per round: `groupName`, `products`, `orders`. |
+| `product-emoji-map.json` | Keyword → emoji lookup table used to prefix each product label with a matching icon (🍑 for peaches, 🐔 for chicken, etc.) across every round, current and future. See "Product emoji icons" below. |
+| `message-template.json` | Wording for the "复制付款消息" copy-message button — greeting, item-line phrasing, adjustment phrasing, total line, closing lines. Edit this (not `index.html`) to change how the message reads. See "Copy WeChat payment message" below. |
 | `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` and `adjustments` collections only). |
 | `README.md` | User-facing docs (Chinese + English) for this specific deployment. |
 
@@ -31,9 +33,10 @@ Don't resurrect that approach unless asked; GitHub Pages + Firebase is the curre
 working setup.
 
 **Whenever any project file changes** (`index.html`, `manifest.json`, `data-<date>.json`,
-`firestore.rules`) — always send it to the user as a downloadable file (not just save it
-to the project docs). They deploy by manually uploading each changed file to GitHub, so
-without the actual download they have nothing to upload.
+`firestore.rules`, `product-emoji-map.json`) — always send it to the user as a
+downloadable file (not just save it to the project docs). They deploy by manually
+uploading each changed file to GitHub, so without the actual download they have nothing
+to upload.
 
 ## First thing in a new chat: figure out which of these two the user wants
 
@@ -72,7 +75,10 @@ Steps:
    Newest date goes first.
 7. Get both files into the live repo (commit + push if this session has repo access;
    otherwise hand the user the full contents of both files and point them to GitHub's
-   "Add file → Upload files"). `index.html` doesn't need to change.
+   "Add file → Upload files"). `index.html` doesn't need to change. New product labels
+   are automatically iconified by `product-emoji-map.json` at render time (see below) —
+   no per-round work needed for that, unless a genuinely new product category shows up
+   with no matching keyword (see "Extending the map").
 
 ### `data-<date>.json` schema
 
@@ -150,10 +156,49 @@ list, or too ambiguous to price confidently, don't drop it or silently guess:
 - Totals grouped by unit, not blindly summed (separate "总数量（盒）" / "总数量（kg）" rows).
 - Stocking list (备货清单) only shows products with ≥1 unit actually ordered.
 - Missing/unverified items flagged amber, excluded from totals until confirmed.
+- Every product label is rendered with an icon prefix looked up from
+  `product-emoji-map.json` (e.g. "🍑 川中岛水蜜桃礼盒") — see next section.
 
 ### Suggested first message for this ask
 
 > "New group buy for [date]. Here's the 接龙: [paste message]"
+
+---
+
+## A1. Product emoji icons (`product-emoji-map.json`)
+
+Every product label shown anywhere in `index.html` (order lines, stocking list, the
+adjustment form's item dropdown, the print/PDF export) is prefixed with an emoji looked
+up from `product-emoji-map.json`, via a small `productEmoji()`/`emojiLabel()` helper
+near the top of the script. This was seeded from the icons WG团购群 already used in
+their own raw WeChat posts (🍑 for peaches, 🐷 for pork, 🥬 for leafy greens, etc.), so
+future rounds get consistent icons automatically without re-tagging every item by hand.
+
+**How matching works:** the file is `{ defaultEmoji, categories: [{ emoji, keywords }] }`.
+For a product's Chinese label, categories are checked top-to-bottom; the first category
+whose `keywords` list contains a substring of the label wins, and its emoji is used. If
+nothing matches, `defaultEmoji` (🛒) is used instead. Order matters — narrower/specific
+categories must come before broader catch-alls, and (learned the hard way) before other
+categories whose keyword could be a substring of a compound dish name — e.g. meat/poultry
+categories are checked before seasoning categories like garlic (🧄) or ginger (🫚),
+otherwise a dish like "蒜香无骨凤爪" (garlic chicken feet) would match on "蒜" (garlic)
+before reaching "凤爪" (chicken feet).
+
+**Extending it — do this whenever a new round's products fall back to the default 🛒:**
+1. Add the new keyword to an existing category if it fits (e.g. a new citrus variety
+   goes into the `🍊` category's `keywords` array).
+2. Otherwise add a new category object in the right spot (specific before generic,
+   proteins before seasonings — see ordering note above).
+3. `index.html` fetches this file at `./product-emoji-map.json` (same directory,
+   alongside `manifest.json`) — it needs to exist in the live repo for icons to show
+   at all; a missing/failed fetch just falls back to 🛒 for everything, it doesn't break
+   the page.
+
+**Two copies exist and must be kept in sync:** `index.html` fetches the JSON file at
+runtime. The abandoned/reference `groupbuy_dashboard.html` artifact-preview version
+can't fetch local files, so it carries the same table embedded inline as a JS constant.
+When editing the map, update both, or just tell the user only `index.html` matters for
+the live site.
 
 ---
 
@@ -226,17 +271,79 @@ adjustment line, visible in edit mode) — this deletes just that one Firestore 
 
 ---
 
+## A3. Copy WeChat payment message (per-member)
+
+Each member row has a "💬 复制付款消息" button next to the total (visible always, not just in
+edit mode). Tapping it builds a ready-to-paste WeChat message for that member's own order and
+copies it to the clipboard (`navigator.clipboard.writeText`, with a `document.execCommand('copy')`
+fallback for older/in-app browsers); the button briefly shows "已复制 ✓" for 1.5s as confirmation.
+
+This is deliberately separate from the "标记已付款" toggle — one person can sort/collect payment
+while another marks paid, so both stay independent and both are still needed. The PDF export
+(print) is unchanged and stays as the paper-trail record.
+
+**Message format**, built by `buildMemberMessage(m)` in `index.html`:
+
+```
+Peter 你好，你的订单：
+🥟 招牌鲜肉馄饨 x2盒 $13.00
+🥟 鲜虾鲜肉馄饨 x1盒 $7.20
+↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
+合计：$13.70
+麻烦付款哈，谢谢！🙏
+```
+
+- One line per original ordered item (with its emoji icon, quantity, and subtotal).
+- One `↳`-prefixed line per delivery-day adjustment (A2) affecting that member, each with its
+  own note (e.g. "到货少一份", "退款：等太久") so the person paying can see *why* the total
+  differs from a simple add-up of the original order — this was an explicit requirement, not
+  just a nice-to-have.
+- A `合计：` (total) line reflecting original items + all adjustments — same number shown
+  elsewhere in that member's card.
+- A closing polite line asking for payment.
+
+**Scope note:** this is a per-member button only — there's no bulk "copy list of everyone unpaid"
+variant. That was discussed during ideation but not requested for the build; don't add it unless
+asked.
+
+**index.html only:** `buildMemberMessage` depends on the adjustments/edit-mode data already loaded
+into `index.html`'s state. The legacy/reference `groupbuy_dashboard.html` doesn't have that
+infrastructure and was NOT given this feature — it only got the emoji-map sync (see A1). If asked
+to add it there too, the adjustments system would need to be ported over first.
+
+**Wording lives in `message-template.json`, not `index.html`.** Same pattern as the emoji map
+(A1): `index.html` fetches `./message-template.json` at boot and merges it over a built-in
+default (identical wording), so a missing/failed fetch just silently keeps the current wording —
+it never breaks the page. All of the *data* in the message (product names/emoji, prices, adjustment
+notes, totals) still comes from `data-<date>.json` / `product-emoji-map.json` / the live
+adjustments — only the surrounding *phrasing* is templated. `{placeholders}` in the template are
+filled in automatically (`fillTemplate()` in `index.html`); don't remove or rename them, just move
+the words around them.
+
+Fields in `message-template.json`: `greeting`, `itemLine` (`{item} {qty} {unit} {amount}`),
+`unverifiedAmount`/`unverifiedSuffix` (for missing/unconfirmed-price items), `adjItemLine`/
+`adjNoteSuffix` (a quantity-type delivery-day adjustment), `adjOtherLine`/`adjDefaultNote` (a
+flat credit/refund adjustment), `totalLine`, and `closingPaid`/`closingUnpaid` (different text
+depending on whether that member is already marked paid).
+
+**To reword the message going forward:** just edit `message-template.json` and re-upload it —
+`index.html` doesn't need to change. Only touch `index.html`'s `buildMemberMessage`/
+`MESSAGE_TEMPLATE` default again if a genuinely new *kind* of line is needed (not just different
+wording of an existing one).
+
+---
+
 ## B. Setting up a brand-new dashboard from scratch (a different group)
 
 `index.html` is fully generic — it only knows about `manifest.json`, the
-`data-*.json` files it points to, and a Firebase project for live paid-status sync.
-Nothing in it is specific to WG团购群 except the Firebase config. To stand up an
-independent dashboard for a different group:
+`data-*.json` files it points to, `product-emoji-map.json`, and a Firebase project for
+live paid-status sync. Nothing in it is specific to WG团购群 except the Firebase config.
+To stand up an independent dashboard for a different group:
 
 1. **New GitHub repo.** Create it, then enable Pages: Settings → Pages → Deploy from
    branch → `main` / root. Live URL will be `https://<github-username>.github.io/<repo>/`.
-2. **Copy `index.html` as-is** from this project into the new repo — no changes needed
-   yet except the Firebase config (step 4).
+2. **Copy `index.html` and `product-emoji-map.json` as-is** from this project into the
+   new repo — no changes needed yet except the Firebase config (step 4).
 3. **New Firebase project.** console.firebase.google.com → create project → enable
    Firestore Database (start in production mode — the rules below lock it down anyway).
 4. **Paste the new Firebase config** into `index.html`, replacing the
@@ -267,14 +374,17 @@ independent dashboard for a different group:
    `data-<date>.json` with that group's `groupName`, `products`, and `orders` (schema
    above in section A).
 7. **Push everything** to the new repo (`index.html`, `manifest.json`,
-   `data-<date>.json`, and the `firestore.rules` file for reference). Pages updates
-   the live site within about a minute of a push to `main`.
+   `data-<date>.json`, `product-emoji-map.json`, and the `firestore.rules` file for
+   reference). Pages updates the live site within about a minute of a push to `main`.
 8. Confirm the live URL loads, shows the first round, and that toggling paid status
    updates Firestore (check the Firebase console's Firestore data browser, or open the
    link in two tabs and confirm a toggle in one shows up in the other).
 
 From then on, adding further rounds to that new dashboard follows the same steps as
-section A.
+section A. The emoji map (`product-emoji-map.json`) travels with `index.html` and keeps
+working as-is since it's keyed on Chinese product-name keywords, not on any
+group-specific data — extend it per-group only if that group sells product categories
+the current map doesn't cover.
 
 ---
 
@@ -287,3 +397,7 @@ in a private/incognito window. If still wrong, view page source and confirm the 
 
 **Red 🔧 banner at the top of the page:** a Firestore read/write failed — the banner
 shows the actual error message, which is the fastest way to debug it.
+
+**A product's icon shows the default 🛒 instead of something specific:** its Chinese
+label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
+"Product emoji icons" above) rather than hardcoding an icon into a product's `label`.
