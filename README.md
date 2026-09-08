@@ -18,6 +18,8 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - 每位成员卡片上有 **"💬 复制付款消息"** 按钮，一键复制一段可直接
   粘贴到微信的收款消息——包含该成员的订单明细、送货日调整说明
   （例如短缺、退款）和应付总额（详见下方"复制付款消息"）
+- 页面顶部有更醒目的 **"📢 复制到货通知"** 按钮，一键复制一条 @ 全员
+  的取货通知，方便直接发到群里（详见下方"复制到货通知"）
 - 顶部统计卡片：参团人数、各单位（盒/kg等）的数量、订单总额、已收
   款、未收款——点击"总数量（单位）"这一行，会弹出该单位下每种商品
   的具体数量与小计，点击弹窗任意处关闭
@@ -61,6 +63,7 @@ Firestore 中，见下方说明。
 ```json
 {
   "groupName": "WG团购群",
+  "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
@@ -74,6 +77,8 @@ Firestore 中，见下方说明。
 }
 ```
 
+- `itemsLabel`（可选）——一句话描述这场团购是什么（例如"小馄饨团购"），仅供页面顶部
+  的"📢 复制到货通知"按钮使用；不填的话会退化成把所有商品名称用"、"连起来。
 - `products` —— 短键 → `{ label（中文名）, price, unit?（可选）}`。`unit`
   为可选字段，默认是`"盒"`—— 如果商品按重量或其他非盒装单位出售，
   需明确设置（例如`"kg"`）。
@@ -209,6 +214,27 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 措辞，只需要编辑这个文件再重新上传，不需要碰 `index.html`。文件里每个
 字段的说明和用法，都写在它自己的 `description` 字段里。
 
+## 复制到货通知（`📢 复制到货通知`）
+
+页面顶部（团购名称正下方）有一个更醒目的按钮 **"📢 复制到货通知（@全员）"**，
+用来通知全群"东西到了，可以来拿"，和上面按成员单独收款的消息是两回事。点一
+下会复制：
+
+```
+@Caroline 琛琛 @^_^Wu @W_W ...（本场所有成员，接龙顺序）
+
+小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+```
+
+- 会 @ 到本场每一位成员（按接龙顺序，包含现场加购的人），不看是否已付款——这
+  条是通知取货，不是收款。
+- "小馄饨团购"这类描述这次到货是什么的短语，来自该场 `data-<日期>.json` 里的
+  `itemsLabel` 字段（新建一场团购时顺手填一下，参考上面"数据结构"部分）；没填
+  的话会退化成把所有商品名称用"、"连起来（口味多的时候会很长，建议还是填一下）。
+- "06-02" 这类取货地点，存放在 `message-template.json` 的 `pickupLocation` 字
+  段里——这个一般是固定的，不需要每场都改。
+- 其余措辞同样在 `message-template.json` 里，改法和上面"复制付款消息"一样。
+
 ## 导出报告
 
 点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
@@ -262,6 +288,10 @@ chat), but works for any group buy once you swap in your own data.
   their itemized order, any delivery-day adjustments (with the
   reason, e.g. a shortage), and the total due (see "Copy payment
   message" below)
+- A more prominent **"📢 复制到货通知"** button at the top of the page
+  copies a single "come collect it" message that @mentions every
+  member, ready to post to the group (see "Arrival announcement"
+  below)
 - Summary stats card: participant count, quantity per unit (box/kg/
   etc.), order total, amount collected, amount outstanding — tapping
   a "总数量（unit）" row pops up a breakdown of exactly which
@@ -309,6 +339,7 @@ at the top of the page to switch between group buys.
 ```json
 {
   "groupName": "WG团购群",
+  "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
@@ -322,6 +353,9 @@ at the top of the page to switch between group buys.
 }
 ```
 
+- `itemsLabel` (optional) — a short phrase for what this round is (e.g. "小馄饨团购"),
+  used only by the "📢 复制到货通知" button at the top of the page. If omitted, it falls
+  back to every product's label joined by "、".
 - `products` — short key → `{ label (Chinese name), price, unit?
   (optional) }`. `unit` defaults to `"盒"` (box) if omitted — set it
   explicitly (e.g. `"kg"`) for anything sold by weight or another
@@ -478,6 +512,31 @@ phrased, the closing line, etc.) lives in `message-template.json`, separate
 from the product data, prices, and adjustment records. To reword it, just
 edit and re-upload that file — no `index.html` changes needed. Each field's
 purpose is documented in the file's own `description` field.
+
+## Arrival announcement (`📢 复制到货通知`)
+
+A more prominent button — full-width, right under the group name at the top of the
+page — copies a "come collect it" message for the whole group, separate from the
+per-member payment message above:
+
+```
+@Caroline 琛琛 @^_^Wu @W_W ... (every member in this round, in 接龙 order)
+
+小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+```
+
+- @mentions every member of the current round (in 接龙 order, including anyone added
+  as a walk-in), regardless of paid status — this is a pickup notice, not a payment
+  request.
+- The "小馄饨团购" part (what arrived) comes from that round's `data-<date>.json` —
+  set its `itemsLabel` field when creating a new round (see "Data schema" above); if
+  left unset it falls back to every product label joined by "、" (fine for a short
+  product list, unwieldy for a long one).
+- The pickup location ("06-02") lives in `message-template.json`'s `pickupLocation`
+  field — this is normally a fixed setting for your building/unit, not something you
+  change every round.
+- The rest of the wording lives in `message-template.json` too, same as the payment
+  message above.
 
 ## Exporting a report
 

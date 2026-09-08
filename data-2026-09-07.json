@@ -1,5 +1,6 @@
 {
   "groupName": "WG团购群",
+  "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
     "corn": { "label": "玉米鲜肉馄饨", "price": 6.8 },
@@ -45,6 +46,6 @@
     { "name": "ellie6", "items": { "sig": 1 } },
     { "name": "Shirley", "items": { "shrimp": 1, "corn": 1 } },
     { "name": "等放假ing", "items": { "salted": 1, "shrimp": 1 } },
-    { "name": "木木", "items": { "shrimp": 1, "corn": 1, "salted": 1 } }
+    { "name": "木木三の柒", "items": { "shrimp": 1, "corn": 1, "salted": 1 } }
   ]
 }

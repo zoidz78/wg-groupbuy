@@ -1,5 +1,5 @@
 {
-  "description": "Wording for the '复制付款消息' (copy payment message) button in index.html. Edit THIS file to change how the message reads — do not edit index.html for wording changes. {placeholders} are filled in automatically from that member's real order (product name, quantity, unit, amount, adjustment note, actual weight, total) — keep them in the text, just move/reword what's around them. Re-upload this file to the repo root to apply changes; no index.html edit or redeploy of the app itself needed. Matches how WG团购群 already writes these messages by hand: \"@name\", no emoji, no \"$\", blank line before the item list and before the total, \"一共X～\" instead of \"合计：$X\", and no closing line by default.",
+  "description": "Wording for the two copy-message buttons in index.html: the per-member '复制付款消息' (payment message) and the '📢 复制到货通知' (group arrival announcement, at the top of the page). Edit THIS file to change how either message reads — do not edit index.html for wording changes. {placeholders} are filled in automatically from real data (product name, quantity, unit, amount, adjustment note, actual weight, total, member names, pickup location) — keep them in the text, just move/reword what's around them. Re-upload this file to the repo root to apply changes; no index.html edit or redeploy of the app itself needed. Payment-message style matches how WG团购群 already writes these by hand: \"@name\", no emoji, no \"$\", blank line before the item list and before the total, \"一共X～\" instead of \"合计：$X\", and no closing line by default. The group announcement mentions every member (`mentionPrefix`/`mentionSeparator`), then `groupAnnouncementText` with `{arrived}` (what showed up — from that round's data-<date>.json `itemsLabel`, or every product label joined by 、 if that's not set) and `{location}` (from `pickupLocation` below — your unit number, stays constant across rounds unless you move).",
   "greeting": "@{name}",
   "itemLine": "{item}{qtySuffix}  {amount}{weightSuffix}",
   "weightSuffix": "（{grams}g）",
@@ -11,5 +11,9 @@
   "adjDefaultNote": "退款/补款",
   "totalLine": "一共{total}～",
   "closingPaid": "",
-  "closingUnpaid": ""
+  "closingUnpaid": "",
+  "mentionPrefix": "@",
+  "mentionSeparator": " ",
+  "pickupLocation": "06-02",
+  "groupAnnouncementText": "{arrived}到啦，欢迎来{location}自取，需要送货小群联系～"
 }

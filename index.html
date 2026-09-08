@@ -222,6 +222,13 @@
     cursor: pointer; user-select: none;
   }
   .copyMsgBtn.copied { background: var(--green-btn); border-color: var(--green-btn); color: white; }
+  .announceBtn {
+    display: block; text-align: center; font-size: 15px; font-weight: 700;
+    color: var(--paper); background: var(--ink); border: 1px solid var(--ink);
+    border-radius: 10px; padding: 13px 14px; margin-bottom: 16px;
+    cursor: pointer; user-select: none;
+  }
+  .announceBtn.copied { background: var(--green-btn); border-color: var(--green-btn); }
   .adjForm {
     margin-top: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 6px;
     background: var(--bg); font-size: 13px;
@@ -313,7 +320,12 @@
       adjDefaultNote: "退款/补款",
       totalLine: "一共{total}～",
       closingPaid: "",
-      closingUnpaid: ""
+      closingUnpaid: "",
+      // For the "📢 复制到货通知" group announcement button (see buildGroupAnnouncement).
+      mentionPrefix: "@",
+      mentionSeparator: " ",
+      pickupLocation: "06-02",
+      groupAnnouncementText: "{arrived}到啦，欢迎来{location}自取，需要送货小群联系～"
     };
     let GROUP_BUYS = [];
     let activeIndex = 0;
@@ -323,6 +335,7 @@
     let filter = "all";
     let openUnit = null; // which unit's detail overlay is currently open, if any
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
+    let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
     let editUnlocked = false;
     try { editUnlocked = localStorage.getItem("wg_edit_unlocked") === "1"; } catch (e) {}
@@ -587,6 +600,43 @@
       return lines.join("\n");
     }
 
+    // Every member's name for the current round, in 接龙 order — original
+    // orders first (as written in data-<date>.json), then anyone who only
+    // shows up via a walk-in adjustment. Same order render() uses for the
+    // member cards, factored out here so the announcement button doesn't
+    // need render()'s full member/cost computation just to list names.
+    function allMemberNamesInOrder() {
+      const baseNames = DATA.orders.map(o => o.name);
+      const walkinNames = Array.from(new Set(
+        Object.values(adjustments)
+          .map(a => a.member)
+          .filter(name => name && !baseNames.includes(name))
+      ));
+      return [...baseNames, ...walkinNames];
+    }
+
+    // Builds the "everyone can come collect" group announcement: an @mention
+    // for every member (so it reads the same way this group already posts
+    // it), a blank line, then a short note on where to pick up and what to
+    // do if delivery is needed instead. Unlike buildMemberMessage, this is
+    // one message for the whole group, not per-member, and isn't tied to
+    // paid status — everyone gets mentioned regardless of who's paid.
+    //
+    // "What arrived" (`{arrived}`) comes from data-<date>.json's optional
+    // `itemsLabel` field (a short phrase for the round, e.g. "小馄饨") when
+    // set; otherwise it falls back to every product's label joined with
+    // "、". The pickup location and the rest of the wording come from
+    // message-template.json, same as buildMemberMessage.
+    function buildGroupAnnouncement() {
+      const t = MESSAGE_TEMPLATE;
+      const mentions = allMemberNamesInOrder()
+        .map(name => `${t.mentionPrefix}${name}`)
+        .join(t.mentionSeparator);
+      const arrived = DATA.itemsLabel || Object.values(DATA.products).map(p => p.label).join("、");
+      const body = fillTemplate(t.groupAnnouncementText, { arrived, location: t.pickupLocation });
+      return `${mentions}\n\n${body}`;
+    }
+
     // navigator.clipboard needs a secure context + user gesture, both true
     // here (GitHub Pages is https, this runs from a tap), but falls back to
     // the old textarea+execCommand trick for any browser that lacks it.
@@ -659,6 +709,7 @@
           bulkError = "";
           bulkDraft = "";
           copiedFor = null;
+          announceCopied = false;
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -851,6 +902,8 @@
           <h1 class="shopName">${DATA.groupName || "团购"}</h1>
         </div>
 
+        <div class="announceBtn${announceCopied ? " copied" : ""}" id="announceBtn">${announceCopied ? "已复制 ✓" : "📢 复制到货通知（@全员）"}</div>
+
         ${GROUP_BUYS.length > 1 ? `
           <div class="buyTabs">
             ${GROUP_BUYS.map((gb, i) => `
@@ -998,6 +1051,17 @@
         overlayEl.addEventListener("click", () => { openUnit = null; render(); });
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
+
+      const announceBtnEl = document.getElementById("announceBtn");
+      if (announceBtnEl) {
+        announceBtnEl.addEventListener("click", () => {
+          copyTextToClipboard(buildGroupAnnouncement()).then(() => {
+            announceCopied = true;
+            render();
+            setTimeout(() => { announceCopied = false; render(); }, 1500);
+          });
+        });
+      }
 
       document.querySelectorAll(".copyMsgBtn").forEach(el => {
         el.addEventListener("click", () => {

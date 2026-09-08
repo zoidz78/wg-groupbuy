@@ -70,7 +70,9 @@ Steps:
    quantity per unit, and grand total; sanity-check against any delivery minimum
    mentioned in the message.
 5. Write `data-<date>.json` per the schema below. Use the date embedded in the message
-   if there is one; otherwise ask, don't assume.
+   if there is one; otherwise ask, don't assume. Also set `itemsLabel` to a short phrase
+   for this round (e.g. "小馄饨团购") unless the raw product labels already read fine
+   joined together — it's what the "📢 复制到货通知" button (A4) uses to say what arrived.
 6. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
    Newest date goes first.
 7. Get both files into the live repo (commit + push if this session has repo access;
@@ -85,6 +87,7 @@ Steps:
 ```json
 {
   "groupName": "WG团购群",
+  "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
@@ -99,6 +102,10 @@ Steps:
 ```
 
 - `groupName` stays `"WG团购群"` across rounds unless told otherwise.
+- `itemsLabel` (optional) — a short phrase for this round used only by the "📢 复制到货通知"
+  group announcement button (see A4), e.g. "小馄饨团购". Set it whenever the round's raw
+  product labels wouldn't read naturally joined together (most rounds); omit it only when
+  there's just one or two products and the label alone reads fine.
 - No `productLabel` or delivery-note field — removed from the display by request;
   don't reintroduce unless asked.
 - All page UI text is Mandarin — keep any new strings in Mandarin to match.
@@ -231,15 +238,18 @@ mapping to:
   (`price × qtyDelta`), so a later price change never retroactively alters it.
 - `type: "credit"` — a flat dollar adjustment not tied to any product (a refund or
   surcharge with just a note + `amountDelta`, no `itemKey`/`qtyDelta`).
-- `type: "weight"` — **purely informational, never affects money.** For items portioned
-  out by hand (fruit boxes, meat, etc.) where the actual amount handed to a member often
-  doesn't land exactly on what they were charged for — WG团购群's convention is to round
-  down when billing (never overcharge) but still tell the member what they actually got.
-  Shape: `{ member, type: "weight", itemKey, actualGrams, note?, ts }` — no `amountDelta`/
+- `type: "weight"` — **purely informational, never affects money.** For weight-priced
+  items (`unit: "kg"`) that get portioned out by hand, the actual amount received almost
+  never lands exactly on the ordered weight. Billing stays based on what was **ordered**
+  (e.g. a member who ordered 2kg of peaches at $8/kg is charged $16 no matter what the
+  actual portion weighs) — this entry just records what they actually got, so they can be
+  told, even when it's slightly more than they paid for. Shape:
+  `{ member, type: "weight", itemKey, actualGrams, note?, ts }` — no `amountDelta`/
   `qtyDelta` at all, so it's excluded from both the money total (`adjustmentTotal`) and the
   stocking-list/procurement total (`effectiveItems`) automatically. Shown inline on that
-  product's own line in the copy-message (see A3), not as a separate `↳` line like the
-  other two types.
+  product's own line in the copy-message (see A3) instead of the usual `x{qty}kg` quantity
+  suffix (which is suppressed for any `kg`-unit item, weighed or not — the dollar amount
+  already reflects the ordered weight), not as a separate `↳` line like the other two types.
 - A member's final amount due = their original item total + the sum of their
   `amountDelta`s. The dashboard shows this automatically; nothing else needs updating.
 - A brand-new `member` name (someone who bought on the spot but wasn't in the original
@@ -326,9 +336,11 @@ like:
 
 - `@{name}` greeting, then a blank line.
 - One line per original ordered item — plain product name (no emoji, unlike everywhere else
-  on the page), an ` x{qty}{unit}` suffix only when quantity isn't 1 (so the common
-  single-item case stays terse), then two spaces and the amount (trimmed of trailing
-  zeros, no "$").
+  on the page), an ` x{qty}{unit}` suffix only when quantity isn't 1 *and* the item isn't
+  priced by weight (so "2 boxes" shows "x2盒", but "2kg of peaches" never shows "x2kg" —
+  the amount already reflects the ordered weight, and the actual weight, if known, is
+  shown instead per below), then two spaces and the amount (trimmed of trailing zeros,
+  no "$").
 - A `（{grams}g）` suffix on an item's own line when a `"weight"` adjustment (A2) was
   recorded for that member+item — the actual amount portioned out, purely informational.
 - One `↳`-prefixed line per non-`"weight"` delivery-day adjustment (A2) affecting that
@@ -370,6 +382,56 @@ a closing line back, shown depending on whether that member is already marked pa
 `index.html` doesn't need to change. Only touch `index.html`'s `buildMemberMessage`/
 `MESSAGE_TEMPLATE` default again if a genuinely new *kind* of line is needed (not just different
 wording of an existing one).
+
+---
+
+## A4. Group arrival announcement ("📢 复制到货通知")
+
+A second copy-message button, deliberately more prominent than the per-member one — a full-width
+filled button right at the top of the page, under the group name, so it's the first thing visible
+on load. Built for the "everything arrived, come collect" message the organizer posts to the whole
+group, as opposed to A3's per-member payment message.
+
+Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
+
+```
+@Caroline 琛琛 @^_^Wu @W_W @Peter @Sherry Liu ... @等放假ing @木木三の柒
+
+小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+```
+
+- One `@`-mention per member, in 接龙 order (original order first, then any walk-ins added via
+  adjustments), space-separated on one line — matches how WG团购群 already posts these. Everyone
+  gets mentioned regardless of paid status; this message is about pickup, not payment.
+- A blank line, then a short note: what arrived, where to collect, and to use the small delivery
+  group chat if delivery is needed instead of pickup.
+- Shows "已复制 ✓" for 1.5s after copying, same pattern as A3's button.
+
+**Data sources:**
+- Member list: `DATA.orders` (+ walk-in names from `adjustments`) — same list and order used
+  everywhere else on the page (factored into `allMemberNamesInOrder()`, shared logic with
+  `render()`'s member list).
+- `{arrived}` (what showed up, e.g. "小馄饨团购"): reads the round's `data-<date>.json` top-level
+  `itemsLabel` field if set — **this is optional and round-specific, so add it each time a new
+  round's data file is created** when the product list doesn't already read naturally on its own
+  (e.g. 8 wonton-flavor labels joined together would be unreadable as an announcement). Falls back
+  to every product's label joined by "、" if `itemsLabel` isn't set.
+- `{location}` (pickup spot, e.g. "06-02"): `pickupLocation` in `message-template.json` — this is
+  a fixed setting for this deployment (their actual unit), not per-round, so it normally only needs
+  setting once.
+- The rest of the wording (`groupAnnouncementText`, `mentionPrefix`, `mentionSeparator`) also lives
+  in `message-template.json`, same reasoning as A3 — reword without touching `index.html`.
+
+**No new JSON file was needed** — this reuses `message-template.json` (added fields:
+`mentionPrefix`, `mentionSeparator`, `pickupLocation`, `groupAnnouncementText`) and the existing
+`data-<date>.json` schema (added one new optional field: `itemsLabel`).
+
+### When adding a new round (A, above), remember `itemsLabel`
+
+Section A's "adding a new round" steps should now also include: set a short `itemsLabel` in the
+new `data-<date>.json` if the round's products don't already read well joined together (most
+rounds will want this — it's rare for raw product labels to double as a natural announcement
+phrase).
 
 ---
 
