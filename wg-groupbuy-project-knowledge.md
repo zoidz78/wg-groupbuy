@@ -171,6 +171,12 @@ list, or too ambiguous to price confidently, don't drop it or silently guess:
 - Missing/unverified items flagged amber, excluded from totals until confirmed.
 - Every product label is rendered with an icon prefix looked up from
   `product-emoji-map.json` (e.g. "🍑 川中岛水蜜桃礼盒") — see next section.
+- Each member shown with a "1." serial number matching their position in the raw
+  接龙 (i.e. `data-<date>.json`'s `orders` array order, which is already 接龙 order —
+  no separate field needed). Shown on the member card, the print report, and the
+  🏠 门牌管理 panel, so any of these can be cross-checked against the original
+  WeChat thread. Walk-ins (added later via adjustments, A2) were never in the
+  接龙, so they're left unnumbered — only tagged "现场加购" like everywhere else.
 
 ### Suggested first message for this ask
 
@@ -490,6 +496,62 @@ recheck because that would also make the manual unlock re-lock itself instantly 
 right after unlocking, everyone typically still shows as paid) — defeating the point of
 being able to unlock at all. Not worth the added complexity for a small group; revisit
 only if it actually causes a problem in practice.
+
+---
+
+## A6. Member block/unit directory (for organizing deliveries)
+
+Each member can have a block/unit number on file (free text, e.g. "12栋 06-02"),
+used only to help sort/plan deliveries. This is real address information tied to
+real names, so it's held to a higher bar than everything else in this project:
+
+- **Never in the GitHub repo.** Unlike everything else the dashboard reads
+  (`data-<date>.json`, `manifest.json`, etc.), this does **not** live in a file
+  that gets pushed to GitHub. It lives entirely in a Firestore collection
+  (`memberInfo/directory`, one doc, fields `{ name: "block/unit text" }`), so it's
+  never sitting in the public repo or its permanent git history — the whole reason
+  it's there is so it isn't casually discoverable just by browsing the repo.
+  It's still technically reachable by anyone who has the dashboard link (same
+  trust model as paid status/adjustments — Firestore rules stay open to anyone
+  with the link, not just the organizer), just not by browsing GitHub.
+- **Never fed into any message.** `buildMemberMessage()` (the per-member payment
+  message, A3) and `buildGroupAnnouncement()` (the arrival announcement, A4) never
+  read `memberUnits` — this data has no path into anything that gets copied to
+  WeChat.
+- **Persistent, not per-round.** A member's unit doesn't reset or need re-entering
+  when a new round starts — it's one directory shared across every round's data,
+  loaded once at boot (`subscribeToMemberUnits()`), not tied to any `date`.
+- **Only visible from the "🏠 门牌管理" panel**, which only appears in edit mode
+  (same PIN gate as delivery-day adjustments) — it's not part of the plain card
+  view that loads for anyone opening the link, so it doesn't clutter (or expose)
+  the default view.
+
+**Requires a Firestore rules change** (the one thing this feature needs that no
+other feature in this project has needed so far, since it's a brand-new
+collection, not reusing `paidStatus` or `adjustments`). Add this to the existing
+rules in Firebase console → Firestore Database → Rules, alongside the
+`paidStatus`/`adjustments` blocks:
+
+```
+match /memberInfo/{docId} {
+  allow read, write: if true;
+}
+```
+
+Tell the user explicitly when handing over an `index.html` that uses this feature
+for the first time: **the panel will fail (a red 🔧 error banner) until this rule
+is added** — `index.html` alone isn't enough for this one.
+
+**Data shape choice:** one free-text field per member rather than separate
+block/unit fields — matches how `pickupLocation` is already stored as one string
+elsewhere in this project. Split it into two fields only if asked.
+
+### Suggested first message for this ask
+
+> "Here are everyone's block/unit numbers: [list]" — paste the list and this gets
+> written into the directory (needs Firestore write access from this session, or
+> hand the user the `{name: unit}` pairs to type into the "🏠 门牌管理" panel
+> themselves).
 
 ---
 

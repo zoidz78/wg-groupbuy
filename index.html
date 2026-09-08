@@ -126,6 +126,10 @@
   }
   .rowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .rowName { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .serialNum {
+    color: var(--muted); font-weight: 400; font-family: "SF Mono", Menlo, Consolas, monospace;
+    margin-right: 4px;
+  }
   .itemLine {
     display: flex; justify-content: space-between; gap: 8px;
     font-size: 14px; color: var(--muted); padding: 4px 0;
@@ -255,6 +259,14 @@
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
   .pinRow input { width: 140px; }
 
+  .unitsPanelRow { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+  .unitsPanelRow .unitsPanelName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .unitInput {
+    flex: 0 0 130px; padding: 6px 8px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    font-size: 13px; font-family: inherit;
+  }
+
   /* Print gets its own dense table layout (see renderPrintSection) instead of
      reusing the on-screen cards, which ran to many pages per round. */
   .printOnly { display: none; }
@@ -370,6 +382,19 @@
     let bulkError = "";
     let bulkDraft = "";
 
+    // Each member's block/unit number, for organizing deliveries only — never
+    // read by buildMemberMessage() or buildGroupAnnouncement(), so it never
+    // ends up in a WeChat message. Persistent across every round (not
+    // round-scoped like paidStatus/adjustments), stored in its own Firestore
+    // doc (see memberUnitsDocRef) and loaded once at boot, not per round.
+    // Only visible/editable from the "🏠 门牌管理" panel, itself gated behind
+    // edit mode (same soft PIN gate as delivery-day adjustments) so it isn't
+    // sitting in the plain card view everyone sees on load.
+    let memberUnits = {}; // { name: "block/unit text" }
+    let showUnitsPanel = false;
+    let unitsDraft = {}; // working copy while the panel is open; committed on "保存"
+    let unitsSaveMsg = "";
+
     let unsubscribePaidState = null;
     let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
@@ -379,6 +404,9 @@
     }
     function adjustmentsDocRef(dateKey) {
       return doc(db, "adjustments", dateKey);
+    }
+    function memberUnitsDocRef() {
+      return doc(db, "memberInfo", "directory");
     }
 
     function escapeHtml(s) {
@@ -425,6 +453,7 @@
             editMode = false;
             openAdjustFormFor = null;
             showBulkPanel = false;
+            showUnitsPanel = false;
           }
           storageDebug = "";
           render();
@@ -453,6 +482,37 @@
           render();
         }
       );
+    }
+
+    // Loads the member block/unit directory once, not per round — it isn't
+    // tied to any one group buy's date. Guards on `DATA` before re-rendering
+    // since this can resolve before the first round has finished loading at
+    // boot (same guard pattern as the emoji-map/message-template fetches).
+    function subscribeToMemberUnits() {
+      onSnapshot(
+        memberUnitsDocRef(),
+        (snap) => {
+          memberUnits = snap.exists() ? snap.data() : {};
+          if (DATA) render();
+        },
+        (err) => {
+          storageDebug = `门牌信息读取出错：${err.message}`;
+          if (DATA) render();
+        }
+      );
+    }
+
+    // Writes only the changed name -> unit fields (merge), so editing one
+    // member's unit can't clobber another's concurrent edit.
+    async function saveMemberUnits(patch) {
+      try {
+        await setDoc(memberUnitsDocRef(), patch, { merge: true });
+        unitsSaveMsg = "已保存 ✓";
+      } catch (e) {
+        unitsSaveMsg = "";
+        storageDebug = `门牌保存出错：${e.message}`;
+      }
+      render();
     }
 
     // Writes just the one member's field, so two people tapping different
@@ -779,6 +839,9 @@
           showUnlockPrompt = false;
           unlockPinDraft = "";
           unlockPinError = "";
+          showUnitsPanel = false;
+          unitsDraft = {};
+          unitsSaveMsg = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -917,6 +980,37 @@
       render();
     }
 
+    // Editable list of every current-round member's block/unit number, for
+    // sorting deliveries — the only place this data is shown or edited.
+    // Deliberately not fed into buildMemberMessage()/buildGroupAnnouncement(),
+    // so it can never end up in a WeChat message; gated behind edit mode
+    // (opened via "🏠 门牌管理") so it isn't part of the plain view anyone
+    // with the link sees by default.
+    function renderUnitsPanel() {
+      const names = allMemberNamesInOrder();
+      const baseCount = DATA.orders.length; // names before this index had a 接龙 position; see allMemberNamesInOrder
+      return `
+        <div class="card bulkPanel">
+          <div class="sectionTitle" style="margin-top:0">门牌管理（楼栋/门牌号）</div>
+          <div class="footNote" style="text-align:left;margin-bottom:10px;font-size:11px">
+            仅用于组织配送——不会出现在"复制付款消息"或"复制到货通知"里，也不会显示在
+            平时的卡片视图上。门牌信息会一直保留给所有团购场次使用，不需要每场重填。
+            序号和接龙楼层里的顺序一致，方便核对。
+          </div>
+          ${names.map((name, i) => `
+            <div class="unitsPanelRow">
+              <span class="unitsPanelName">${i < baseCount ? `<span class="serialNum">${i + 1}.</span>` : ""}${escapeHtml(name)}</span>
+              <input type="text" class="unitInput" data-name="${escapeHtml(name)}" placeholder="例如 12栋 06-02" value="${escapeHtml(unitsDraft[name] || "")}">
+            </div>
+          `).join("")}
+          ${unitsSaveMsg ? `<div class="footNote" style="text-align:left">${unitsSaveMsg}</div>` : ""}
+          <div class="adjFormBtns">
+            <div class="toolBtn" id="unitsSaveBtn">保存</div>
+          </div>
+        </div>
+      `;
+    }
+
     function handlePinSubmit() {
       if (pinDraft === EDIT_PIN) {
         editUnlocked = true;
@@ -934,6 +1028,13 @@
     function render() {
       const app = document.getElementById("app");
 
+      // `id` doubles as this member's position in the original 接龙 (data-<date>.json's
+      // `orders` array is already in the order the message listed them) — shown as a
+      // "1." serial number prefix on their card, the print report, and the 门牌管理
+      // panel, so the dashboard's list can be cross-checked against the raw 接龙.
+      // Walk-ins (added later via adjustments) never had a 接龙 position, so they get
+      // a string id instead and are left unnumbered — see the `typeof m.id === "number"`
+      // checks below.
       const baseMembers = DATA.orders.map((m, i) => ({ ...m, id: i }));
       // Walk-ins: names that only show up in adjustments (e.g. someone who
       // bought extra on delivery day but wasn't in the original 接龙).
@@ -1019,7 +1120,7 @@
           ${visible.map(m => `
             <div class="row">
               <div class="rowHead">
-                <div class="rowName">${m.name}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
+                <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${m.name}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
                 <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
               </div>
               ${Object.entries(m.items).map(([k, qty]) => {
@@ -1075,6 +1176,7 @@
           }
           ${!roundLocked && editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
           ${!roundLocked && editMode ? `<div class="toolBtn" id="bulkToggleBtn">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
+          ${!roundLocked && editMode ? `<div class="toolBtn" id="unitsToggleBtn">${showUnitsPanel ? "收起门牌管理" : "🏠 门牌管理"}</div>` : ""}
         </div>
 
         ${showPinInput && !editUnlocked ? `
@@ -1108,6 +1210,8 @@
             </div>
           </div>
         ` : ""}
+
+        ${editMode && !roundLocked && showUnitsPanel ? renderUnitsPanel() : ""}
 
         <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
@@ -1198,7 +1302,7 @@
       const editToggleBtn = document.getElementById("editToggleBtn");
       if (editToggleBtn) editToggleBtn.addEventListener("click", () => {
         if (!editUnlocked) { showPinInput = !showPinInput; }
-        else { editMode = !editMode; openAdjustFormFor = null; showBulkPanel = false; resetAdjDraft(); }
+        else { editMode = !editMode; openAdjustFormFor = null; showBulkPanel = false; showUnitsPanel = false; resetAdjDraft(); }
         render();
       });
       const pinSubmitBtn = document.getElementById("pinSubmitBtn");
@@ -1236,6 +1340,27 @@
       if (bulkJsonEl) bulkJsonEl.addEventListener("input", () => { bulkDraft = bulkJsonEl.value; });
       const bulkApplyBtn = document.getElementById("bulkApplyBtn");
       if (bulkApplyBtn) bulkApplyBtn.addEventListener("click", handleBulkApply);
+
+      const unitsToggleBtn = document.getElementById("unitsToggleBtn");
+      if (unitsToggleBtn) unitsToggleBtn.addEventListener("click", () => {
+        showUnitsPanel = !showUnitsPanel;
+        if (showUnitsPanel) unitsDraft = { ...memberUnits };
+        unitsSaveMsg = "";
+        render();
+      });
+      document.querySelectorAll(".unitInput").forEach(el => {
+        el.addEventListener("input", () => { unitsDraft[el.dataset.name] = el.value; });
+      });
+      const unitsSaveBtn = document.getElementById("unitsSaveBtn");
+      if (unitsSaveBtn) unitsSaveBtn.addEventListener("click", () => {
+        const patch = {};
+        Object.keys(unitsDraft).forEach(name => {
+          const v = (unitsDraft[name] || "").trim();
+          if (v !== (memberUnits[name] || "")) patch[name] = v;
+        });
+        if (Object.keys(patch).length === 0) { unitsSaveMsg = "没有改动"; render(); return; }
+        saveMemberUnits(patch);
+      });
     }
 
     // A compact "Label x3盒、Other x1盒" summary of one member's order plus any
@@ -1274,10 +1399,11 @@
           </div>
           ${unverifiedCount > 0 ? `<div class="printWarn">⚠️ ${unverifiedCount} 项商品价格/品种待确认，未计入总额</div>` : ""}
           <table class="printTable">
-            <thead><tr><th>姓名</th><th>明细</th><th>金额</th><th>状态</th></tr></thead>
+            <thead><tr><th>#</th><th>姓名</th><th>明细</th><th>金额</th><th>状态</th></tr></thead>
             <tbody>
               ${members.map(m => `
                 <tr>
+                  <td>${typeof m.id === "number" ? m.id + 1 : ""}</td>
                   <td>${m.name}${m.isWalkin ? "（现场加购）" : ""}</td>
                   <td>${printItemsLine(m)}</td>
                   <td class="printAmt">$${m.total.toFixed(2)}</td>
@@ -1286,7 +1412,7 @@
               `).join("")}
             </tbody>
             <tfoot>
-              <tr><td colspan="2">合计</td><td class="printAmt">$${grandTotal.toFixed(2)}</td><td></td></tr>
+              <tr><td colspan="3">合计</td><td class="printAmt">$${grandTotal.toFixed(2)}</td><td></td></tr>
             </tfoot>
           </table>
           <div class="printSectionTitle">备货清单</div>
@@ -1392,6 +1518,10 @@
       .then(r => r.ok ? r.json() : null)
       .then(tpl => { if (tpl) MESSAGE_TEMPLATE = Object.assign({}, MESSAGE_TEMPLATE, tpl); })
       .catch(() => {});
+
+    // Member block/unit directory — persistent across every round, so it's
+    // loaded once here rather than per round (see subscribeToMemberUnits).
+    subscribeToMemberUnits();
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
     fetch(MANIFEST_URL)

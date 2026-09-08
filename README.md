@@ -13,6 +13,8 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - 每件商品名称前会自动带上对应的表情图标（🍑水蜜桃、🐔鸡肉、🥟馄
   饨等），新商品也能根据关键词自动匹配到合适的图标，不需要逐个手
   动设置（详见下方"商品表情图标"）
+- 每位成员前面带一个序号，和接龙里的顺序一致，方便对照原始接龙记
+  录（现场加购的人不在接龙里，所以不带序号）
 - 一键标记付款状态（"标记已付款" / "已付款 ✓"），**所有打开此链接
   的人实时共享同一份付款状态**（详见下方"共享实时收款状态"）
 - 每位成员卡片上有 **"💬 复制付款消息"** 按钮，一键复制一段可直接
@@ -32,6 +34,9 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - **全部收款后自动锁定**：一场团购里所有人都标记已付款后，会自动
   锁定该场——不能再改付款状态、加调整或加新买家，防止误触。需要
   修改时，输入编辑密码即可解锁（详见下方"全部收款后自动锁定"）
+- **门牌管理**（编辑模式内）：可以记录每位成员的楼栋/门牌号，方便
+  安排配送——这项信息不会出现在仓库文件里，也绝不会出现在付款消
+  息或到货通知里（详见下方"门牌管理"）
 - 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
   多而变成好几页
 
@@ -197,6 +202,36 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 - "💬 复制付款消息""📢 复制到货通知""🖨️ 导出报告"这几个只读/复
   制类的按钮不受锁定影响，随时可用。
 
+## 门牌管理
+
+可以为每位成员记录一个楼栋/门牌号（自由文本，例如"12栋 06-02"），仅用于
+安排配送顺序。这是和真实姓名绑定的真实地址信息，所以特意和其他数据分开
+处理：
+
+- **不会出现在这个仓库的任何文件里**——和 `index.html`、`data-<日期>.json`
+  这些不一样，门牌信息完全存放在 Firebase Firestore 里（`memberInfo` 这个
+  collection），不会被推送到 GitHub，也不会留在仓库的历史记录里。（它仍然
+  和付款状态、调整记录一样，对拥有链接的任何人开放读写——只是不会因为有
+  人翻看 GitHub 仓库而被看到。）
+- **绝不会出现在"复制付款消息"或"复制到货通知"里**——这两个按钮生成的文
+  字完全不会读取门牌信息。
+- **所有场次共用同一份**，不需要每场团购重新填一次。
+- **只能在编辑模式里看到**：点击底部工具栏的 **"🏠 门牌管理"**（需要先用
+  编辑密码解锁），可以看到本场每位成员的门牌号输入框，填好后点"保存"即
+  可，所有人共享同一份最新数据。
+
+**首次使用前需要在 Firebase 控制台加一条新规则**（Firestore Database →
+Rules），因为这是一个全新的 collection：
+
+```
+match /memberInfo/{docId} {
+  allow read, write: if true;
+}
+```
+
+加在现有 `paidStatus`/`adjustments` 规则旁边即可。没加这条规则之前，点开
+"🏠 门牌管理"会看到红色的 🔧 错误提示。
+
 ## 商品表情图标（`product-emoji-map.json`）
 
 每个商品名称前显示的图标，是根据商品的中文名称从 `product-emoji-map.json`
@@ -302,6 +337,10 @@ chat), but works for any group buy once you swap in your own data.
   keyword (🍑 for peaches, 🐔 for chicken, 🥟 for dumplings, etc.) —
   new products get matched automatically too, no manual tagging
   needed (see "Product emoji icons" below)
+- Each member shows a serial number matching their position in the
+  original 接龙, to make cross-checking against the raw WeChat thread
+  easy (walk-ins added on delivery day aren't numbered, since they
+  were never part of the 接龙)
 - One-tap paid-status toggle ("标记已付款" / "已付款 ✓" — "Mark
   paid" / "Paid ✓"), and **paid status is shared live across
   everyone who opens the link** (see "Shared live payment status"
@@ -333,6 +372,10 @@ chat), but works for any group buy once you swap in your own data.
   adjustments, no walk-ins — to prevent an accidental change after
   it's settled. Enter the edit PIN to unlock it again (see
   "Auto-lock after full payment" below)
+- **Block/unit directory** (inside edit mode): record each member's
+  block/unit number to help plan deliveries — never stored in a repo
+  file, and never appears in any payment message or announcement
+  (see "Block/unit directory" below)
 - One-tap report export: a dense table format you can print or save
   as a PDF, so a large round doesn't turn into several pages
 
@@ -519,6 +562,41 @@ prevents an accidental change once a group buy is already settled.
 - The read-only/copy buttons — "💬 复制付款消息", "📢 复制到货通知",
   "🖨️ 导出报告" — are unaffected by the lock and stay available at
   all times.
+
+## Block/unit directory
+
+Each member can have a block/unit number on file (free text, e.g. "Block 12
+#06-02"), used only to help plan delivery order. Since this is real address
+information tied to real names, it's handled differently from everything
+else in this project:
+
+- **Never in any file in this repo** — unlike `index.html`,
+  `data-<date>.json`, etc., this lives entirely in Firebase Firestore (a
+  `memberInfo` collection), never pushed to GitHub and never sitting in the
+  repo's history. (It's still readable/writable by anyone with the dashboard
+  link, same trust model as paid status and adjustments — it just isn't
+  discoverable by browsing the GitHub repo.)
+- **Never appears in "复制付款消息" or "复制到货通知"** — neither message
+  reads this data at all.
+- **Shared across every round** — no need to re-enter it each time a new
+  group buy starts.
+- **Only visible in edit mode**: tap **"🏠 门牌管理"** (Block/unit
+  management) in the bottom toolbar (after unlocking with the edit PIN) to
+  see and edit every current member's unit number; tap "保存" to save. Every
+  device sees the same saved data.
+
+**Needs one new Firebase rule the first time you use this** (Firestore
+Database → Rules in the Firebase console), since it's a brand-new
+collection:
+
+```
+match /memberInfo/{docId} {
+  allow read, write: if true;
+}
+```
+
+Add it next to the existing `paidStatus`/`adjustments` rules. Without it,
+opening "🏠 门牌管理" shows a red 🔧 error banner instead.
 
 ## Product emoji icons (`product-emoji-map.json`)
 
