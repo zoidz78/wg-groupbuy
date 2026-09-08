@@ -270,6 +270,61 @@ mapping to:
   procurement numbers reflect reality), while money always comes from `amountDelta`
   specifically — the two are computed separately on purpose.
 
+**Grams-to-quantity helper for bagged/bulk items (added 2026-09-08).** Some
+products are ordered in fractional package units but, when a bag gets split
+between two or more people (e.g. one person orders 0.5包 of `tangerine_seedless`
+"无籽蜜橘(2kg/包)"), the split happens by weighing, not by literally halving the
+bag — so the weight handed over rarely lands exactly on the ordered fraction. The
+fix for that is still an ordinary `type: "item"` adjustment (NOT `type: "weight"`,
+which is annotation-only and never touches money — see above), but figuring out
+the right `qtyDelta` from a scale reading in grams used to require hand-converting
+grams → kg → fraction-of-a-package, and typing the grams straight into the
+qtyDelta field instead (its unit is always the product's own unit — 包/份/etc.,
+never grams) silently produced nonsense (e.g. "1200" read as "1200 more bags").
+
+To fix this without inventing a new adjustment type (which would have meant
+touching all four consumer functions again — `adjustmentLineHtml()`,
+`buildMemberMessage()`, `effectiveItems()`, `printItemsLine()` — see
+Troubleshooting below), the "品项数量变化" form gained an optional helper input
+instead:
+
+- `gramsPerUnitFromLabel(key)` extracts the per-unit weight straight out of the
+  product's own `label` text via regex (`/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i`)
+  — e.g. "无籽蜜橘(2kg/包)" → 2000 (grams). No new data field to keep in sync;
+  it just reads what's already in `data-<date>.json`. Returns `null` for products
+  whose label doesn't encode a single per-unit weight (count-based items like
+  "红心奇异果(2盒/份)", or multi-pack items like "娃娃菜(300g*2包/份)" where the
+  regex deliberately doesn't match — those aren't reweighed-bulk items).
+- When the selected product in the "品项数量变化" form has a non-null
+  `gramsPerUnitFromLabel`, an extra "或输入实际到手重量（克）" input appears.
+  Typing a grams value there calls `handleAdjGramsHelperInput(memberKey, value)`,
+  which: rounds down to the nearest 100g (`roundGramsDown` — the house billing
+  rule, in the member's favor), divides by the per-unit gram weight to get the
+  correct quantity, subtracts `currentQtyFor(memberName, itemKey)` (base order
+  qty + any prior `item`-type adjustment deltas for that same member+item, so a
+  *second* correction nets against the already-corrected total rather than the
+  original order), and writes the result straight into the `qtyDelta` field plus
+  a preview line showing the conversion and dollar impact.
+- **Important implementation detail:** `handleAdjGramsHelperInput` deliberately
+  does **not** call `render()`. This whole page re-renders by replacing
+  `app.innerHTML` wholesale (see the crash-bug note in Troubleshooting), which
+  would destroy and recreate the very `<input>` being typed into on every
+  keystroke and throw the cursor position away. Instead it writes straight to
+  the two DOM nodes it needs (`#adjQtyDelta`'s `.value`, `#adjGramsPreview`'s
+  `.textContent`/`.hidden`) while still keeping the `adjDraft`/`adjGramsPreview`
+  module state in sync, so a render triggered by something else (a live
+  Firestore update arriving mid-edit) still shows the right values. Any future
+  "live preview as you type" input on this page should follow the same pattern,
+  not call `render()` on every keystroke.
+- The saved entry is a completely ordinary `type: "item"` record — this is a
+  UI shortcut for computing the right `qtyDelta`, not a new persisted shape, so
+  undo/report export/payment-message rendering all Just Work without any
+  changes.
+- Not offered for walk-ins (`memberKey === "__walkin__"`) — a walk-in's name
+  isn't finalized until they type it into the separate name field, so there's
+  no stable key yet to look up a "current quantity" against; walk-ins still use
+  the plain `qtyDelta` field.
+
 **Two ways entries get written to that same Firestore doc:**
 
 1. **Live in-dashboard editing.** The organizer taps "✏️ 编辑调整" in the toolbar,

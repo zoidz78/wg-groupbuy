@@ -167,9 +167,22 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
    选择：
    - **品项数量变化**：某个商品的数量增加或减少（例如到货少一
      份、或现场多卖一份），系统会按该商品的单价自动换算金额，不
-     需要手动心算。这也是**大宗按重量分装商品**（例如一起买1kg
-     五花肉，两人分装）的处理方式：接龙时先填一个预估数量，等实
-     际过秤后再用这个功能改成真实重量。
+     需要手动心算。这也是**大宗按重量分装商品**（例如"无籽蜜橘
+     (2kg/包)"这类整包称重的水果，几个人合买一包再拆分）的处理
+     方式：接龙时先填一个预估数量，等实际过秤后再用这个功能改成
+     真实重量。
+     - 商品名称里写着重量的商品（如"XX(2kg/包)"、"XX(900g/份)"）
+       会在这个表单下多出一个 **"或输入实际到手重量（克）"** 输
+       入框——直接填过秤读数（例如 `1230`），系统会自动**按100g
+       向下取整**（约定俗成不多收，1.23kg 按 1.2kg 算），换算成
+       对应的商品数量差值并自动填进"数量变化"框里，同时在下方显
+       示换算过程和金额，不用再手动把克数硬套进"数量变化"框（那
+       个框的单位是包/份，不是克，直接填克数会被当成"多卖1230
+       包"）。如果同一个人这个商品之前已经调整过一次，再调一次
+       会在上一次调整后的基础上继续换算，不会重复计算。
+     - 这个换算只是帮你把克数转成正确的数量差值，本质上还是一条
+       普通的"品项数量变化"记录，撤销、导出报告、付款消息里的显
+       示方式都和手动填数量差值完全一样。
    - **退款/补款（固定金额）**：不对应具体商品的一笔整额调整，
      附上备注说明原因。
    - **实际到手重量（仅备注，不影响金额）**：像水果、肉类这类现
@@ -522,9 +535,29 @@ a clean record of what was ordered vs. what was actually charged.
      or down (e.g. one box missing on delivery, or an extra one sold
      on the spot) — the dashboard computes the dollar amount from
      that product's price automatically. This is also how to handle
-     a **bulk item split by weight** (e.g. 1kg of pork belly shared
-     between two people): log an estimated quantity at order time,
-     then correct it to the real weighed amount here once it's known.
+     a **bulk item split by weight** (e.g. a 2kg bag of tangerines
+     shared between two people): log an estimated quantity at order
+     time, then correct it to the real weighed amount here once it's
+     known.
+     - For products whose name embeds a weight (e.g. "无籽蜜橘
+       (2kg/包)", "香蕉(900g/份)"), this form shows an extra **"或输
+       入实际到手重量（克）"** (or enter actual weight received, in
+       grams) field. Type the scale reading directly (e.g. `1230`)
+       and the dashboard **rounds it down to the nearest 100g** (the
+       house rule — never round up, 1.23kg is billed as 1.2kg),
+       converts that into the right quantity difference, fills in the
+       "quantity change" field for you, and shows the conversion and
+       dollar impact underneath — no more hand-converting grams into
+       a fraction of a bag (typing the grams straight into the qty
+       field would be read as bags/units, not grams, and produce
+       nonsense). Correcting the same person's same item a second
+       time nets against the already-corrected amount, not the
+       original order.
+     - This is purely a shortcut for computing the right number to
+       put in the quantity field — the saved record is an ordinary
+       "品项数量变化" entry, so undo, report export, and the payment
+       message all behave exactly as if you'd typed the quantity
+       change by hand.
    - **退款/补款（固定金额）** (refund/surcharge): a flat dollar
      adjustment not tied to any specific product, with a note.
    - **实际到手重量（仅备注，不影响金额）** (actual weight received,

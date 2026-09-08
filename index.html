@@ -256,6 +256,7 @@
   }
   .adjFormBtns { display: flex; gap: 8px; }
   .adjError { color: var(--red); font-size: 12px; margin: 2px 0 8px; }
+  .adjGramsPreview { color: var(--muted); font-size: 12px; margin: -4px 0 8px; line-height: 1.5; }
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
   .pinRow input { width: 140px; }
 
@@ -378,7 +379,11 @@
     // (not just read from the DOM at submit time) so an in-progress edit
     // survives a re-render triggered by someone else's live update arriving
     // via Firestore mid-edit, or by switching the item/credit radio.
-    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "" };
+    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
+    // Live preview text for the "按实际重量换算" helper on the 品项数量变化
+    // form (see gramsPerUnitFromLabel below) — recomputed on every keystroke
+    // in the grams-helper input, cleared whenever the form resets.
+    let adjGramsPreview = "";
     let showBulkPanel = false;
     let bulkError = "";
     let bulkDraft = "";
@@ -417,9 +422,10 @@
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
     function resetAdjDraft() {
-      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "" };
+      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
       adjFormType = "item";
       adjFormError = "";
+      adjGramsPreview = "";
     }
 
     // Looks up the best-matching emoji for a product's Chinese label by
@@ -603,6 +609,33 @@
     function unitOf(key) {
       return (DATA.products[key] && DATA.products[key].unit) || "盒";
     }
+
+    // Some products (bulk produce sold in pre-weighed bags, e.g. "无籽蜜橘
+    // (2kg/包)") are ordered by 包/份/etc. but, when a bag is split between
+    // members, actually portioned out by weighing rather than by fraction of
+    // a bag — so the weight received doesn't land exactly on the ordered
+    // fraction. This reads the per-unit weight straight out of the product's
+    // own label text (no separate data field to keep in sync) so the
+    // adjustment form can offer a "type the actual grams" shortcut instead of
+    // making someone hand-convert grams to a 包 fraction (see the
+    // "按实际重量换算" helper in renderAdjForm/handleAdjGramsHelperInput).
+    // Returns grams-per-unit, or null when the label doesn't encode one
+    // (most products aren't sold this way and just use the plain qty field).
+    function gramsPerUnitFromLabel(key) {
+      const info = DATA.products[key];
+      if (!info || !info.label) return null;
+      const m = info.label.match(/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i);
+      if (!m) return null;
+      const value = parseFloat(m[1]);
+      if (isNaN(value) || value <= 0) return null;
+      return m[2].toLowerCase() === "kg" ? value * 1000 : value;
+    }
+
+    // Business rule for reweighed bulk items: always round the actual weight
+    // down to the nearest 100g (in the member's favor) before pricing it.
+    function roundGramsDown(grams) {
+      return Math.floor(grams / 100) * 100;
+    }
     function isUnverified(key) {
       return !!(DATA.products[key] && DATA.products[key].unverified);
     }
@@ -673,6 +706,22 @@
         }
       });
       return out;
+    }
+
+    // Same idea as effectiveItems() but for one member+item pair, looked up
+    // by name rather than requiring the caller already have the rendered
+    // member object — used by the grams-helper in the adjustment form so a
+    // *second* reweigh correction nets against the already-corrected qty
+    // (e.g. base 0.5 + a first correction to 0.6) rather than the original
+    // order. Works for walk-ins too (base qty 0, since they have no entry in
+    // DATA.orders).
+    function currentQtyFor(memberName, itemKey) {
+      const base = DATA.orders.find(o => o.name === memberName);
+      const baseQty = (base && base.items[itemKey]) || 0;
+      const adjQty = adjustmentsForMember(memberName)
+        .filter(a => a.type === "item" && a.itemKey === itemKey)
+        .reduce((s, a) => s + a.qtyDelta, 0);
+      return baseQty + adjQty;
     }
 
     // Fills {placeholders} in a MESSAGE_TEMPLATE string with values. Missing
@@ -939,6 +988,10 @@
               }).join("")}
             </select>
             <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
+            ${!isWalkin && gramsPerUnitFromLabel(selectedItemKey) ? `
+              <input type="number" id="adjGramsHelper" data-member="${memberKey}" placeholder="或输入实际到手重量（克），自动换算并按100g向下取整，例如 1230" step="any" value="${escapeHtml(adjDraft.gramsHelper)}">
+              <div class="adjGramsPreview" id="adjGramsPreview" ${adjGramsPreview ? "" : "hidden"}>${escapeHtml(adjGramsPreview)}</div>
+            ` : ""}
           ` : adjFormType === "weight" ? `
             <select id="adjItemKey">
               ${productKeys.map(k => {
@@ -958,6 +1011,46 @@
           </div>
         </div>
       `;
+    }
+
+    // Live-converts the "实际到手重量" grams helper into the qtyDelta field
+    // for bagged/bulk items (see gramsPerUnitFromLabel), so an admin can type
+    // what the scale actually showed instead of hand-computing a 包 fraction.
+    // Walk-ins (memberKey === "__walkin__") don't have a fixed base order
+    // yet, so the helper only applies to existing members.
+    //
+    // Deliberately does NOT call render(): render() rebuilds the whole page
+    // via app.innerHTML, which would tear down and recreate this very input
+    // on every keystroke and throw focus/cursor position away. Instead this
+    // writes straight to the two DOM nodes it needs to update (the qty field
+    // and the preview line) while still keeping adjDraft/adjGramsPreview in
+    // sync so a render triggered by something else (e.g. a live Firestore
+    // update arriving mid-edit) still shows the right values.
+    function handleAdjGramsHelperInput(memberKey, rawValue) {
+      adjDraft.gramsHelper = rawValue;
+      const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
+      const perUnit = gramsPerUnitFromLabel(itemKey);
+      const grams = parseFloat(rawValue);
+      const qtyEl = document.getElementById("adjQtyDelta");
+      const previewEl = document.getElementById("adjGramsPreview");
+      if (!perUnit || memberKey === "__walkin__" || isNaN(grams) || grams <= 0) {
+        adjGramsPreview = "";
+        if (previewEl) { previewEl.textContent = ""; previewEl.hidden = true; }
+        return;
+      }
+      const rounded = roundGramsDown(grams);
+      const correctQty = rounded / perUnit;
+      const currentQty = currentQtyFor(memberKey, itemKey);
+      const delta = Math.round((correctQty - currentQty) * 10000) / 10000;
+      adjDraft.qtyDelta = String(delta);
+      if (qtyEl) qtyEl.value = adjDraft.qtyDelta;
+      const info = DATA.products[itemKey];
+      const unit = unitOf(itemKey);
+      const amount = info && info.price != null ? info.price * delta : null;
+      const deltaSign = delta >= 0 ? "+" : "";
+      const amtText = amount == null ? "" : ` ≈ ${amount >= 0 ? "+" : "-"}$${Math.abs(amount).toFixed(2)}`;
+      adjGramsPreview = `实收${formatQty(grams)}g → 按100g向下取整为${formatQty(rounded)}g = ${formatQty(correctQty)}${unit}（原${formatQty(currentQty)}${unit}，差${deltaSign}${formatQty(delta)}${unit}${amtText}）`;
+      if (previewEl) { previewEl.textContent = adjGramsPreview; previewEl.hidden = false; }
     }
 
     function handleAdjSave(memberKey) {
@@ -1335,9 +1428,23 @@
       const adjWalkinNameEl = document.getElementById("adjWalkinName");
       if (adjWalkinNameEl) adjWalkinNameEl.addEventListener("input", () => { adjDraft.name = adjWalkinNameEl.value; });
       const adjItemKeyEl = document.getElementById("adjItemKey");
-      if (adjItemKeyEl) adjItemKeyEl.addEventListener("change", () => { adjDraft.itemKey = adjItemKeyEl.value; });
+      if (adjItemKeyEl) adjItemKeyEl.addEventListener("change", () => {
+        adjDraft.itemKey = adjItemKeyEl.value;
+        // Switching products changes whether the grams-helper shortcut even
+        // applies (see gramsPerUnitFromLabel) — a select's "change" is a
+        // discrete action, not continuous typing, so re-rendering here is
+        // safe (unlike the text inputs above, which never render() on
+        // "input" to avoid losing cursor position mid-keystroke).
+        adjDraft.gramsHelper = "";
+        adjGramsPreview = "";
+        render();
+      });
       const adjQtyDeltaEl = document.getElementById("adjQtyDelta");
       if (adjQtyDeltaEl) adjQtyDeltaEl.addEventListener("input", () => { adjDraft.qtyDelta = adjQtyDeltaEl.value; });
+      const adjGramsHelperEl = document.getElementById("adjGramsHelper");
+      if (adjGramsHelperEl) adjGramsHelperEl.addEventListener("input", () => {
+        handleAdjGramsHelperInput(adjGramsHelperEl.dataset.member, adjGramsHelperEl.value);
+      });
       const adjAmountEl = document.getElementById("adjAmount");
       if (adjAmountEl) adjAmountEl.addEventListener("input", () => { adjDraft.amount = adjAmountEl.value; });
       const adjGramsEl = document.getElementById("adjGrams");
