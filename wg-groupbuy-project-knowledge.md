@@ -30,6 +30,11 @@ because of a platform postMessage cross-origin bug (`anthropics/claude-code#4206
 Don't resurrect that approach unless asked; GitHub Pages + Firebase is the current and
 working setup.
 
+**Whenever any project file changes** (`index.html`, `manifest.json`, `data-<date>.json`,
+`firestore.rules`) — always send it to the user as a downloadable file (not just save it
+to the project docs). They deploy by manually uploading each changed file to GitHub, so
+without the actual download they have nothing to upload.
+
 ## First thing in a new chat: figure out which of these two the user wants
 
 1. **Add a new round to the existing WG团购群 dashboard** (by far the more common ask —
@@ -106,6 +111,23 @@ Don't round — enter exactly what was ordered.
 represent it as **one** `orders` entry with the names combined into one string, e.g.
 `"Lesley & Choies"`. One line item, one "mark paid" toggle. Don't model per-person
 cost-splitting within a combined order unless asked.
+
+**Bulk items split among several individual buyers (do NOT combine these):** don't
+confuse this with combined orders above. When a bulk-priced item (e.g. a whole cut of
+meat at $25/kg) gets divided among several members who each pay for their own share,
+keep them as **separate** `orders` entries under their own names — they are not paying
+jointly, so they don't get merged into one combined entry. The catch: the exact split
+(e.g. 300g vs. 700g) usually isn't known until the item is physically weighed out at
+pickup/delivery. So:
+1. At 接龙 time, enter each person's **estimated** share as their quantity (whatever
+   split was discussed, or an even split if genuinely unknown) — it's a placeholder,
+   not the final number.
+2. Once it's actually weighed out, this is a job for the delivery-day adjustment
+   feature (see A2 below): for each affected member, add an `"item"` adjustment with
+   `qtyDelta = actual weight − estimated weight` for that product. The dashboard
+   recomputes their cost automatically (`price × qtyDelta`) — don't hand-calculate it.
+3. Tell the user this is coming rather than promising an exact split-cost up front, if
+   the message doesn't already state firm weights.
 
 **Missing/unverified items:** if a member orders something not on the vendor's price
 list, or too ambiguous to price confidently, don't drop it or silently guess:
