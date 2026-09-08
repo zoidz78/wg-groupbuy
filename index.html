@@ -284,6 +284,11 @@
     const EDIT_PIN = "1117";
 
     const MANIFEST_URL = "./manifest.json";
+    // Keyword -> emoji lookup for product labels (see product-emoji-map.json).
+    // Loaded in parallel with the group-buy data; falls back to a plain
+    // shopping-cart icon for anything unmatched or while it's still loading.
+    const EMOJI_MAP_URL = "./product-emoji-map.json";
+    let EMOJI_MAP = { defaultEmoji: "🛒", categories: [] };
     let GROUP_BUYS = [];
     let activeIndex = 0;
     let DATA = null;
@@ -329,6 +334,22 @@
       adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "" };
       adjFormType = "item";
       adjFormError = "";
+    }
+
+    // Looks up the best-matching emoji for a product's Chinese label by
+    // checking EMOJI_MAP.categories in order and returning the first
+    // category whose keywords list contains a substring of the label.
+    function productEmoji(label) {
+      const cats = EMOJI_MAP.categories || [];
+      for (const cat of cats) {
+        if ((cat.keywords || []).some(kw => label.includes(kw))) return cat.emoji;
+      }
+      return EMOJI_MAP.defaultEmoji || "🛒";
+    }
+    // Product label prefixed with its looked-up emoji, for display only —
+    // never used for the underlying data/keys.
+    function emojiLabel(info) {
+      return `${productEmoji(info.label)} ${info.label}`;
     }
 
     // Subscribes to live updates for this group buy's paid status. Every
@@ -517,7 +538,7 @@
       if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
         const info = DATA.products[a.itemKey];
         const qtySign = a.qtyDelta >= 0 ? "+" : "";
-        label = `↳ ${info.label} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
+        label = `↳ ${emojiLabel(info)} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
       } else {
         label = `↳ ${escapeHtml(a.note || "退款/补款")}`;
       }
@@ -544,7 +565,7 @@
             <select id="adjItemKey">
               ${productKeys.map(k => {
                 const info = DATA.products[k];
-                return `<option value="${k}" ${k === selectedItemKey ? "selected" : ""}>${info.label}${info.price != null ? ` ($${info.price.toFixed(2)}/${info.unit || "盒"})` : ""}</option>`;
+                return `<option value="${k}" ${k === selectedItemKey ? "selected" : ""}>${emojiLabel(info)}${info.price != null ? ` ($${info.price.toFixed(2)}/${info.unit || "盒"})` : ""}</option>`;
               }).join("")}
             </select>
             <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
@@ -715,7 +736,7 @@
                 const info = DATA.products[k];
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
@@ -735,13 +756,13 @@
             ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
               if (info.unverified) {
                 return `
-                  <div>${info.label} <span class="unverifiedTag">缺失/待确认</span></div>
+                  <div>${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
                   <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
                   <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
                 `;
               }
               return `
-                <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+                <div>${emojiLabel(info)} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
                 <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
                 <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
               `;
@@ -880,14 +901,14 @@
         const info = DATA.products[k];
         if (!info) return "";
         return info.unverified
-          ? `${info.label}x${formatQty(qty)}${unitOf(k)}(待确认)`
-          : `${info.label}x${formatQty(qty)}${unitOf(k)}`;
+          ? `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}(待确认)`
+          : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
       }).filter(Boolean);
       const adjParts = adjustmentsForMember(m.name).map(a => {
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
-          return `${info.label}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`;
+          return `${emojiLabel(info)}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`;
         }
         const sign = a.amountDelta >= 0 ? "+" : "";
         return `${sign}$${a.amountDelta.toFixed(2)}${a.note ? `[${a.note}]` : ""}`;
@@ -930,9 +951,9 @@
             <tbody>
               ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
                 if (info.unverified) {
-                  return `<tr><td>${info.label}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
+                  return `<tr><td>${emojiLabel(info)}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
                 }
-                return `<tr><td>${info.label}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
+                return `<tr><td>${emojiLabel(info)}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
               }).join("")}
             </tbody>
             <tfoot>
@@ -958,7 +979,7 @@
               const info = DATA.products[key];
               const unverified = !!info.unverified;
               const amt = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-              return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
+              return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
             }).join("")}
             <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">$${subtotal.toFixed(2)}</span></div>
             <div class="footNote" style="margin-top:14px">点击任意处关闭</div>
@@ -1010,6 +1031,15 @@
         `<div class="shopHead"><h1 class="shopName">${message}</h1></div>
         <p class="footNote">请检查 manifest.json 和对应的 data-*.json 文件是否已上传到仓库根目录。</p>`;
     }
+
+    // Loads the emoji lookup table in parallel with the group-buy data itself
+    // (not blocking boot on it) — if it's still on the way when the first
+    // render happens, items just show the plain default icon until it lands
+    // and triggers a re-render.
+    fetch(EMOJI_MAP_URL)
+      .then(r => r.ok ? r.json() : null)
+      .then(map => { if (map) { EMOJI_MAP = map; if (DATA) render(); } })
+      .catch(() => {});
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
     fetch(MANIFEST_URL)
