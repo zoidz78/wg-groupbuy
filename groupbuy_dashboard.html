@@ -1,0 +1,512 @@
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>团购收款看板</title>
+<style>
+  :root {
+    --bg: #efe7d8;
+    --paper: #fffcf6;
+    --ink: #2b2420;
+    --muted: #8a7f6e;
+    --line: #ddd2bd;
+    --red: #b5482a;
+    --green: #5c7a5e;
+    --green-btn: #4f7f5b;
+    --warn-bg: #fdf0d5;
+    --warn-border: #e0a838;
+    --warn-text: #8a5a00;
+    --warn-tag-bg: #e0a838;
+    --warn-tag-text: #3a2800;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1815;
+      --paper: #262019;
+      --ink: #f1e9dd;
+      --muted: #a99d8c;
+      --line: #3d352c;
+      --red: #e08064;
+      --green: #8fbb96;
+      --green-btn: #4f7f5b;
+      --warn-bg: #3a2f10;
+      --warn-border: #caa23a;
+      --warn-text: #f0c869;
+      --warn-tag-bg: #caa23a;
+      --warn-tag-text: #2a1f00;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    margin: 0;
+    padding: 20px 14px 60px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink);
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+
+  @media (min-width: 860px) {
+    .page { max-width: 760px; }
+    .ticket { padding: 20px 24px 8px; }
+    #rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #rows .row { margin-bottom: 0; }
+    .flavorGrid { max-width: 460px; }
+  }
+
+  .shopHead { text-align: center; margin-bottom: 18px; }
+  .shopName {
+    font-family: Georgia, "Iowan Old Style", "Songti SC", serif;
+    font-size: 26px;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+
+  .buyTabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  .buyTab {
+    padding: 7px 16px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+    border-radius: 20px; cursor: pointer; user-select: none;
+  }
+  .buyTab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .ticket, .card {
+    background: var(--paper);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    padding: 16px 16px 4px;
+    margin-bottom: 16px;
+  }
+  .card { padding: 16px 16px 18px; }
+  .card .sectionTitle { margin-top: 0; }
+  .statRow { display: flex; justify-content: space-between; padding: 10px 0; }
+  .statRow + .statRow { border-top: 1px dashed var(--line); }
+  .statRow.unitRow { cursor: pointer; }
+  .statRow.unitRow:active { opacity: 0.7; }
+  .unitChevron { color: var(--muted); margin-left: 4px; font-size: 15px; }
+  .statLabel { font-size: 13px; color: var(--muted); }
+
+  .unitOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .unitOverlayCard {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 18px 16px; max-width: 380px; width: 100%; max-height: 80vh;
+    overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  }
+  .statValue { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 600; }
+  .statValue.big { font-size: 19px; }
+  .statValue.green { color: var(--green); }
+  .statValue.red { color: var(--red); }
+
+  .progressTrack { height: 6px; background: var(--line); border-radius: 3px; margin: 2px 0 6px; overflow: hidden; }
+  .progressFill { height: 100%; background: var(--green); transition: width 0.3s ease; }
+  .progressLabel { font-size: 12px; color: var(--muted); padding-bottom: 14px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 13px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted);
+    border-radius: 6px; cursor: pointer; user-select: none;
+  }
+  .tab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .row {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px 18px 16px; margin-bottom: 16px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .rowHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .rowName { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .itemLine {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-size: 14px; color: var(--muted); padding: 4px 0;
+  }
+  .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
+  .rowTotalLine {
+    display: flex; justify-content: space-between;
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+    font-size: 16px; font-weight: 700;
+  }
+  .rowTotalLine .rowTotalAmt { font-family: "SF Mono", Menlo, Consolas, monospace; }
+  .payBtn {
+    font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
+  }
+  .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
+
+  .itemLine.unverified {
+    color: var(--warn-text);
+    background: var(--warn-bg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 600;
+  }
+  .unverifiedTag {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    background: var(--warn-tag-bg);
+    color: var(--warn-tag-text);
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-left: 6px;
+  }
+  .warnBanner {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .sectionTitle {
+    font-family: Georgia, serif; font-size: 16px; margin: 22px 0 10px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--line);
+  }
+  .flavorGrid { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 10px; font-size: 13px; }
+  .flavorGrid .h { color: var(--muted); font-size: 11px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .flavorQty, .flavorAmt { font-family: "SF Mono", Menlo, Consolas, monospace; text-align: right; }
+  .flavorAmt { color: var(--muted); }
+  .grandRow { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--ink); font-weight: 700; }
+
+  .toolbar {
+    display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; flex-wrap: wrap;
+  }
+  .toolBtn {
+    font-size: 12px; padding: 7px 12px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    cursor: pointer;
+  }
+  .toolBtn input { display: none; }
+  .footNote { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
+</style>
+<body>
+  <div class="page" id="app"></div>
+
+  <script>
+    // Baked-in data for preview (artifact sandbox can't fetch local files)
+    const EMBEDDED_BUYS = [
+      { date: "2026-09-07", label: "9/7", data: {"groupName": "WG\u56e2\u8d2d\u7fa4", "products": {"sig": {"label": "\u62db\u724c\u9c9c\u8089\u9984\u9968", "price": 6.5}, "corn": {"label": "\u7389\u7c73\u9c9c\u8089\u9984\u9968", "price": 6.8}, "mush": {"label": "\u9999\u83c7\u9c9c\u8089\u9984\u9968", "price": 6.8}, "seaweed": {"label": "\u7d2b\u83dc\u9c9c\u8089\u9984\u9968", "price": 6.8}, "chive": {"label": "\u97ed\u83dc\u9c9c\u8089\u9984\u9968", "price": 6.8}, "shrimp": {"label": "\u9c9c\u867e\u9c9c\u8089\u9984\u9968", "price": 7.2}, "salted": {"label": "\u54b8\u86cb\u9ec4\u9c9c\u8089\u9984\u9968", "price": 6.8}, "century": {"label": "\u76ae\u86cb\u9c9c\u8089\u9984\u9968", "price": 6.8}}, "orders": [{"name": "Caroline \u741b\u741b", "items": {"sig": 3}}, {"name": "^_^Wu", "items": {"sig": 3}}, {"name": "W_W", "items": {"sig": 1}}, {"name": "Peter", "items": {"sig": 1, "shrimp": 1}}, {"name": "Sherry Liu", "items": {"shrimp": 2}}, {"name": "sinsin", "items": {"sig": 1}}, {"name": "LLL", "items": {"century": 1}}, {"name": "\u306a\u306a", "items": {"sig": 1, "corn": 1, "century": 1}}, {"name": "Xian", "items": {"shrimp": 1, "salted": 1}}, {"name": "\u5080\u5121\u5a03\u5a03", "items": {"century": 3, "sig": 1, "corn": 1}}, {"name": "Lesley\u14e9", "items": {"corn": 1, "salted": 1}}, {"name": "\u65e0\u865e.", "items": {"corn": 1, "salted": 1}}, {"name": "Starry", "items": {"century": 1, "salted": 1, "sig": 1}}, {"name": "\u6447\u7c92\u7ed2\u662f\u6211\u6211\u6211\u6211\u6211", "items": {"salted": 1}}, {"name": "\ud83e\uddc2", "items": {"sig": 1, "corn": 1, "century": 1}}, {"name": "Sadddie", "items": {"shrimp": 1, "salted": 1, "century": 1}}, {"name": "Kylin", "items": {"corn": 1, "shrimp": 1}}, {"name": "Mint", "items": {"mush": 1, "corn": 1}}, {"name": "starlight\ud83d\udcab", "items": {"shrimp": 1}}, {"name": "weiwei", "items": {"corn": 1, "mush": 1, "chive": 1}}, {"name": "Fei", "items": {"salted": 1, "sig": 1}}, {"name": "Choies", "items": {"corn": 1, "salted": 1}}, {"name": "Lynda Kwan", "items": {"mush": 1, "sig": 1}}, {"name": "\u196b\u1a63", "items": {"seaweed": 1, "salted": 1}}, {"name": "\u65bc", "items": {"sig": 1, "salted": 1, "shrimp": 1, "century": 1}}, {"name": "Melissa Yu", "items": {"sig": 1, "salted": 1}}, {"name": "663", "items": {"sig": 1, "shrimp": 1}}, {"name": "wyh", "items": {"shrimp": 1, "century": 1, "corn": 1}}, {"name": "\u5e78\u8fd0\u7684\u7b11\u7b11\u5b50", "items": {"salted": 1}}, {"name": "\u84b8\u6c7d\u79cb\u8475", "items": {"sig": 1, "seaweed": 1}}, {"name": "coralreefs", "items": {"sig": 1, "seaweed": 1}}, {"name": "ellie6", "items": {"sig": 1}}, {"name": "Shirley", "items": {"shrimp": 1, "corn": 1}}]}
+ },
+      { date: "2026-09-01", label: "9/1", data: {"groupName": "WG\u56e2\u8d2d\u7fa4", "products": {"peach_box_czd": {"label": "\u5ddd\u4e2d\u5c9b\u6c34\u871c\u6843\u793c\u76d2", "price": 25.8}, "peach_mix4": {"label": "\u7f24\u7eb7\u68434\u7c92\u62fc\u88c5\u793c\u76d2", "price": 12.8}, "mushroom_mix": {"label": "\u4ec0\u9526\u83cc\u83c7", "price": 3}, "strawberry": {"label": "\u6fb3\u6d32\u8349\u8393", "price": 5.8}, "grape_jufeng": {"label": "\u798f\u5b89\u5de8\u5cf0", "price": 12.8, "unit": "\u7bb1"}, "grape_xiaoguangtou": {"label": "\u5c0f\u5149\u5934\u8fbd\u5b81\u5de8\u5cf0", "price": 19.8, "unit": "\u7bb1"}, "grape_raisin_xj": {"label": "\u65b0\u7586\u9ed1\u52a0\u4ed1\u9ed1\u63d0", "price": 10.8, "unit": "\u7bb1"}, "peach_loose_bj": {"label": "\u6563\u88c5\u767d\u91d1\u6c34\u871c\u6843(2kg/\u5305)", "price": 14, "unit": "\u5305"}, "peach_loose_czd": {"label": "\u6563\u88c5\u5ddd\u4e2d\u5c9b\u6c34\u871c\u6843(2kg/\u5305)", "price": 14, "unit": "\u5305"}, "peach_rainbow_oil": {"label": "\u6563\u88c5\u5f69\u8679\u6cb9\u87e0\u6843(2kg/\u5305)", "price": 16, "unit": "\u5305"}, "peach_rainbow_loose": {"label": "\u6563\u88c5\u5f69\u8679\u6bdb\u87e0\u6843(2kg/\u5305)", "price": 14, "unit": "\u5305"}, "orange_locsweet": {"label": "Loc sweet\u751c\u6a59(3kg/\u5305)", "price": 15, "unit": "\u5305"}, "tangerine_seedless": {"label": "\u65e0\u7c7d\u871c\u6a58(2kg/\u5305)", "price": 10, "unit": "\u5305"}, "pear_shaanxi": {"label": "\u6563\u88c5\u9655\u897f\u9165\u68a8(3kg/\u5305)", "price": 15, "unit": "\u5305"}, "mango_pzh": {"label": "\u6500\u679d\u82b1\u51ef\u7279\u5927\u8292\u679c(2\u7c92/\u4efd)", "price": 7, "unit": "\u4efd"}, "kiwi": {"label": "\u7ea2\u5fc3\u5947\u5f02\u679c(2\u76d2/\u4efd)", "price": 9, "unit": "\u4efd"}, "banana_ph": {"label": "\u83f2\u5f8b\u5bbe\u957f\u9999\u8549(900g/\u4efd)", "price": 2.9, "unit": "\u4efd"}, "persimmon": {"label": "\u706b\u6676\u67ff\u5b50(2\u76d2/\u4efd)", "price": 9, "unit": "\u4efd"}, "cabbage_baby": {"label": "\u5a03\u5a03\u83dc(300g*2\u5305/\u4efd)", "price": 4.4, "unit": "\u4efd"}, "sweetpotato_durian": {"label": "\u69b4\u83b2\u871c\u85af(500g*2\u5305/\u4efd)", "price": 5.6, "unit": "\u4efd"}, "mushroom_king": {"label": "\u674f\u9c8d\u83c7(200g*2\u76d2/\u4efd)", "price": 3.2, "unit": "\u4efd"}, "pomegranate": {"label": "\u4f1a\u7406\u8f6f\u7c7d\u77f3\u69b4(4\u7c92/\u4efd)", "price": 10, "unit": "\u4efd"}, "corn_km": {"label": "\u91d1\u9a6c\u4f26\u7206\u6c41\u767d\u7389\u7c73(4\u6839/\u4efd)", "price": 10, "unit": "\u4efd"}, "broccoli": {"label": "\u897f\u5170\u82b1", "price": 5, "unit": "\u4efd"}, "qinglongcai": {"label": "\u9752\u9f99\u83dc(2\u5305/\u4efd)", "price": 3.5, "unit": "\u4efd"}, "apple_envy": {"label": "Envy\u82f9\u679c(5\u7c92/\u4efd)", "price": 10.5, "unit": "\u4efd"}, "lettuce_youmai": {"label": "\u6cb9\u9ea6\u83dc", "price": 4, "unit": "\u4efd"}, "broccolini": {"label": "\u897f\u5170\u82d4", "price": 5, "unit": "\u4efd"}, "beef_shank": {"label": "\u4e94\u9999\u5364\u725b\u8171\u8089", "price": 18, "unit": "\u4efd"}, "duck_gizzard": {"label": "\u53cc\u6912\u9e2d\u80d7", "price": 5.8, "unit": "\u4efd"}, "duck_wing_salt": {"label": "\u76d0\u7117\u9e2d\u7fc5", "price": 6.5, "unit": "\u4efd"}, "pork_tongue": {"label": "\u5ddd\u5364\u732a\u820c\u5934(2\u53ea/\u4efd)", "price": 8, "unit": "\u4efd"}, "celery": {"label": "\u957f\u5ae9\u82b9\u83dc", "price": 3.5, "unit": "\u4efd"}, "chili_th": {"label": "\u6cf0\u56fd\u5c0f\u7ea2\u5c16\u6912", "price": 1.9, "unit": "\u4efd"}, "redpomelo": {"label": "\u7ea2\u6587\u65e6\u67da", "price": 7.8, "unit": "\u7c92"}, "wtmelon": {"label": "\u6cf0\u56fd\u8584\u76ae\u9ed1\u7c7d\u5c0f\u897f\u74dc", "price": 5.8, "unit": "\u7c92"}, "melon_wang": {"label": "86\u738b\u54c8\u5bc6\u74dc", "price": 6.5, "unit": "\u7c92"}, "cabbage_bj": {"label": "\u5317\u4eac\u5305\u83dc", "price": 2.5, "unit": "\u7c92"}, "duck_pipi": {"label": "\u7279\u8272\u7247\u76ae\u9e2d", "price": 26, "unit": "\u53ea"}, "chicken_shred": {"label": "\u9999\u9165\u624b\u6495\u9e21", "price": 20, "unit": "\u53ea"}, "duck_shred": {"label": "\u624b\u6495\u9999\u9165\u9e2d", "price": 24, "unit": "\u53ea"}, "flour": {"label": "Baker's Choice\u7279\u7ea7\u9762\u7c89", "price": 3, "unit": "\u888b"}, "vinegar": {"label": "\u6052\u987a\u9547\u6c5f\u9999\u918b", "price": 2.9, "unit": "\u74f6"}, "chili_oil_yao": {"label": "\u5e7a\u9ebb\u5b50\u85e4\u6912\u6cb9", "price": 9.2, "unit": "\u74f6"}, "soy_sauce_light": {"label": "\u6d77\u5929\u5473\u6781\u9c9c", "price": 8.5, "unit": "\u74f6"}, "egg_my": {"label": "\u9a6c\u6765\u897f\u4e9a\u571f\u9e21\u86cb", "price": 9.3, "unit": "\u76d8"}, "egg_aa": {"label": "AA\u7ea7\u5927\u9e21\u86cb", "price": 8.5, "unit": "\u76d8"}, "blueberry_sa": {"label": "CORE\u5357\u975e\u5de8\u65e0\u9738\u5927\u84dd\u8393", "price": 7.9, "unit": "\u6876"}, "honey_plum": {"label": "\u8702\u7cd6\u674e", "price": 10, "unit": "kg"}, "dazao": {"label": "\u8106\u751c\u5927\u8354\u51ac\u67a3", "price": 10.5, "unit": "kg"}, "tomato_provence": {"label": "\u666e\u7f57\u65fa\u65af\u756a\u8304", "price": 6, "unit": "kg"}, "chili_luosi": {"label": "\u87ba\u4e1d\u6912", "price": 6, "unit": "kg"}, "chili_yangjiao": {"label": "\u7f8a\u89d2\u6912", "price": 6, "unit": "kg"}, "ginger_young": {"label": "\u4ed4\u59dc", "price": 6, "unit": "kg"}, "yam": {"label": "\u94c1\u68cd\u5c71\u836f", "price": 6, "unit": "kg"}, "garlic_sprout": {"label": "\u9752\u849c\u82d7", "price": 4.5, "unit": "kg"}, "cherry_tomato": {"label": "\u756a\u592b\u5b50\u91dc\u5c7188\u5c0f\u756a\u8304", "price": 12.8, "unit": "kg"}, "prune": {"label": "\u65b0\u9c9c\u897f\u6885", "price": 10.8, "unit": "kg"}, "jiaobaisun": {"label": "\u832d\u767d\u7b0b", "price": 6, "unit": "kg"}, "mushroom_white": {"label": "\u767d\u8272\u53e3\u8611", "price": 10.8, "unit": "kg"}, "lotus_root": {"label": "\u6d2a\u6e56\u83b2\u85d5", "price": null, "unit": "kg", "unverified": true}, "peach_rainbow_unclear": {"label": "\u5f69\u8679\u87e0\u6843(\u54c1\u79cd\u5f85\u786e\u8ba4\uff0c6\u7c92)", "price": null, "unverified": true}}, "orders": [{"name": "\u84b8\u6c7d\u79cb\u8475", "items": {"redpomelo": 1, "wtmelon": 1, "strawberry": 1, "celery": 1, "cabbage_bj": 1, "chili_th": 1, "flour": 1, "vinegar": 1, "chicken_shred": 1}}, {"name": "\u5080\u5121\u5a03\u5a03", "items": {"duck_shred": 1, "redpomelo": 1, "tomato_provence": 1, "ginger_young": 1, "chili_luosi": 1}}, {"name": "LR", "items": {"peach_mix4": 1, "grape_jufeng": 1}}, {"name": "\u4ee7\u5055", "items": {"tomato_provence": 1}}, {"name": "\u5927\u71d5\u5b50", "items": {"redpomelo": 1, "honey_plum": 1}}, {"name": "\u51fa\u53bb\u8d70\u8d70", "items": {"redpomelo": 2}}, {"name": "Can.J", "items": {"peach_loose_czd": 1, "mango_pzh": 1}}, {"name": "\u674e\u68a6", "items": {"peach_loose_bj": 0.5, "grape_raisin_xj": 1, "yam": 1, "lotus_root": 1}}, {"name": "W_W", "items": {"redpomelo": 1, "kiwi": 1, "banana_ph": 1}}, {"name": "Lillian", "items": {"orange_locsweet": 1}}, {"name": "Eileen", "items": {"grape_jufeng": 1}}, {"name": "noture", "items": {"peach_loose_bj": 1, "lettuce_youmai": 1, "chili_oil_yao": 1, "soy_sauce_light": 1}}, {"name": "\u8587", "items": {"kiwi": 1, "mango_pzh": 2}}, {"name": "\u534a\u6c5f\u6e14\u706b", "items": {"egg_my": 1, "pomegranate": 1}}, {"name": "coralreefs", "items": {"egg_aa": 1, "redpomelo": 1, "cabbage_bj": 1, "lettuce_youmai": 1}}, {"name": "CYQ", "items": {"redpomelo": 1, "persimmon": 0.5, "grape_xiaoguangtou": 1, "mango_pzh": 1}}, {"name": "Sadddie", "items": {"beef_shank": 2, "duck_gizzard": 1, "duck_wing_salt": 1, "pork_tongue": 1}}, {"name": "\u5d14\u5d14", "items": {"egg_my": 1, "cherry_tomato": 0.5}}, {"name": "Caroline \u741b\u741b", "items": {"mango_pzh": 1, "kiwi": 1, "redpomelo": 2, "grape_xiaoguangtou": 1, "cabbage_baby": 1, "jiaobaisun": 1, "sweetpotato_durian": 1, "mushroom_white": 1, "mushroom_king": 1}}, {"name": "\u6447\u7c92\u7ed2\u662f\u6211\u6211\u6211\u6211\u6211", "items": {"sweetpotato_durian": 1, "mushroom_mix": 1, "grape_jufeng": 1, "strawberry": 1, "duck_pipi": 1, "peach_loose_bj": 1, "wtmelon": 1, "persimmon": 1, "pomegranate": 0.5}}, {"name": "starlight", "items": {"blueberry_sa": 1, "broccoli": 1, "mushroom_mix": 1}}, {"name": "Peter", "items": {"kiwi": 1, "pomegranate": 0.5, "wtmelon": 1, "banana_ph": 1, "redpomelo": 1, "sweetpotato_durian": 1, "prune": 0.5}}, {"name": "Junie", "items": {"peach_loose_czd": 1, "dazao": 1}}, {"name": "\u6211\u7761\u7740\u7684\u65f6\u5019\u4e0d\u56f0", "items": {"corn_km": 1, "redpomelo": 1}}, {"name": "\u5c0f\u7f8e", "items": {"pomegranate": 0.5, "tangerine_seedless": 1}}, {"name": "Sherry Liu", "items": {"redpomelo": 1, "peach_rainbow_unclear": 1}}, {"name": "\u7b49\u653e\u5047ing", "items": {"blueberry_sa": 1, "corn_km": 1, "redpomelo": 1}}, {"name": "\u5218\u8d85", "items": {"egg_my": 1}}, {"name": "\u5495\u54be\u53c8", "items": {"peach_loose_bj": 0.5}}, {"name": "^_^Wu", "items": {"peach_box_czd": 1, "honey_plum": 1, "dazao": 1, "cherry_tomato": 1, "orange_locsweet": 0.5, "sweetpotato_durian": 1}}, {"name": "\u94f6\u94f6\u8335\u8335\u76c8\u76c8", "items": {"peach_rainbow_oil": 0.5}}, {"name": "wyh", "items": {"tomato_provence": 1, "redpomelo": 1}}, {"name": "may", "items": {"peach_rainbow_oil": 1, "honey_plum": 1, "melon_wang": 1, "qinglongcai": 1, "corn_km": 0.5, "egg_my": 1}}, {"name": "\u5317\u6d77", "items": {"blueberry_sa": 1, "mushroom_mix": 1}}, {"name": "\u8089\u677e", "items": {"redpomelo": 1, "wtmelon": 1, "peach_rainbow_loose": 1, "melon_wang": 1}}, {"name": "H", "items": {"grape_xiaoguangtou": 2, "kiwi": 1, "apple_envy": 1, "flour": 1}}, {"name": "Huuuuuzz", "items": {"cabbage_baby": 1, "lettuce_youmai": 1, "garlic_sprout": 0.5}}, {"name": "Choies", "items": {"grape_jufeng": 1, "strawberry": 1, "cherry_tomato": 0.5, "tangerine_seedless": 0.5}}, {"name": "Charlene", "items": {"grape_jufeng": 1, "egg_my": 1, "chili_luosi": 1}}, {"name": "\u5e78\u8fd0\u7684\u7b11\u7b11\u5b50", "items": {"honey_plum": 1}}, {"name": "HanMin", "items": {"peach_loose_bj": 0.5, "redpomelo": 1, "persimmon": 0.5, "wtmelon": 1}}, {"name": "\u5fae\u5fae", "items": {"grape_jufeng": 1, "broccolini": 1}}, {"name": "Yang Yan", "items": {"sweetpotato_durian": 1, "pear_shaanxi": 0.6667, "yam": 1}}, {"name": "Melissa Yu", "items": {"grape_xiaoguangtou": 1, "lettuce_youmai": 1, "dazao": 1, "chili_yangjiao": 1}}, {"name": "\u9648\u5c0fSun\u800c\u5df2", "items": {"mango_pzh": 1, "peach_loose_czd": 1}}]}
+ }
+    ].sort((a, b) => b.date.localeCompare(a.date));
+
+    let GROUP_BUYS = EMBEDDED_BUYS.map(b => ({ date: b.date, label: b.label }));
+    let activeIndex = 0;
+    let DATA = null;
+    let paidState = {};
+    let filter = "all";
+    let openUnit = null;
+
+    // Paid status is shared live across everyone with this artifact link,
+    // via window.storage with shared: true, keyed by group-buy date.
+    function paidStorageKey(dateKey) {
+      return `paid:${dateKey}`;
+    }
+
+    async function loadPaidState() {
+      const key = GROUP_BUYS[activeIndex].date;
+      try {
+        const result = await window.storage.get(paidStorageKey(key), true);
+        paidState = result ? JSON.parse(result.value) : {};
+      } catch (e) {
+        paidState = {};
+      }
+    }
+
+    async function savePaidState() {
+      const key = GROUP_BUYS[activeIndex].date;
+      try {
+        const result = await window.storage.set(paidStorageKey(key), JSON.stringify(paidState), true);
+        if (!result) console.error("Failed to save paid state");
+      } catch (e) {
+        console.error("Storage error saving paid state:", e);
+      }
+    }
+
+    function cost(items) {
+      return Object.entries(items).reduce(
+        (sum, [key, qty]) => sum + (DATA.products[key] ? DATA.products[key].price * qty : 0), 0
+      );
+    }
+    function unitOf(key) {
+      return (DATA.products[key] && DATA.products[key].unit) || "盒";
+    }
+    function isUnverified(key) {
+      return !!(DATA.products[key] && DATA.products[key].unverified);
+    }
+    function countUnverifiedLines(members) {
+      let n = 0;
+      members.forEach(m => Object.keys(m.items).forEach(k => { if (isUnverified(k)) n++; }));
+      return n;
+    }
+    function unitTotals(itemsList) {
+      const totals = {};
+      itemsList.forEach(items => {
+        Object.entries(items).forEach(([key, qty]) => {
+          const u = unitOf(key);
+          totals[u] = (totals[u] || 0) + qty;
+        });
+      });
+      return totals;
+    }
+    function unitProductBreakdown(itemsList) {
+      const map = {};
+      itemsList.forEach(items => {
+        Object.entries(items).forEach(([key, qty]) => {
+          const u = unitOf(key);
+          if (!DATA.products[key]) return;
+          if (!map[u]) map[u] = {};
+          map[u][key] = (map[u][key] || 0) + qty;
+        });
+      });
+      return map;
+    }
+    function formatQty(qty) {
+      return Number(qty.toFixed(2)).toString();
+    }
+    function formatUnitTotals(totals) {
+      return Object.entries(totals)
+        .map(([u, qty]) => `${formatQty(qty)}${u}`)
+        .join(" + ");
+    }
+
+    async function loadGroupBuy(index) {
+      activeIndex = index;
+      DATA = EMBEDDED_BUYS[index].data;
+      filter = "all";
+      openUnit = null;
+      await loadPaidState();
+      render();
+    }
+
+    function render() {
+      const app = document.getElementById("app");
+      const members = DATA.orders.map((m, i) => ({
+        ...m, id: i, total: cost(m.items)
+      }));
+      const grandTotal = members.reduce((s, m) => s + m.total, 0);
+      const grandUnitTotals = unitTotals(members.map(m => m.items));
+      const grandUnitBreakdown = unitProductBreakdown(members.map(m => m.items));
+      const paidCount = members.filter(m => paidState[m.name]).length;
+      const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
+
+      const flavorTotals = {};
+      Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
+      members.forEach(m => Object.entries(m.items).forEach(([k, qty]) => flavorTotals[k] += qty));
+
+      const visible = members.filter(m => {
+        if (filter === "paid") return paidState[m.name];
+        if (filter === "unpaid") return !paidState[m.name];
+        return true;
+      });
+
+      app.innerHTML = `
+        <div class="shopHead">
+          <h1 class="shopName">${DATA.groupName || "团购"}</h1>
+        </div>
+
+        ${GROUP_BUYS.length > 1 ? `
+          <div class="buyTabs">
+            ${GROUP_BUYS.map((gb, i) => `
+              <div class="buyTab ${i === activeIndex ? "active" : ""}" data-index="${i}">${gb.label || gb.date}</div>
+            `).join("")}
+          </div>
+        ` : ""}
+
+        ${countUnverifiedLines(members) > 0 ? `
+          <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
+        ` : ""}
+
+        <div class="ticket">
+          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
+          ${Object.entries(grandUnitTotals).map(([u, qty]) => `
+            <div class="statRow unitRow" data-unit="${u}">
+              <span class="statLabel">总数量（${u}）<span class="unitChevron">›</span></span>
+              <span class="statValue">${formatQty(qty)}</span>
+            </div>
+          `).join("")}
+          <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
+          <div style="padding-bottom:14px">
+            <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
+            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人</div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab ${filter === "all" ? "active" : ""}" data-filter="all">全部</div>
+          <div class="tab ${filter === "unpaid" ? "active" : ""}" data-filter="unpaid">未付款</div>
+          <div class="tab ${filter === "paid" ? "active" : ""}" data-filter="paid">已付款</div>
+        </div>
+
+        <div id="rows">
+          ${visible.map(m => `
+            <div class="row">
+              <div class="rowHead">
+                <div class="rowName">${m.name}</div>
+                <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+              </div>
+              ${Object.entries(m.items).map(([k, qty]) => {
+                const info = DATA.products[k];
+                const unverified = isUnverified(k);
+                const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
+              }).join("")}
+              <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
+            </div>
+          `).join("")}
+        </div>
+
+        <div class="card">
+          <div class="sectionTitle">备货清单 — 各口味所需数量</div>
+          <div class="flavorGrid">
+            <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
+            ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
+              if (info.unverified) {
+                return `
+                  <div>${info.label} <span class="unverifiedTag">缺失/待确认</span></div>
+                  <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                  <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+                `;
+              }
+              return `
+                <div>${info.label} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+                <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
+              `;
+            }).join("")}
+            <div class="grandRow">合计</div>
+            <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
+            <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <label class="toolBtn">📂 导入新订单（JSON）
+            <input type="file" id="fileInput" accept="application/json">
+          </label>
+          <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
+        </div>
+        <p class="footNote">付款状态已同步给所有使用此链接的人。</p>
+
+        ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
+      `;
+
+      document.querySelectorAll(".buyTab").forEach(el => {
+        el.addEventListener("click", () => loadGroupBuy(parseInt(el.dataset.index, 10)));
+      });
+      document.querySelectorAll(".tab").forEach(el => {
+        el.addEventListener("click", () => { filter = el.dataset.filter; render(); });
+      });
+      document.querySelectorAll(".payBtn").forEach(el => {
+        el.addEventListener("click", async () => {
+          const name = el.dataset.name;
+          // Re-fetch latest shared state first so we don't clobber a change
+          // another user just made to a different member's paid status.
+          await loadPaidState();
+          paidState[name] = !paidState[name];
+          await savePaidState();
+          render();
+        });
+      });
+      document.querySelectorAll(".unitRow").forEach(el => {
+        el.addEventListener("click", () => { openUnit = el.dataset.unit; render(); });
+      });
+      const overlayEl = document.getElementById("unitOverlay");
+      if (overlayEl) {
+        overlayEl.addEventListener("click", () => { openUnit = null; render(); });
+      }
+      document.getElementById("fileInput").addEventListener("change", handleFileUpload);
+      document.getElementById("downloadBtn").addEventListener("click", downloadData);
+    }
+
+    function renderUnitOverlay(u, breakdown) {
+      const entries = Object.entries(breakdown);
+      const subtotal = entries.reduce((s, [key, qty]) => {
+        const info = DATA.products[key];
+        if (!info || info.unverified) return s;
+        return s + info.price * qty;
+      }, 0);
+      return `
+        <div class="unitOverlay" id="unitOverlay">
+          <div class="unitOverlayCard">
+            <div class="sectionTitle" style="margin-top:0">总数量（${u}）明细</div>
+            ${entries.map(([key, qty]) => {
+              const info = DATA.products[key];
+              const unverified = !!info.unverified;
+              const amt = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
+              return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
+            }).join("")}
+            <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">$${subtotal.toFixed(2)}</span></div>
+            <div class="footNote" style="margin-top:14px">点击任意处关闭</div>
+          </div>
+        </div>
+      `;
+    }
+
+    
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (!parsed.products || !parsed.orders) throw new Error("Missing products or orders");
+          DATA = parsed;
+          await loadPaidState();
+          render();
+        } catch (err) {
+          alert("无法读取此文件：" + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadData() {
+      const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function showUploadFallback(message) {
+      document.getElementById("app").innerHTML =
+        `<div class="shopHead"><h1 class="shopName">${message}</h1></div>
+        <div class="toolbar">
+          <label class="toolBtn">📂 导入订单（JSON）
+            <input type="file" id="fileInput" accept="application/json">
+          </label>
+        </div>`;
+      document.getElementById("fileInput").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          GROUP_BUYS = [];
+          DATA = JSON.parse(evt.target.result);
+          await loadPaidState();
+          render();
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    
+    // Boot: use embedded data directly (no manifest fetch needed in this preview)
+    loadGroupBuy(0).catch(err => console.error("Boot error:", err));
+  </script>
+
+</body>
+</html>
