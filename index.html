@@ -266,6 +266,7 @@
     border: 1px solid var(--line); background: var(--paper); color: var(--ink);
     font-size: 13px; font-family: inherit;
   }
+  .unitDisplay { font-size: 12.5px; color: var(--muted); margin: -4px 0 10px; }
 
   /* Print gets its own dense table layout (see renderPrintSection) instead of
      reusing the on-screen cards, which ran to many pages per round. */
@@ -382,14 +383,16 @@
     let bulkError = "";
     let bulkDraft = "";
 
-    // Each member's block/unit number, for organizing deliveries only — never
-    // read by buildMemberMessage() or buildGroupAnnouncement(), so it never
-    // ends up in a WeChat message. Persistent across every round (not
-    // round-scoped like paidStatus/adjustments), stored in its own Firestore
-    // doc (see memberUnitsDocRef) and loaded once at boot, not per round.
-    // Only visible/editable from the "🏠 门牌管理" panel, itself gated behind
-    // edit mode (same soft PIN gate as delivery-day adjustments) so it isn't
-    // sitting in the plain card view everyone sees on load.
+    // Each member's block/unit number, for organizing deliveries — never read
+    // by buildMemberMessage() or buildGroupAnnouncement(), so it never ends up
+    // in a WeChat message (that restriction is absolute, unlike the rest of
+    // this comment). Persistent across every round (not round-scoped like
+    // paidStatus/adjustments), stored in its own Firestore doc (see
+    // memberUnitsDocRef) and loaded once at boot, not per round. Shown on
+    // every member's card (see the `.unitDisplay` line in render()) to
+    // anyone who opens the dashboard link — by explicit request, this is NOT
+    // gated behind edit mode for *reading*; only *editing* it (via the
+    // "🏠 门牌管理" panel) requires the edit PIN.
     let memberUnits = {}; // { name: "block/unit text" }
     let showUnitsPanel = false;
     let unitsDraft = {}; // working copy while the panel is open; committed on "保存"
@@ -1018,12 +1021,12 @@
       render();
     }
 
-    // Editable list of every current-round member's block/unit number, for
-    // sorting deliveries — the only place this data is shown or edited.
-    // Deliberately not fed into buildMemberMessage()/buildGroupAnnouncement(),
-    // so it can never end up in a WeChat message; gated behind edit mode
-    // (opened via "🏠 门牌管理") so it isn't part of the plain view anyone
-    // with the link sees by default.
+    // Editable list of every current-round member's block/unit number — the
+    // only place this data can be *edited* (reading it happens on every
+    // member's card instead, see `.unitDisplay` in render()). Deliberately
+    // not fed into buildMemberMessage()/buildGroupAnnouncement(), so it can
+    // never end up in a WeChat message; *editing* is still gated behind edit
+    // mode (opened via "🏠 门牌管理"), even though viewing isn't.
     function renderUnitsPanel() {
       const names = allMemberNamesInOrder();
       const baseCount = DATA.orders.length; // names before this index had a 接龙 position; see allMemberNamesInOrder
@@ -1169,6 +1172,7 @@
                 <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${m.name}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
                 <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
               </div>
+              ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
               ${Object.entries(m.items).map(([k, qty]) => {
                 const info = DATA.products[k];
                 const unverified = isUnverified(k);

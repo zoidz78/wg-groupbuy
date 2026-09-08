@@ -34,9 +34,10 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - **全部收款后自动锁定**：一场团购里所有人都标记已付款后，会自动
   锁定该场——不能再改付款状态、加调整或加新买家，防止误触。需要
   修改时，输入编辑密码即可解锁（详见下方"全部收款后自动锁定"）
-- **门牌管理**（编辑模式内）：可以记录每位成员的楼栋/门牌号，方便
-  安排配送——这项信息不会出现在仓库文件里，也绝不会出现在付款消
-  息或到货通知里（详见下方"门牌管理"）
+- **门牌管理**：可以记录每位成员的楼栋/门牌号，方便安排配送——
+  会直接显示在每位成员的卡片上（拥有链接的任何人都能看到），但
+  绝不会出现在仓库文件里，也绝不会出现在付款消息或到货通知里
+  （详见下方"门牌管理"）
 - 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
   多而变成好几页
 
@@ -216,9 +217,10 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 - **绝不会出现在"复制付款消息"或"复制到货通知"里**——这两个按钮生成的文
   字完全不会读取门牌信息。
 - **所有场次共用同一份**，不需要每场团购重新填一次。
-- **只能在编辑模式里看到**：点击底部工具栏的 **"🏠 门牌管理"**（需要先用
-  编辑密码解锁），可以看到本场每位成员的门牌号输入框，填好后点"保存"即
-  可，所有人共享同一份最新数据。
+- **会直接显示在每位成员的卡片上**——只要填了，打开链接的任何人都能看
+  到（和页面上其他内容一样的公开程度）。**修改**门牌号仍然需要先解锁编
+  辑模式：点击底部工具栏的 **"🏠 门牌管理"**（需要编辑密码），看到本场
+  每位成员的门牌号输入框，填好后点"保存"，所有人立刻看到最新数据。
 
 **首次使用前需要在 Firebase 控制台加一条新规则**（Firestore Database →
 Rules），因为这是一个全新的 collection：
@@ -372,10 +374,11 @@ chat), but works for any group buy once you swap in your own data.
   adjustments, no walk-ins — to prevent an accidental change after
   it's settled. Enter the edit PIN to unlock it again (see
   "Auto-lock after full payment" below)
-- **Block/unit directory** (inside edit mode): record each member's
-  block/unit number to help plan deliveries — never stored in a repo
-  file, and never appears in any payment message or announcement
-  (see "Block/unit directory" below)
+- **Block/unit directory**: record each member's block/unit number to
+  help plan deliveries — shown right on their card (visible to anyone
+  with the link), but never stored in a repo file and never appears
+  in any payment message or announcement (see "Block/unit directory"
+  below)
 - One-tap report export: a dense table format you can print or save
   as a PDF, so a large round doesn't turn into several pages
 
@@ -580,10 +583,12 @@ else in this project:
   reads this data at all.
 - **Shared across every round** — no need to re-enter it each time a new
   group buy starts.
-- **Only visible in edit mode**: tap **"🏠 门牌管理"** (Block/unit
+- **Shown directly on each member's card** — once set, anyone with the
+  dashboard link sees it (same visibility as the rest of the page).
+  **Editing** it still requires edit mode: tap **"🏠 门牌管理"** (Block/unit
   management) in the bottom toolbar (after unlocking with the edit PIN) to
   see and edit every current member's unit number; tap "保存" to save. Every
-  device sees the same saved data.
+  device sees the same saved data immediately.
 
 **Needs one new Firebase rule the first time you use this** (Firestore
 Database → Rules in the Firebase console), since it's a brand-new

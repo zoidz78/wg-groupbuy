@@ -517,14 +517,20 @@ real names, so it's held to a higher bar than everything else in this project:
 - **Never fed into any message.** `buildMemberMessage()` (the per-member payment
   message, A3) and `buildGroupAnnouncement()` (the arrival announcement, A4) never
   read `memberUnits` — this data has no path into anything that gets copied to
-  WeChat.
+  WeChat. This restriction is absolute and hasn't changed; only where it's *shown
+  on the dashboard* has (see next point).
 - **Persistent, not per-round.** A member's unit doesn't reset or need re-entering
   when a new round starts — it's one directory shared across every round's data,
   loaded once at boot (`subscribeToMemberUnits()`), not tied to any `date`.
-- **Only visible from the "🏠 门牌管理" panel**, which only appears in edit mode
-  (same PIN gate as delivery-day adjustments) — it's not part of the plain card
-  view that loads for anyone opening the link, so it doesn't clutter (or expose)
-  the default view.
+- **Shown on every member's card, to anyone who opens the link — by explicit
+  request (2026-09-08), not the original design.** It was originally kept out of
+  the plain card view and visible only inside the edit-mode-gated "🏠 门牌管理"
+  panel; the user asked for it to always show on the card instead, for
+  convenience, and accepted that this removes that privacy boundary (still not
+  in the GitHub repo, still readable by anyone with the link like everything
+  else, just no longer hidden behind edit mode for *viewing*). See the
+  `.unitDisplay` line in `render()`. **Editing** it still requires unlocking edit
+  mode and using the "🏠 门牌管理" panel — only *reading* changed.
 
 **Requires a Firestore rules change** (the one thing this feature needs that no
 other feature in this project has needed so far, since it's a brand-new
