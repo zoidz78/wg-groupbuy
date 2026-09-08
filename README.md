@@ -252,7 +252,8 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
   条是通知取货，不是收款。
 - "小馄饨团购"这类描述这次到货是什么的短语，来自该场 `data-<日期>.json` 里的
   `itemsLabel` 字段（新建一场团购时顺手填一下，参考上面"数据结构"部分）；没填
-  的话会退化成把所有商品名称用"、"连起来（口味多的时候会很长，建议还是填一下）。
+  的话会退化成"{场次标签}团购"（例如"9/1团购"），不会再把所有商品名称列出来——
+  品种很多的一场如果忘了填 `itemsLabel`，也不会变成一长串读不出来的文字。
 - "06-02" 这类取货地点，存放在 `message-template.json` 的 `pickupLocation` 字
   段里——这个一般是固定的，不需要每场都改。
 - 其余措辞同样在 `message-template.json` 里，改法和上面"复制付款消息"一样。
@@ -581,8 +582,9 @@ per-member payment message above:
   request.
 - The "小馄饨团购" part (what arrived) comes from that round's `data-<date>.json` —
   set its `itemsLabel` field when creating a new round (see "Data schema" above); if
-  left unset it falls back to every product label joined by "、" (fine for a short
-  product list, unwieldy for a long one).
+  left unset it falls back to `"{round label}团购"` (e.g. "9/1团购"), never to a list
+  of every product — so a round with dozens of distinct items doesn't turn into an
+  unreadable wall of text if `itemsLabel` gets forgotten.
 - The pickup location ("06-02") lives in `message-template.json`'s `pickupLocation`
   field — this is normally a fixed setting for your building/unit, not something you
   change every round.

@@ -683,15 +683,21 @@
     //
     // "What arrived" (`{arrived}`) comes from data-<date>.json's optional
     // `itemsLabel` field (a short phrase for the round, e.g. "小馄饨") when
-    // set; otherwise it falls back to every product's label joined with
-    // "、". The pickup location and the rest of the wording come from
-    // message-template.json, same as buildMemberMessage.
+    // set; otherwise it falls back to "{date label}团购" (e.g. "9/1团购"),
+    // never to a list of every product — a round with a handful of dozens
+    // of distinct products (a typical big produce run) would otherwise turn
+    // this into an unreadable wall of text if itemsLabel was forgotten when
+    // the round's data file was created. The pickup location and the rest
+    // of the wording come from message-template.json, same as
+    // buildMemberMessage.
     function buildGroupAnnouncement() {
       const t = MESSAGE_TEMPLATE;
       const mentions = allMemberNamesInOrder()
         .map(name => `${t.mentionPrefix}${name}`)
         .join(t.mentionSeparator);
-      const arrived = DATA.itemsLabel || Object.values(DATA.products).map(p => p.label).join("、");
+      const gb = GROUP_BUYS[activeIndex];
+      const fallbackArrived = `${(gb && (gb.label || gb.date)) || "本场"}团购`;
+      const arrived = DATA.itemsLabel || fallbackArrived;
       const body = fillTemplate(t.groupAnnouncementText, { arrived, location: t.pickupLocation });
       return `${mentions}\n\n${body}`;
     }

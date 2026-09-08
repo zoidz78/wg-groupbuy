@@ -32,11 +32,17 @@ because of a platform postMessage cross-origin bug (`anthropics/claude-code#4206
 Don't resurrect that approach unless asked; GitHub Pages + Firebase is the current and
 working setup.
 
-**Whenever any project file changes** (`index.html`, `manifest.json`, `data-<date>.json`,
-`firestore.rules`, `product-emoji-map.json`) — always send it to the user as a
-downloadable file (not just save it to the project docs). They deploy by manually
-uploading each changed file to GitHub, so without the actual download they have nothing
-to upload.
+**Every file this project touches gets sent to the user as a downloadable file —
+no exceptions, not just the ones that go to GitHub.** This means every repo file
+that changes (`index.html`, `manifest.json`, `data-<date>.json`, `firestore.rules`,
+`product-emoji-map.json`, `message-template.json`, `README.md`) — they deploy by
+manually uploading each changed file to GitHub, so without the actual download they
+have nothing to upload. It also means this file itself
+(`wg-groupbuy-project-knowledge.md`) whenever it's updated, even though it never goes
+to GitHub — the user has asked for a download of it regardless, just for their own
+records. Saving a file to the project docs (`project_write`) is never a substitute
+for sending it — do both, every time, for every file created or edited in this
+project.
 
 ## First thing in a new chat: figure out which of these two the user wants
 
@@ -418,8 +424,13 @@ Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
 - `{arrived}` (what showed up, e.g. "小馄饨团购"): reads the round's `data-<date>.json` top-level
   `itemsLabel` field if set — **this is optional and round-specific, so add it each time a new
   round's data file is created** when the product list doesn't already read naturally on its own
-  (e.g. 8 wonton-flavor labels joined together would be unreadable as an announcement). Falls back
-  to every product's label joined by "、" if `itemsLabel` isn't set.
+  (e.g. 8 wonton-flavor labels joined together would be unreadable as an announcement). If
+  `itemsLabel` isn't set, it falls back to `"{round label}团购"` (e.g. "9/1团购") — **never** to a
+  list of every product. (This used to join every product's label with "、"; a big produce round
+  with 50+ distinct items turned that into an unreadable wall of text when `itemsLabel` was
+  forgotten, so the fallback was changed to the date-based phrase instead. Still set `itemsLabel`
+  when you can — "小馄饨团购到啦" reads better than "9/7团购到啦" — but forgetting it is no longer
+  a real problem.)
 - `{location}` (pickup spot, e.g. "06-02"): `pickupLocation` in `message-template.json` — this is
   a fixed setting for this deployment (their actual unit), not per-round, so it normally only needs
   setting once.
