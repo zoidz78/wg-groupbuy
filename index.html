@@ -187,7 +187,18 @@
   .flavorGrid .h { color: var(--muted); font-size: 11px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
   .flavorQty, .flavorAmt { font-family: "SF Mono", Menlo, Consolas, monospace; text-align: right; }
   .flavorAmt { color: var(--muted); }
-  .grandRow { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--ink); font-weight: 700; }
+  .grandTotalBlock {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--ink);
+  }
+  .grandTotalRow {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-weight: 700; font-size: 14px;
+  }
+  .grandTotalAmt { font-family: "SF Mono", Menlo, Consolas, monospace; }
+  .grandTotalQty {
+    font-family: "SF Mono", Menlo, Consolas, monospace; color: var(--muted);
+    text-align: center; margin-top: 6px; font-size: 12.5px; line-height: 1.7;
+  }
 
   .toolbar {
     display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; flex-wrap: wrap;
@@ -197,7 +208,6 @@
     border: 1px solid var(--line); background: var(--paper); color: var(--ink);
     cursor: pointer;
   }
-  .toolBtn input { display: none; }
   .footNote { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
 
   .adjAddBtn {
@@ -218,7 +228,10 @@
     font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; min-height: 100px;
   }
   .adjFormRow { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; font-size: 12.5px; }
-  .adjFormRow label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .adjFormRow label {
+    display: flex; align-items: center; gap: 4px; cursor: pointer;
+    white-space: nowrap; flex: 0 0 auto;
+  }
   .adjFormBtns { display: flex; gap: 8px; }
   .adjError { color: var(--red); font-size: 12px; margin: 2px 0 8px; }
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
@@ -711,18 +724,16 @@
                 <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
               `;
             }).join("")}
-            <div class="grandRow">合计</div>
-            <div class="flavorQty grandRow">${formatUnitTotals(grandUnitTotals)}</div>
-            <div class="flavorAmt grandRow">$${grandTotal.toFixed(2)}</div>
+          </div>
+          <div class="grandTotalBlock">
+            <div class="grandTotalRow"><span>合计</span><span class="grandTotalAmt">$${grandTotal.toFixed(2)}</span></div>
+            <div class="grandTotalQty">${formatUnitTotals(grandUnitTotals)}</div>
           </div>
         </div>
 
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
 
         <div class="toolbar">
-          <label class="toolBtn">📂 导入新订单（JSON）
-            <input type="file" id="fileInput" accept="application/json">
-          </label>
           <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
           <div class="toolBtn" id="editToggleBtn">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>
           ${editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
@@ -776,7 +787,6 @@
       if (overlayEl) {
         overlayEl.addEventListener("click", () => { openUnit = null; render(); });
       }
-      document.getElementById("fileInput").addEventListener("change", handleFileUpload);
       document.getElementById("downloadBtn").addEventListener("click", downloadData);
 
       document.querySelectorAll(".adjAddBtn").forEach(el => {
@@ -863,26 +873,6 @@
       `;
     }
 
-    function handleFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const parsed = JSON.parse(evt.target.result);
-          if (!parsed.products || !parsed.orders) throw new Error("Missing products or orders");
-          DATA = parsed;
-          if (GROUP_BUYS[activeIndex]) {
-            subscribeToPaidState(GROUP_BUYS[activeIndex].date);
-            subscribeToAdjustments(GROUP_BUYS[activeIndex].date);
-          } else render();
-        } catch (err) {
-          alert("无法读取此文件：" + err.message);
-        }
-      };
-      reader.readAsText(file);
-    }
-
     function downloadData() {
       const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -893,26 +883,10 @@
       URL.revokeObjectURL(url);
     }
 
-    function showUploadFallback(message) {
+    function showLoadErrorFallback(message) {
       document.getElementById("app").innerHTML =
         `<div class="shopHead"><h1 class="shopName">${message}</h1></div>
-        <div class="toolbar">
-          <label class="toolBtn">📂 导入订单（JSON）
-            <input type="file" id="fileInput" accept="application/json">
-          </label>
-        </div>`;
-      document.getElementById("fileInput").addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          GROUP_BUYS = [];
-          DATA = JSON.parse(evt.target.result);
-          paidState = {};
-          adjustments = {};
-          render();
-        };
-        reader.readAsText(file);
-      });
+        <p class="footNote">请检查 manifest.json 和对应的 data-*.json 文件是否已上传到仓库根目录。</p>`;
     }
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
@@ -929,7 +903,7 @@
         subscribeToPaidState(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
       })
-      .catch(() => showUploadFallback("未找到 manifest.json 或数据文件"));
+      .catch(() => showLoadErrorFallback("未找到 manifest.json 或数据文件"));
   </script>
 </body>
 </html>
