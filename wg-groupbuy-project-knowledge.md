@@ -627,17 +627,37 @@ label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
 **A fully-paid round won't let you add an adjustment or new buyer:** it's auto-locked
 (see A5) — tap "🔓 解锁" in the toolbar and enter the edit PIN.
 
-**The whole page is blank/frozen and nothing is clickable, with repeated
-`TypeError: ... amountDelta.toFixed` (or similar) errors in the browser console:**
-a malformed entry exists in that round's `adjustments/{date}` Firestore doc — missing
-a field (`amountDelta`, `qtyDelta`, or `actualGrams`) the render code expects for its
-type. Because the whole page renders as one big template string, one bad entry
-throws mid-render and aborts everything before any button gets wired up — this is
-why it looks fully broken rather than just showing one broken row. Fixed defensively
-in `index.html`: `isValidAdjustmentShape()` filters out anything malformed before it
-ever reaches a `.toFixed()`/`formatQty()` call, and a "🔧 发现 N 条调整记录格式有问题"
-banner appears with a one-tap "点击清理" button (in edit mode) that deletes the bad
-entries via `cleanupInvalidAdjustments()` — no Firebase console needed. If this ever
-recurs, it means something wrote a non-conforming entry into `adjustments` (a bad
-manual Firestore edit, or a bug in whatever wrote it) — the cleanup button treats the
-symptom; worth checking what wrote the entry if it keeps happening.
+**The whole page is blank/frozen and nothing is clickable, with a
+`TypeError: ... amountDelta.toFixed` (or similar) error in the browser console:**
+two distinct things can cause this, both now fixed, but worth telling apart if it
+ever recurs — check the browser console's expanded stack trace to know which:
+
+1. **A genuinely malformed entry** in that round's `adjustments/{date}` Firestore
+   doc — missing a field (`amountDelta`, `qtyDelta`, or `actualGrams`) for its type,
+   e.g. from a bad hand-edit in the Firebase console. Guarded by
+   `isValidAdjustmentShape()`, which filters anything malformed out before it can
+   reach a `.toFixed()`/`formatQty()` call; a "🔧 发现 N 条调整记录格式有问题" banner
+   appears with a one-tap "点击清理" button (in edit mode) that deletes the bad
+   entries via `cleanupInvalidAdjustments()` — no Firebase console needed.
+2. **A legitimate `"weight"` adjustment entry hitting code that never special-cased
+   it.** This was the actual first real-world occurrence (2026-09-08): `printItemsLine()`
+   (the print-report line-summary function) assumed every non-`"item"` adjustment was
+   a dollar-amount `"credit"` and called `.toFixed()` on `a.amountDelta` — which
+   `"weight"` entries never have by design (see A2). Unlike `adjustmentLineHtml()` and
+   `buildMemberMessage()`, which both already special-cased `"weight"` correctly,
+   `printItemsLine()` had been missed when the `"weight"` type was added. Fixed by
+   giving it the same `if (a.type === "weight") { ... }` branch (shows
+   `emojiLabel(info)}实收{grams}g`, informational only, matching the pattern
+   elsewhere). **Lesson for next time a new adjustment `type` is added:** it has to be
+   handled in *all four* places that iterate `adjustmentsForMember()` —
+   `adjustmentLineHtml()`, `buildMemberMessage()`, `effectiveItems()`, and
+   `printItemsLine()` — not just the on-screen card and the WeChat message. It's easy
+   to update the two visible/obvious ones and forget the print-export path, since it's
+   hidden by `@media print` and only becomes visible when someone actually prints —
+   except it's built unconditionally on every single render (not just when printing),
+   so a bug in it crashes the *entire* page, immediately, for everyone — not just the
+   print feature.
+
+Both fixes are defensive at the `adjustmentsForMember()`/render layer, not a promise
+that every future adjustment type will be handled — check all four call sites by hand
+whenever a new `type` value is introduced.
