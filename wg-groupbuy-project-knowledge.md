@@ -231,6 +231,15 @@ mapping to:
   (`price × qtyDelta`), so a later price change never retroactively alters it.
 - `type: "credit"` — a flat dollar adjustment not tied to any product (a refund or
   surcharge with just a note + `amountDelta`, no `itemKey`/`qtyDelta`).
+- `type: "weight"` — **purely informational, never affects money.** For items portioned
+  out by hand (fruit boxes, meat, etc.) where the actual amount handed to a member often
+  doesn't land exactly on what they were charged for — WG团购群's convention is to round
+  down when billing (never overcharge) but still tell the member what they actually got.
+  Shape: `{ member, type: "weight", itemKey, actualGrams, note?, ts }` — no `amountDelta`/
+  `qtyDelta` at all, so it's excluded from both the money total (`adjustmentTotal`) and the
+  stocking-list/procurement total (`effectiveItems`) automatically. Shown inline on that
+  product's own line in the copy-message (see A3), not as a separate `↳` line like the
+  other two types.
 - A member's final amount due = their original item total + the sum of their
   `amountDelta`s. The dashboard shows this automatically; nothing else needs updating.
 - A brand-new `member` name (someone who bought on the spot but wasn't in the original
@@ -255,12 +264,15 @@ mapping to:
    ```json
    [
      {"member": "Peter", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
-     {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"}
+     {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
+     {"member": "may", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
    ]
    ```
    When computing `amountDelta` for an `"item"` type entry yourself, multiply by that
    product's `price` from the round's `data-<date>.json` — don't leave it for the page
-   to infer, since the page trusts whatever `amountDelta` you send.
+   to infer, since the page trusts whatever `amountDelta` you send. A `"weight"` entry
+   never takes `amountDelta`/`qtyDelta` — just `itemKey` + `actualGrams` (+ an optional
+   `note`).
 
 Entries can be undone individually from the dashboard (an "撤销" link next to each
 adjustment line, visible in edit mode) — this deletes just that one Firestore field.
@@ -282,25 +294,51 @@ This is deliberately separate from the "标记已付款" toggle — one person c
 while another marks paid, so both stay independent and both are still needed. The PDF export
 (print) is unchanged and stays as the paper-trail record.
 
-**Message format**, built by `buildMemberMessage(m)` in `index.html`:
+**Message format**, built by `buildMemberMessage(m)` in `index.html`. Matches how WG团购群
+already writes these messages by hand — reworked from an earlier, more formal draft after the
+user shared a real example: no emoji, no "$", "@name" instead of a greeting sentence, and
+"一共X～" instead of "合计：$X":
 
 ```
-Peter 你好，你的订单：
-🥟 招牌鲜肉馄饨 x2盒 $13.00
-🥟 鲜虾鲜肉馄饨 x1盒 $7.20
-↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
-合计：$13.70
-麻烦付款哈，谢谢！🙏
+@may
+
+彩虹油蟠桃  16（2044g）
+蜂糖李  6.7（673g）
+哈密瓜  6.5
+青龙菜  3.5
+土鸡蛋  9.3
+
+一共42～
 ```
 
-- One line per original ordered item (with its emoji icon, quantity, and subtotal).
-- One `↳`-prefixed line per delivery-day adjustment (A2) affecting that member, each with its
-  own note (e.g. "到货少一份", "退款：等太久") so the person paying can see *why* the total
-  differs from a simple add-up of the original order — this was an explicit requirement, not
-  just a nice-to-have.
-- A `合计：` (total) line reflecting original items + all adjustments — same number shown
-  elsewhere in that member's card.
-- A closing polite line asking for payment.
+With a shortage adjustment (A2), a member whose order was short one item on delivery looks
+like:
+
+```
+@Peter
+
+哈密瓜 x2盒  13
+土鸡蛋  9.3
+↳ 哈密瓜 -1盒（到货少一份） -6.5
+
+一共9.3～
+```
+
+- `@{name}` greeting, then a blank line.
+- One line per original ordered item — plain product name (no emoji, unlike everywhere else
+  on the page), an ` x{qty}{unit}` suffix only when quantity isn't 1 (so the common
+  single-item case stays terse), then two spaces and the amount (trimmed of trailing
+  zeros, no "$").
+- A `（{grams}g）` suffix on an item's own line when a `"weight"` adjustment (A2) was
+  recorded for that member+item — the actual amount portioned out, purely informational.
+- One `↳`-prefixed line per non-`"weight"` delivery-day adjustment (A2) affecting that
+  member, each with its own note (e.g. "到货少一份", "退款：等太久") so the person paying
+  can see *why* the total differs from a simple add-up of the original order — this was
+  an explicit requirement, not just a nice-to-have.
+- A blank line, then `一共{total}～` — same number shown elsewhere in that member's card.
+- No closing line by default (the real messages this group sends don't have one) — add
+  one back via `message-template.json`'s `closingPaid`/`closingUnpaid` fields if wanted
+  later.
 
 **Scope note:** this is a per-member button only — there's no bulk "copy list of everyone unpaid"
 variant. That was discussed during ideation but not requested for the build; don't add it unless
@@ -314,17 +352,19 @@ to add it there too, the adjustments system would need to be ported over first.
 **Wording lives in `message-template.json`, not `index.html`.** Same pattern as the emoji map
 (A1): `index.html` fetches `./message-template.json` at boot and merges it over a built-in
 default (identical wording), so a missing/failed fetch just silently keeps the current wording —
-it never breaks the page. All of the *data* in the message (product names/emoji, prices, adjustment
-notes, totals) still comes from `data-<date>.json` / `product-emoji-map.json` / the live
-adjustments — only the surrounding *phrasing* is templated. `{placeholders}` in the template are
-filled in automatically (`fillTemplate()` in `index.html`); don't remove or rename them, just move
-the words around them.
+it never breaks the page. All of the *data* in the message (product names, prices, adjustment
+notes, actual weights, totals) still comes from `data-<date>.json` / the live adjustments —
+only the surrounding *phrasing* is templated. `{placeholders}` in the template are filled in
+automatically (`fillTemplate()` in `index.html`); don't remove or rename them, just move the
+words around them.
 
-Fields in `message-template.json`: `greeting`, `itemLine` (`{item} {qty} {unit} {amount}`),
-`unverifiedAmount`/`unverifiedSuffix` (for missing/unconfirmed-price items), `adjItemLine`/
-`adjNoteSuffix` (a quantity-type delivery-day adjustment), `adjOtherLine`/`adjDefaultNote` (a
-flat credit/refund adjustment), `totalLine`, and `closingPaid`/`closingUnpaid` (different text
-depending on whether that member is already marked paid).
+Fields in `message-template.json`: `greeting` (`@{name}`), `itemLine`
+(`{item}{qtySuffix}  {amount}{weightSuffix}`), `weightSuffix` (the `"weight"`-adjustment
+annotation, e.g. `（{grams}g）`), `unverifiedAmount`/`unverifiedSuffix` (for
+missing/unconfirmed-price items), `adjItemLine`/`adjNoteSuffix` (a quantity-type delivery-day
+adjustment), `adjOtherLine`/`adjDefaultNote` (a flat credit/refund adjustment), `totalLine`
+(`一共{total}～`), and `closingPaid`/`closingUnpaid` (empty by default — set these if you want
+a closing line back, shown depending on whether that member is already marked paid).
 
 **To reword the message going forward:** just edit `message-template.json` and re-upload it —
 `index.html` doesn't need to change. Only touch `index.html`'s `buildMemberMessage`/

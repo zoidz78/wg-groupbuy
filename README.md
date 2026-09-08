@@ -158,6 +158,11 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
      际过秤后再用这个功能改成真实重量。
    - **退款/补款（固定金额）**：不对应具体商品的一笔整额调整，
      附上备注说明原因。
+   - **实际到手重量（仅备注，不影响金额）**：像水果、肉类这类现
+     场分装的商品，实际分到每个人手上的重量常常和接龙时的预估对
+     不上——这个选项不改变收费（按惯例向下取整，不多收），但会
+     记下实际重量，"复制付款消息"里会自动显示给对方看（例如
+     "彩虹油蟠桃  16（2044g）"）。
 3. 工具栏的 **"+ 新增买家"** 用于记录一位原本不在接龙名单里、纯
    粹现场临时购买的人。
 4. 每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
@@ -185,15 +190,18 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
 
-示例：
+格式和这个群平时手写的收款消息一致（不带表情图标、不带"$"符号）。示例：
 
 ```
-Peter 你好，你的订单：
-🥟 招牌鲜肉馄饨 x2盒 $13.00
-🥟 鲜虾鲜肉馄饨 x1盒 $7.20
-↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
-合计：$13.70
-麻烦付款哈，谢谢！🙏
+@may
+
+彩虹油蟠桃  16（2044g）
+蜂糖李  6.7（673g）
+哈密瓜  6.5
+青龙菜  3.5
+土鸡蛋  9.3
+
+一共42～
 ```
 
 消息的**措辞**（问候语怎么说、每行怎么写、结尾语等）存放在
@@ -411,6 +419,13 @@ a clean record of what was ordered vs. what was actually charged.
      then correct it to the real weighed amount here once it's known.
    - **退款/补款（固定金额）** (refund/surcharge): a flat dollar
      adjustment not tied to any specific product, with a note.
+   - **实际到手重量（仅备注，不影响金额）** (actual weight received,
+     info only): for produce or meat that gets portioned out by hand,
+     what each person actually receives often doesn't match the
+     estimated order exactly. This option doesn't change what they're
+     charged (rounded down as usual, never charging extra) but records
+     the real weight, which the "copy payment message" button then
+     shows automatically (e.g. "彩虹油蟠桃  16（2044g）").
 3. **"+ 新增买家"** (+ Add buyer) in the toolbar records someone who
    bought on the spot but wasn't in the original order at all.
 4. Every adjustment line has a **"撤销"** (undo) link to remove it.
@@ -443,15 +458,19 @@ from the "mark paid" button — one person can sort/collect payment while
 another tracks who's paid, and the PDF export for a paper trail is
 unaffected either way.
 
-Example:
+The format matches how this group already writes these messages by hand
+(no emoji icons, no "$" sign). Example:
 
 ```
-Peter 你好，你的订单：
-🥟 招牌鲜肉馄饨 x2盒 $13.00
-🥟 鲜虾鲜肉馄饨 x1盒 $7.20
-↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
-合计：$13.70
-麻烦付款哈，谢谢！🙏
+@may
+
+彩虹油蟠桃  16（2044g）
+蜂糖李  6.7（673g）
+哈密瓜  6.5
+青龙菜  3.5
+土鸡蛋  9.3
+
+一共42～
 ```
 
 The message's **wording** (how the greeting reads, how each line is

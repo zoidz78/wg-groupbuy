@@ -302,17 +302,18 @@
     // there's no visible difference either way.
     const MESSAGE_TEMPLATE_URL = "./message-template.json";
     let MESSAGE_TEMPLATE = {
-      greeting: "{name} 你好，你的订单：",
-      itemLine: "{item} x{qty}{unit} {amount}",
+      greeting: "@{name}",
+      itemLine: "{item}{qtySuffix}  {amount}{weightSuffix}",
+      weightSuffix: "（{grams}g）",
       unverifiedAmount: "待确认",
       unverifiedSuffix: "（缺失/待确认）",
       adjItemLine: "↳ {item} {qtySign}{qty}{unit}{noteSuffix} {amount}",
       adjNoteSuffix: "（{note}）",
       adjOtherLine: "↳ {note} {amount}",
       adjDefaultNote: "退款/补款",
-      totalLine: "合计：${total}",
-      closingPaid: "已收到你的付款，谢谢！🙏",
-      closingUnpaid: "麻烦付款哈，谢谢！🙏"
+      totalLine: "一共{total}～",
+      closingPaid: "",
+      closingUnpaid: ""
     };
     let GROUP_BUYS = [];
     let activeIndex = 0;
@@ -336,7 +337,7 @@
     // (not just read from the DOM at submit time) so an in-progress edit
     // survives a re-render triggered by someone else's live update arriving
     // via Firestore mid-edit, or by switching the item/credit radio.
-    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "" };
+    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "" };
     let showBulkPanel = false;
     let bulkError = "";
     let bulkDraft = "";
@@ -357,7 +358,7 @@
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
     function resetAdjDraft() {
-      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "" };
+      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "" };
       adjFormType = "item";
       adjFormError = "";
     }
@@ -509,6 +510,22 @@
       return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ""));
     }
 
+    // Money for the copy-message, trimmed of trailing zeros and with no "$" —
+    // matches how this group already writes these messages by hand (e.g.
+    // "16", "6.7", not "$16.00", "$6.70").
+    function formatAmt(x) {
+      return Number(x.toFixed(2)).toString();
+    }
+
+    // The "actual weight" note for one member's item, if one was recorded —
+    // see the "实际到手重量" adjustment type. Purely informational (never
+    // affects money or the stocking list), for items that get portioned out
+    // by hand and don't always land on the ordered amount; billing is left
+    // as-is (rounded down) but the buyer is still told what they actually got.
+    function actualWeightFor(memberName, itemKey) {
+      return adjustmentsForMember(memberName).find(a => a.type === "weight" && a.itemKey === itemKey);
+    }
+
     // Builds the plain-text WeChat message for one member — their itemized
     // order, any shortage/refund/extra adjustments (with the reason, so the
     // total doesn't look arbitrary), and the final amount due. Meant to be
@@ -516,41 +533,57 @@
     // sent automatically, so it's fine if the organizer wants to hand-edit
     // it (e.g. to append payment/QR info) before sending.
     //
-    // All ITEM DATA (product names/emoji/prices/adjustments/totals) comes
-    // from data-*.json, product-emoji-map.json and Firestore, same as
-    // everywhere else on the page. Only the WORDING around that data — the
-    // greeting, line phrasing, and closing lines — comes from
-    // message-template.json (MESSAGE_TEMPLATE below), so changing how the
-    // message reads is a JSON edit, not an index.html edit.
+    // All ITEM DATA (product names/prices/adjustments/totals/actual weights)
+    // comes from data-*.json and Firestore, same as everywhere else on the
+    // page. Only the WORDING around that data — the greeting, line phrasing,
+    // and closing lines — comes from message-template.json (MESSAGE_TEMPLATE
+    // below), so changing how the message reads is a JSON edit, not an
+    // index.html edit. (Unlike everywhere else on the page, this message
+    // intentionally omits the emoji icons — matches how this group already
+    // writes these messages by hand.)
     function buildMemberMessage(m) {
       const t = MESSAGE_TEMPLATE;
       const lines = [];
       lines.push(fillTemplate(t.greeting, { name: m.name }));
+      lines.push("");
       Object.entries(m.items).forEach(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return;
         const unverified = isUnverified(k);
-        const amount = unverified ? t.unverifiedAmount : `$${(info.price * qty).toFixed(2)}`;
-        let line = fillTemplate(t.itemLine, { item: emojiLabel(info), qty: formatQty(qty), unit: unitOf(k), amount });
+        const amount = unverified ? t.unverifiedAmount : formatAmt(info.price * qty);
+        // Weight-priced items (e.g. "2kg of peaches") never show "x2kg" here —
+        // the dollar amount already reflects the ordered weight, and the
+        // actual weight received (if recorded, see below) is shown instead.
+        // Only box-count items ("x2盒") get a quantity suffix.
+        const unit = unitOf(k);
+        const qtySuffix = (qty !== 1 && unit !== "kg") ? ` x${formatQty(qty)}${unit}` : "";
+        const weightEntry = actualWeightFor(m.name, k);
+        const weightSuffix = (weightEntry && !unverified)
+          ? fillTemplate(t.weightSuffix, { grams: formatQty(weightEntry.actualGrams) })
+          : "";
+        let line = fillTemplate(t.itemLine, { item: info.label, qtySuffix, amount, weightSuffix });
         if (unverified) line += t.unverifiedSuffix;
         lines.push(line);
       });
       adjustmentsForMember(m.name).forEach(a => {
+        if (a.type === "weight") return; // shown inline on the item's own line above, not as its own line
         const sign = a.amountDelta >= 0 ? "+" : "";
-        const amount = `${sign}$${a.amountDelta.toFixed(2)}`;
+        const amount = `${sign}${formatAmt(a.amountDelta)}`;
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
           const noteSuffix = a.note ? fillTemplate(t.adjNoteSuffix, { note: a.note }) : "";
           lines.push(fillTemplate(t.adjItemLine, {
-            item: emojiLabel(info), qtySign, qty: formatQty(a.qtyDelta), unit: unitOf(a.itemKey), noteSuffix, amount
+            item: info.label, qtySign, qty: formatQty(a.qtyDelta), unit: unitOf(a.itemKey), noteSuffix, amount
           }));
         } else {
           lines.push(fillTemplate(t.adjOtherLine, { note: a.note || t.adjDefaultNote, amount }));
         }
       });
-      lines.push(fillTemplate(t.totalLine, { total: m.total.toFixed(2) }));
-      lines.push(paidState[m.name] ? t.closingPaid : t.closingUnpaid);
+      lines.push("");
+      lines.push(fillTemplate(t.totalLine, { total: formatAmt(m.total) }));
+      const closing = paidState[m.name] ? t.closingPaid : t.closingUnpaid;
+      if (closing) lines.push(closing);
       return lines.join("\n");
     }
 
@@ -633,6 +666,18 @@
     }
 
     function adjustmentLineHtml(a) {
+      // "weight" entries are informational only (no dollar amount) — see
+      // the "实际到手重量" adjustment type.
+      if (a.type === "weight") {
+        const info = a.itemKey && DATA.products[a.itemKey];
+        const label = `↳ ${info ? emojiLabel(info) : ""} 实际到手 ${formatQty(a.actualGrams)}g${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
+        return `
+          <div class="itemLine adjustment">
+            <span>${label}</span>
+            <span class="itemAmt">${editMode ? `<span class="adjUndo" data-id="${a.id}">撤销</span>` : ""}</span>
+          </div>
+        `;
+      }
       const sign = a.amountDelta >= 0 ? "+" : "";
       let label;
       if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
@@ -660,6 +705,7 @@
           <div class="adjFormRow">
             <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> 品项数量变化</label>
             <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> 退款/补款（固定金额）</label>
+            <label><input type="radio" name="adjType" value="weight" ${adjFormType === "weight" ? "checked" : ""}> 实际到手重量（仅备注，不影响金额）</label>
           </div>
           ${adjFormType === "item" ? `
             <select id="adjItemKey">
@@ -669,6 +715,14 @@
               }).join("")}
             </select>
             <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
+          ` : adjFormType === "weight" ? `
+            <select id="adjItemKey">
+              ${productKeys.map(k => {
+                const info = DATA.products[k];
+                return `<option value="${k}" ${k === selectedItemKey ? "selected" : ""}>${emojiLabel(info)}</option>`;
+              }).join("")}
+            </select>
+            <input type="number" id="adjGrams" placeholder="实际到手重量（克），例如 2044" step="any" value="${escapeHtml(adjDraft.grams)}">
           ` : `
             <input type="number" id="adjAmount" placeholder="金额变化，例如 -6.5（退款）或 3（补款）" step="any" value="${escapeHtml(adjDraft.amount)}">
           `}
@@ -699,6 +753,11 @@
         const info = DATA.products[itemKey];
         const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
         entry = { member: memberName, type: "item", itemKey, qtyDelta, amountDelta, note, ts: Date.now() };
+      } else if (type === "weight") {
+        const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
+        const actualGrams = parseFloat(adjDraft.grams);
+        if (!itemKey || isNaN(actualGrams) || actualGrams <= 0) { adjFormError = "请填写有效的实际重量（克）"; render(); return; }
+        entry = { member: memberName, type: "weight", itemKey, actualGrams, note, ts: Date.now() };
       } else {
         const amountDelta = parseFloat(adjDraft.amount);
         if (isNaN(amountDelta) || amountDelta === 0) { adjFormError = "请填写有效的金额（不能是 0）"; render(); return; }
@@ -715,17 +774,22 @@
       try { parsed = JSON.parse(bulkDraft); } catch (e) { bulkError = "JSON 解析失败：" + e.message; render(); return; }
       if (!Array.isArray(parsed)) { bulkError = "需要是一个 JSON 数组"; render(); return; }
       const cleaned = parsed
-        .filter(e => e && e.member && typeof e.amountDelta === "number")
-        .map(e => ({
-          member: e.member,
-          type: e.type === "credit" ? "credit" : "item",
-          itemKey: e.itemKey,
-          qtyDelta: e.qtyDelta,
-          amountDelta: e.amountDelta,
-          note: e.note || "",
-          ts: Date.now()
-        }));
-      if (!cleaned.length) { bulkError = "没有找到有效的条目（每条至少需要 member 和 amountDelta）"; render(); return; }
+        .filter(e => e && e.member && (
+          typeof e.amountDelta === "number" ||
+          (e.type === "weight" && typeof e.actualGrams === "number")
+        ))
+        .map(e => e.type === "weight"
+          ? { member: e.member, type: "weight", itemKey: e.itemKey, actualGrams: e.actualGrams, note: e.note || "", ts: Date.now() }
+          : {
+              member: e.member,
+              type: e.type === "credit" ? "credit" : "item",
+              itemKey: e.itemKey,
+              qtyDelta: e.qtyDelta,
+              amountDelta: e.amountDelta,
+              note: e.note || "",
+              ts: Date.now()
+            });
+      if (!cleaned.length) { bulkError = "没有找到有效的条目（每条至少需要 member，以及 amountDelta，或 type:\"weight\" + actualGrams）"; render(); return; }
       bulkApplyAdjustments(GROUP_BUYS[activeIndex].date, cleaned);
       bulkError = "";
       bulkDraft = "";
@@ -974,6 +1038,8 @@
       if (adjQtyDeltaEl) adjQtyDeltaEl.addEventListener("input", () => { adjDraft.qtyDelta = adjQtyDeltaEl.value; });
       const adjAmountEl = document.getElementById("adjAmount");
       if (adjAmountEl) adjAmountEl.addEventListener("input", () => { adjDraft.amount = adjAmountEl.value; });
+      const adjGramsEl = document.getElementById("adjGrams");
+      if (adjGramsEl) adjGramsEl.addEventListener("input", () => { adjDraft.grams = adjGramsEl.value; });
       const adjNoteEl = document.getElementById("adjNote");
       if (adjNoteEl) adjNoteEl.addEventListener("input", () => { adjDraft.note = adjNoteEl.value; });
       const adjSaveBtn = document.getElementById("adjSaveBtn");
