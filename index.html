@@ -236,6 +236,23 @@
   .adjError { color: var(--red); font-size: 12px; margin: 2px 0 8px; }
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
   .pinRow input { width: 140px; }
+
+  @media print {
+    body { background: #fff; padding: 0; color: #000; }
+    .toolbar, .tabs, .buyTabs, .pinRow, .bulkPanel, .debugBanner,
+    .adjAddBtn, .adjForm, .unitChevron, .unitOverlay {
+      display: none !important;
+    }
+    .footNote { display: none !important; }
+    .card .footNote, .ticket .footNote { display: block !important; color: #555; } /* keep the "已按调整记录更新" / original-total notes */
+    .payBtn {
+      border: 1px solid #999; background: none !important; color: #000 !important;
+    }
+    .row, .card, .ticket { box-shadow: none; border: 1px solid #bbb; break-inside: avoid; }
+    #rows { display: block !important; }
+    #rows .row { margin-bottom: 12px; }
+    .page { max-width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -734,7 +751,7 @@
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
 
         <div class="toolbar">
-          <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
+          <div class="toolBtn" id="exportReportBtn">🖨️ 导出报告（PDF/打印）</div>
           <div class="toolBtn" id="editToggleBtn">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>
           ${editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
           ${editMode ? `<div class="toolBtn" id="bulkToggleBtn">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
@@ -787,7 +804,7 @@
       if (overlayEl) {
         overlayEl.addEventListener("click", () => { openUnit = null; render(); });
       }
-      document.getElementById("downloadBtn").addEventListener("click", downloadData);
+      document.getElementById("exportReportBtn").addEventListener("click", exportReport);
 
       document.querySelectorAll(".adjAddBtn").forEach(el => {
         el.addEventListener("click", () => {
@@ -873,14 +890,42 @@
       `;
     }
 
-    function downloadData() {
-      const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "data.json";
-      a.click();
-      URL.revokeObjectURL(url);
+    // Opens the browser's print dialog with a clean, formatted version of the
+    // current round (every member regardless of the active filter, no edit
+    // controls) — the person can print it or choose "Save as PDF" for a file.
+    // print.css (below, @media print) hides everything interactive.
+    function exportReport() {
+      const prevFilter = filter;
+      const prevEditMode = editMode;
+      const prevOpenUnit = openUnit;
+      const prevTitle = document.title;
+      filter = "all";
+      editMode = false;
+      openUnit = null;
+      openAdjustFormFor = null;
+      showBulkPanel = false;
+      showPinInput = false;
+      render();
+      if (DATA && GROUP_BUYS[activeIndex]) {
+        document.title = `${DATA.groupName || "团购"}-${GROUP_BUYS[activeIndex].label || GROUP_BUYS[activeIndex].date}`;
+      }
+      let restored = false;
+      const restore = () => {
+        if (restored) return;
+        restored = true;
+        filter = prevFilter;
+        editMode = prevEditMode;
+        openUnit = prevOpenUnit;
+        document.title = prevTitle;
+        render();
+        window.removeEventListener("afterprint", restore);
+      };
+      window.addEventListener("afterprint", restore);
+      requestAnimationFrame(() => {
+        window.print();
+        // Safety net for browsers that don't fire afterprint reliably.
+        setTimeout(restore, 2000);
+      });
     }
 
     function showLoadErrorFallback(message) {
