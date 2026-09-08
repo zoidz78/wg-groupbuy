@@ -150,6 +150,7 @@
     cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
   }
   .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
+  .payBtn.locked { opacity: 0.55; cursor: default; }
 
   .itemLine.unverified {
     color: var(--warn-text);
@@ -337,6 +338,20 @@
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
+    // True once every member in this round has been marked paid — set via the
+    // special "__locked" field in the same paidStatus/{date} Firestore doc (not
+    // a separate collection, so it needs no new Firestore rule). While locked,
+    // the round is read-only for everyone with the link: no marking (un)paid,
+    // no adjustments, no walk-ins. See togglePaid() for how it gets set, and
+    // handleUnlockSubmit() for how it gets cleared. This is shared/global —
+    // it lives in Firestore like paid status itself, so it's the same for
+    // every device and survives a page reload; only entering the edit PIN
+    // clears it, a reload alone does not.
+    let roundLocked = false;
+    let showUnlockPrompt = false;
+    let unlockPinDraft = "";
+    let unlockPinError = "";
+
     let editUnlocked = false;
     try { editUnlocked = localStorage.getItem("wg_edit_unlocked") === "1"; } catch (e) {}
     let editMode = false;
@@ -401,6 +416,16 @@
         paidDocRef(dateKey),
         (snap) => {
           paidState = snap.exists() ? snap.data() : {};
+          const wasLocked = roundLocked;
+          roundLocked = !!paidState.__locked;
+          if (roundLocked && !wasLocked) {
+            // Round just became locked (from this browser or another one) —
+            // back out of edit mode so an adjustment form doesn't stay open
+            // on a now-frozen round.
+            editMode = false;
+            openAdjustFormFor = null;
+            showBulkPanel = false;
+          }
           storageDebug = "";
           render();
         },
@@ -431,14 +456,47 @@
     }
 
     // Writes just the one member's field, so two people tapping different
-    // rows at the same time can't clobber each other's change.
+    // rows at the same time can't clobber each other's change. If marking
+    // someone paid is the last outstanding payment for this round, also
+    // flips on the shared "__locked" flag in the same write — see the
+    // roundLocked comment above for what that freezes.
     async function togglePaid(dateKey, name) {
+      if (roundLocked) return; // frozen until unlocked — see handleUnlockSubmit()
       try {
-        await setDoc(paidDocRef(dateKey), { [name]: !paidState[name] }, { merge: true });
+        const newValue = !paidState[name];
+        const patch = { [name]: newValue };
+        if (newValue) {
+          const allNames = allMemberNamesInOrder();
+          const willAllBePaid = allNames.length > 0 &&
+            allNames.every(n => (n === name ? true : !!paidState[n]));
+          if (willAllBePaid) patch.__locked = true;
+        }
+        await setDoc(paidDocRef(dateKey), patch, { merge: true });
       } catch (e) {
         storageDebug = `保存出错：${e.message}`;
         render();
       }
+    }
+
+    // Clears the shared round lock after the correct edit PIN is entered.
+    // Deliberately always asks for the PIN here even if this browser already
+    // has editUnlocked=true from a previous session — unlocking a settled
+    // round is meant to be a deliberate act each time, not something a
+    // remembered device gets to skip.
+    async function handleUnlockSubmit(dateKey) {
+      if (unlockPinDraft === EDIT_PIN) {
+        unlockPinError = "";
+        try {
+          await setDoc(paidDocRef(dateKey), { __locked: false }, { merge: true });
+        } catch (e) {
+          storageDebug = `解锁出错：${e.message}`;
+        }
+        showUnlockPrompt = false;
+        unlockPinDraft = "";
+      } else {
+        unlockPinError = "密码错误";
+      }
+      render();
     }
 
     function newEntryId(salt) {
@@ -603,8 +661,9 @@
     // Every member's name for the current round, in 接龙 order — original
     // orders first (as written in data-<date>.json), then anyone who only
     // shows up via a walk-in adjustment. Same order render() uses for the
-    // member cards, factored out here so the announcement button doesn't
-    // need render()'s full member/cost computation just to list names.
+    // member cards, factored out here so the announcement button (and the
+    // round auto-lock check in togglePaid) don't need render()'s full
+    // member/cost computation just to list names.
     function allMemberNamesInOrder() {
       const baseNames = DATA.orders.map(o => o.name);
       const walkinNames = Array.from(new Set(
@@ -710,6 +769,10 @@
           bulkDraft = "";
           copiedFor = null;
           announceCopied = false;
+          roundLocked = false;
+          showUnlockPrompt = false;
+          unlockPinDraft = "";
+          unlockPinError = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -916,6 +979,10 @@
           <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
         ` : ""}
 
+        ${roundLocked ? `
+          <div class="warnBanner">🔒 本场已全部付款并锁定——不能标记付款、添加调整或新增买家。如需修改，请点击下方"🔓 解锁"。</div>
+        ` : ""}
+
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
           ${Object.entries(grandUnitTotals).map(([u, qty]) => `
@@ -947,7 +1014,7 @@
             <div class="row">
               <div class="rowHead">
                 <div class="rowName">${m.name}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
-                <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
               </div>
               ${Object.entries(m.items).map(([k, qty]) => {
                 const info = DATA.products[k];
@@ -958,13 +1025,13 @@
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
               <div class="copyMsgBtn${copiedFor === m.name ? " copied" : ""}" data-name="${m.name}">${copiedFor === m.name ? "已复制 ✓" : "💬 复制付款消息"}</div>
-              ${editMode ? `<div class="adjAddBtn" data-member="${m.name}">${openAdjustFormFor === m.name ? "取消调整" : "+ 调整"}</div>` : ""}
-              ${editMode && openAdjustFormFor === m.name ? renderAdjForm(m.name) : ""}
+              ${editMode && !roundLocked ? `<div class="adjAddBtn" data-member="${m.name}">${openAdjustFormFor === m.name ? "取消调整" : "+ 调整"}</div>` : ""}
+              ${editMode && !roundLocked && openAdjustFormFor === m.name ? renderAdjForm(m.name) : ""}
             </div>
           `).join("")}
         </div>
 
-        ${editMode && openAdjustFormFor === "__walkin__" ? `<div class="row">${renderAdjForm("__walkin__")}</div>` : ""}
+        ${editMode && !roundLocked && openAdjustFormFor === "__walkin__" ? `<div class="row">${renderAdjForm("__walkin__")}</div>` : ""}
 
         <div class="card">
           <div class="sectionTitle">备货清单 — 各口味所需数量</div>
@@ -996,9 +1063,12 @@
 
         <div class="toolbar">
           <div class="toolBtn" id="exportReportBtn">🖨️ 导出报告（PDF/打印）</div>
-          <div class="toolBtn" id="editToggleBtn">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>
-          ${editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
-          ${editMode ? `<div class="toolBtn" id="bulkToggleBtn">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
+          ${roundLocked
+            ? `<div class="toolBtn" id="unlockToggleBtn">${showUnlockPrompt ? "取消解锁" : "🔓 解锁"}</div>`
+            : `<div class="toolBtn" id="editToggleBtn">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>`
+          }
+          ${!roundLocked && editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
+          ${!roundLocked && editMode ? `<div class="toolBtn" id="bulkToggleBtn">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
         </div>
 
         ${showPinInput && !editUnlocked ? `
@@ -1009,7 +1079,15 @@
           ${pinError ? `<div class="adjError" style="text-align:center">${pinError}</div>` : ""}
         ` : ""}
 
-        ${editMode && showBulkPanel ? `
+        ${roundLocked && showUnlockPrompt ? `
+          <div class="pinRow">
+            <input type="password" id="unlockPinInput" placeholder="输入密码解锁本场" value="${escapeHtml(unlockPinDraft)}">
+            <div class="toolBtn" id="unlockSubmitBtn">解锁</div>
+          </div>
+          ${unlockPinError ? `<div class="adjError" style="text-align:center">${unlockPinError}</div>` : ""}
+        ` : ""}
+
+        ${editMode && !roundLocked && showBulkPanel ? `
           <div class="card bulkPanel">
             <div class="sectionTitle" style="margin-top:0">批量导入调整（JSON）</div>
             <div class="footNote" style="text-align:left;margin-bottom:8px;font-size:11px">
@@ -1123,6 +1201,21 @@
       if (pinInputEl) {
         pinInputEl.addEventListener("input", () => { pinDraft = pinInputEl.value; });
         pinInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handlePinSubmit(); });
+      }
+
+      const unlockToggleBtn = document.getElementById("unlockToggleBtn");
+      if (unlockToggleBtn) unlockToggleBtn.addEventListener("click", () => {
+        showUnlockPrompt = !showUnlockPrompt;
+        unlockPinError = "";
+        unlockPinDraft = "";
+        render();
+      });
+      const unlockSubmitBtn = document.getElementById("unlockSubmitBtn");
+      if (unlockSubmitBtn) unlockSubmitBtn.addEventListener("click", () => handleUnlockSubmit(GROUP_BUYS[activeIndex].date));
+      const unlockPinInputEl = document.getElementById("unlockPinInput");
+      if (unlockPinInputEl) {
+        unlockPinInputEl.addEventListener("input", () => { unlockPinDraft = unlockPinInputEl.value; });
+        unlockPinInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handleUnlockSubmit(GROUP_BUYS[activeIndex].date); });
       }
 
       const addWalkinBtn = document.getElementById("addWalkinBtn");

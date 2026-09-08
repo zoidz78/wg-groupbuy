@@ -29,6 +29,9 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - 自动浅色/深色模式，手机和电脑均适配
 - 送货日调整：短缺、退款/补款、现场加购都可以在页面上直接记录，
   金额自动重新计算（详见下方"送货日调整"）
+- **全部收款后自动锁定**：一场团购里所有人都标记已付款后，会自动
+  锁定该场——不能再改付款状态、加调整或加新买家，防止误触。需要
+  修改时，输入编辑密码即可解锁（详见下方"全部收款后自动锁定"）
 - 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
   多而变成好几页
 
@@ -175,6 +178,25 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
    讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
    **"📋 批量导入调整"** 面板一次性套用。
 
+以上这些编辑操作，在该场团购**全部收款并自动锁定**后会暂时无法使
+用——见下方"全部收款后自动锁定"。
+
+## 全部收款后自动锁定
+
+当一场团购里**所有人都被标记为已付款**后，页面会自动锁定这一场：
+不能再标记/取消付款、不能加送货日调整、也不能新增买家，防止团购
+结清之后被误触改动。
+
+- 锁定状态是**所有人共享**的——存在 Firebase 里，和付款状态一
+  样，不是某一台设备自己的状态，刷新页面也不会解锁。
+- 锁定后，底部工具栏的"✏️ 编辑调整"按钮会变成 **"🔓 解锁"**，点
+  开后输入编辑密码（和送货日调整用的是同一个 `EDIT_PIN`）即可解
+  锁，所有人立刻看到解锁后的状态。即使这台设备之前已经输入过一次
+  密码，解锁这一步仍然需要重新输入——这是有意为之，避免"结清后误
+  改"这件事变得太随意。
+- "💬 复制付款消息""📢 复制到货通知""🖨️ 导出报告"这几个只读/复
+  制类的按钮不受锁定影响，随时可用。
+
 ## 商品表情图标（`product-emoji-map.json`）
 
 每个商品名称前显示的图标，是根据商品的中文名称从 `product-emoji-map.json`
@@ -190,7 +212,7 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 ## 复制付款消息（`message-template.json`）
 
 每位成员卡片上的 **"💬 复制付款消息"** 按钮，会把该成员的订单明细、任何
-送货日调整（附原因，例如"到货少一份"）和应付总额，拼成一段可以直接粘贴
+送货日调整（附原因，例如"到货少一份"为一个短缺）和应付总额，拼成一段可以直接粘贴
 进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"标记已付款"按钮是
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
@@ -305,6 +327,11 @@ chat), but works for any group buy once you swap in your own data.
 - Delivery-day adjustments: shortages, refunds/surcharges, and
   walk-in extras can all be recorded right on the page, with amounts
   recalculated automatically (see "Delivery-day adjustments" below)
+- **Auto-locks once everyone's paid**: once every member in a round
+  is marked paid, that round locks — no more (un)marking paid, no
+  adjustments, no walk-ins — to prevent an accidental change after
+  it's settled. Enter the edit PIN to unlock it again (see
+  "Auto-lock after full payment" below)
 - One-tap report export: a dense table format you can print or save
   as a PDF, so a large round doesn't turn into several pages
 
@@ -467,6 +494,30 @@ a clean record of what was ordered vs. what was actually charged.
    Claude in chat and it can generate the adjustment entries as JSON
    to paste into the toolbar's **"📋 批量导入调整"** (bulk import)
    panel, applying them all at once.
+
+These editing actions are all temporarily unavailable once a round has
+**auto-locked after full payment** — see "Auto-lock after full payment"
+below.
+
+## Auto-lock after full payment
+
+Once **every member in a round has been marked paid**, the page
+automatically locks that round: no more marking/unmarking paid, no
+delivery-day adjustments, and no adding walk-in buyers — this
+prevents an accidental change once a group buy is already settled.
+
+- The locked state is **shared by everyone** — it lives in Firebase,
+  same as paid status, not just on one device, and a page reload
+  doesn't clear it.
+- Once locked, the bottom toolbar's "✏️ 编辑调整" button becomes
+  **"🔓 解锁"** (Unlock). Tapping it and entering the edit PIN (the
+  same `EDIT_PIN` used for delivery-day adjustments) unlocks it for
+  everyone, instantly. This always requires re-entering the PIN, even
+  on a device that's already unlocked edit mode before — that's
+  intentional, so reopening a settled round stays a deliberate step.
+- The read-only/copy buttons — "💬 复制付款消息", "📢 复制到货通知",
+  "🖨️ 导出报告" — are unaffected by the lock and stay available at
+  all times.
 
 ## Product emoji icons (`product-emoji-map.json`)
 

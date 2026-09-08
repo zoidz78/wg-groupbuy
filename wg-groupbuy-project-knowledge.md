@@ -287,6 +287,10 @@ mapping to:
 Entries can be undone individually from the dashboard (an "撤销" link next to each
 adjustment line, visible in edit mode) — this deletes just that one Firestore field.
 
+**Blocked while the round is auto-locked (see A5):** once every member is marked paid,
+the round locks and adjustments/walk-ins can't be added (live or via bulk import) until
+someone unlocks it with the edit PIN.
+
 ### Suggested first message for this ask
 
 > "Delivery day for [date]: [describe what happened — shortages, refunds, extra sales]"
@@ -305,9 +309,9 @@ while another marks paid, so both stay independent and both are still needed. Th
 (print) is unchanged and stays as the paper-trail record.
 
 **Message format**, built by `buildMemberMessage(m)` in `index.html`. Matches how WG团购群
-already writes these messages by hand — reworked from an earlier, more formal draft after the
+already writes these messages by hand (reworked from an earlier, more formal draft after the
 user shared a real example: no emoji, no "$", "@name" instead of a greeting sentence, and
-"一共X～" instead of "合计：$X":
+"一共X～" instead of "合计：$X"):
 
 ```
 @may
@@ -410,7 +414,7 @@ Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
 **Data sources:**
 - Member list: `DATA.orders` (+ walk-in names from `adjustments`) — same list and order used
   everywhere else on the page (factored into `allMemberNamesInOrder()`, shared logic with
-  `render()`'s member list).
+  `render()`'s member list and with the A5 auto-lock check).
 - `{arrived}` (what showed up, e.g. "小馄饨团购"): reads the round's `data-<date>.json` top-level
   `itemsLabel` field if set — **this is optional and round-specific, so add it each time a new
   round's data file is created** when the product list doesn't already read naturally on its own
@@ -432,6 +436,49 @@ Section A's "adding a new round" steps should now also include: set a short `ite
 new `data-<date>.json` if the round's products don't already read well joined together (most
 rounds will want this — it's rare for raw product labels to double as a natural announcement
 phrase).
+
+---
+
+## A5. Auto-lock after full payment
+
+Once every member in a round has been marked paid, the round automatically locks: no more
+marking (un)paid, no delivery-day adjustments (A2), no adding walk-in buyers — for anyone
+with the link — until someone with the edit PIN unlocks it again. Added to stop an
+already-settled round from being changed by an accidental tap.
+
+**Where it lives:** a `__locked` boolean field written directly into the same Firestore
+document as paid status (`paidStatus/{date}`) — not a separate collection, so it needs no
+new Firestore rule; the existing `allow read, write: if true` rule for `paidStatus` already
+covers it. `__locked` is never a real member's name, so it's automatically excluded
+everywhere the page iterates members by name (`paidCount`, `collected`, etc.).
+
+**How it locks:** `togglePaid()` in `index.html` checks, on every "mark paid" tap, whether
+this tap is the last outstanding member for the round — if so, it writes
+`{ [name]: true, __locked: true }` in that same Firestore call. This only fires on that
+specific transition (someone completing the round), never on a general page load or
+render, so unlocking a round to fix something doesn't get immediately re-locked just
+because everyone still shows as paid at that moment — it only re-locks the next time
+someone explicitly completes the round again via the paid toggle.
+
+**How it unlocks:** while locked, the toolbar's edit button is replaced with "🔓 解锁".
+Tapping it opens a password prompt using the same `EDIT_PIN` as delivery-day adjustments;
+entering it correctly clears `__locked` for everyone, live, same as paid status. Unlocking
+always requires re-entering the PIN — even on a device that already has edit mode
+remembered (`wg_edit_unlocked` in localStorage) — since settling/reopening a round is
+meant to be a deliberate act each time, not something a remembered device skips. There is
+**no auto-unlock on page reload**: the lock is shared Firestore state, so it reads the
+same on every device until someone enters the PIN.
+
+**Known edge case (rare, low-stakes, left unfixed on purpose):** if two different devices
+mark the very last two outstanding members paid at nearly the same instant — before
+either has received the other's Firestore update — the round can end up fully paid
+without auto-locking, since each device's local check still thinks the other member is
+unpaid. Nothing about money or paid-status breaks; the round just stays editable until
+someone explicitly toggles a payment again. This wasn't patched with a render-time
+recheck because that would also make the manual unlock re-lock itself instantly (since
+right after unlocking, everyone typically still shows as paid) — defeating the point of
+being able to unlock at all. Not worth the added complexity for a small group; revisit
+only if it actually causes a problem in practice.
 
 ---
 
@@ -503,3 +550,6 @@ shows the actual error message, which is the fastest way to debug it.
 **A product's icon shows the default 🛒 instead of something specific:** its Chinese
 label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
 "Product emoji icons" above) rather than hardcoding an icon into a product's `label`.
+
+**A fully-paid round won't let you add an adjustment or new buyer:** it's auto-locked
+(see A5) — tap "🔓 解锁" in the toolbar and enter the edit PIN.
