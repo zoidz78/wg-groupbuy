@@ -219,10 +219,13 @@
     margin-top: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 6px;
     background: var(--bg); font-size: 13px;
   }
-  .adjForm input, .adjForm select, .bulkPanel textarea {
+  .adjForm input:not([type="radio"]), .adjForm select, .bulkPanel textarea {
     width: 100%; margin-bottom: 8px; padding: 7px 8px; border-radius: 4px;
     border: 1px solid var(--line); background: var(--paper); color: var(--ink);
     font-size: 13px; box-sizing: border-box; font-family: inherit;
+  }
+  .adjFormRow input[type="radio"] {
+    width: auto; margin: 0; padding: 0; flex-shrink: 0;
   }
   .bulkPanel textarea {
     font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; min-height: 100px;
@@ -237,21 +240,23 @@
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
   .pinRow input { width: 140px; }
 
+  /* Print gets its own dense table layout (see renderPrintSection) instead of
+     reusing the on-screen cards, which ran to many pages per round. */
+  .printOnly { display: none; }
   @media print {
-    body { background: #fff; padding: 0; color: #000; }
-    .toolbar, .tabs, .buyTabs, .pinRow, .bulkPanel, .debugBanner,
-    .adjAddBtn, .adjForm, .unitChevron, .unitOverlay {
-      display: none !important;
-    }
-    .footNote { display: none !important; }
-    .card .footNote, .ticket .footNote { display: block !important; color: #555; } /* keep the "已按调整记录更新" / original-total notes */
-    .payBtn {
-      border: 1px solid #999; background: none !important; color: #000 !important;
-    }
-    .row, .card, .ticket { box-shadow: none; border: 1px solid #bbb; break-inside: avoid; }
-    #rows { display: block !important; }
-    #rows .row { margin-bottom: 12px; }
-    .page { max-width: 100%; }
+    body { background: #fff; padding: 8px; color: #000; }
+    .page > *:not(.printOnly) { display: none !important; }
+    .printOnly { display: block !important; }
+    .printOnly .shopName { font-size: 18px; margin-bottom: 2px; }
+    .printMeta { text-align: center; font-size: 11px; color: #333; margin-bottom: 10px; }
+    .printWarn { font-size: 10.5px; color: #7a5200; margin-bottom: 8px; text-align: center; }
+    .printSectionTitle { font-weight: 700; font-size: 12.5px; margin: 10px 0 4px; }
+    .printTable { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    .printTable th, .printTable td { border-bottom: 1px solid #ccc; padding: 2.5px 5px; text-align: left; vertical-align: top; }
+    .printTable th { font-weight: 700; border-bottom: 1.5px solid #000; }
+    .printTable tfoot td { font-weight: 700; border-top: 1.5px solid #000; border-bottom: none; }
+    .printAmt { text-align: right; font-family: "SF Mono", Menlo, Consolas, monospace; white-space: nowrap; }
+    .printStatus { text-align: center; white-space: nowrap; }
   }
 </style>
 </head>
@@ -784,6 +789,8 @@
         <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
         ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
+
+        ${renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotals)}
       `;
 
       document.querySelectorAll(".buyTab").forEach(el => {
@@ -864,6 +871,76 @@
       if (bulkJsonEl) bulkJsonEl.addEventListener("input", () => { bulkDraft = bulkJsonEl.value; });
       const bulkApplyBtn = document.getElementById("bulkApplyBtn");
       if (bulkApplyBtn) bulkApplyBtn.addEventListener("click", handleBulkApply);
+    }
+
+    // A compact "Label x3盒、Other x1盒" summary of one member's order plus any
+    // adjustments, for the dense print table — not the multi-line on-screen list.
+    function printItemsLine(m) {
+      const parts = Object.entries(m.items).map(([k, qty]) => {
+        const info = DATA.products[k];
+        if (!info) return "";
+        return info.unverified
+          ? `${info.label}x${formatQty(qty)}${unitOf(k)}(待确认)`
+          : `${info.label}x${formatQty(qty)}${unitOf(k)}`;
+      }).filter(Boolean);
+      const adjParts = adjustmentsForMember(m.name).map(a => {
+        if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
+          const info = DATA.products[a.itemKey];
+          const qtySign = a.qtyDelta >= 0 ? "+" : "";
+          return `${info.label}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`;
+        }
+        const sign = a.amountDelta >= 0 ? "+" : "";
+        return `${sign}$${a.amountDelta.toFixed(2)}${a.note ? `[${a.note}]` : ""}`;
+      });
+      return [...parts, ...adjParts].join("、") || "—";
+    }
+
+    // The only thing actually shown when printing (see the @media print rule,
+    // which hides every other direct child of .page) — a dense table instead
+    // of the on-screen cards, which ran to many pages for a real-size round.
+    function renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotalsArg) {
+      const unverifiedCount = countUnverifiedLines(members);
+      return `
+        <div class="printOnly">
+          <div class="shopHead"><h1 class="shopName">${DATA.groupName || "团购"}</h1></div>
+          <div class="printMeta">
+            ${GROUP_BUYS[activeIndex] ? (GROUP_BUYS[activeIndex].label || GROUP_BUYS[activeIndex].date) : ""}
+            ・共${members.length}人・总额$${grandTotal.toFixed(2)}・已收$${collected.toFixed(2)}・未收$${(grandTotal - collected).toFixed(2)}
+          </div>
+          ${unverifiedCount > 0 ? `<div class="printWarn">⚠️ ${unverifiedCount} 项商品价格/品种待确认，未计入总额</div>` : ""}
+          <table class="printTable">
+            <thead><tr><th>姓名</th><th>明细</th><th>金额</th><th>状态</th></tr></thead>
+            <tbody>
+              ${members.map(m => `
+                <tr>
+                  <td>${m.name}${m.isWalkin ? "（现场加购）" : ""}</td>
+                  <td>${printItemsLine(m)}</td>
+                  <td class="printAmt">$${m.total.toFixed(2)}</td>
+                  <td class="printStatus">${paidState[m.name] ? "已付" : "未付"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+            <tfoot>
+              <tr><td colspan="2">合计</td><td class="printAmt">$${grandTotal.toFixed(2)}</td><td></td></tr>
+            </tfoot>
+          </table>
+          <div class="printSectionTitle">备货清单</div>
+          <table class="printTable">
+            <thead><tr><th>口味</th><th>数量</th><th>金额</th></tr></thead>
+            <tbody>
+              ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
+                if (info.unverified) {
+                  return `<tr><td>${info.label}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
+                }
+                return `<tr><td>${info.label}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
+              }).join("")}
+            </tbody>
+            <tfoot>
+              <tr><td>合计</td><td class="printAmt">${formatUnitTotals(grandUnitTotalsArg)}</td><td class="printAmt">$${grandTotal.toFixed(2)}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
     }
 
     function renderUnitOverlay(u, breakdown) {
