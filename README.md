@@ -10,8 +10,14 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - 卡片式排版：统计信息、每位成员、备货清单分别独立成卡片，手机上
   一屏可看到 2～3 张卡片
 - 按口味/商品逐一列出每位成员的订单明细，附单项小计和个人总计
+- 每件商品名称前会自动带上对应的表情图标（🍑水蜜桃、🐔鸡肉、🥟馄
+  饨等），新商品也能根据关键词自动匹配到合适的图标，不需要逐个手
+  动设置（详见下方"商品表情图标"）
 - 一键标记付款状态（"标记已付款" / "已付款 ✓"），**所有打开此链接
   的人实时共享同一份付款状态**（详见下方"共享实时收款状态"）
+- 每位成员卡片上有 **"💬 复制付款消息"** 按钮，一键复制一段可直接
+  粘贴到微信的收款消息——包含该成员的订单明细、送货日调整说明
+  （例如短缺、退款）和应付总额（详见下方"复制付款消息"）
 - 顶部统计卡片：参团人数、各单位（盒/kg等）的数量、订单总额、已收
   款、未收款——点击"总数量（单位）"这一行，会弹出该单位下每种商品
   的具体数量与小计，点击弹窗任意处关闭
@@ -31,6 +37,8 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 | `index.html` | 整个应用程序——读取 `manifest.json` 及其引用的 `data-*.json` 文件，并通过 Firebase 读写付款状态。通常不需要改动这个文件。 |
 | `manifest.json` | 列出所有团购场次：`{ date, label, file }`。日期最新的排在最前面。 |
 | `data-<日期>.json` | 每场团购一个文件：商品、价格，以及每位成员的订单。 |
+| `product-emoji-map.json` | 关键词 → 表情图标对照表，决定每个商品名称前显示哪个图标。可以随时扩充。 |
+| `message-template.json` | "复制付款消息"按钮生成的文字模板——问候语、每行明细的措辞、结尾语等。想改消息的措辞，改这个文件就够了，不需要碰 `index.html`。 |
 
 付款状态**不**存放在仓库的任何文件里——它实时存放在 Firebase
 Firestore 中，见下方说明。
@@ -157,6 +165,42 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
    讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
    **"📋 批量导入调整"** 面板一次性套用。
 
+## 商品表情图标（`product-emoji-map.json`）
+
+每个商品名称前显示的图标，是根据商品的中文名称从 `product-emoji-map.json`
+里按关键词自动匹配出来的（例如名称里带"水蜜桃"会匹配到 🍑，带"馄饨"会
+匹配到 🥟），不需要给每个商品手动挑图标。
+
+- 如果新商品匹配不到任何关键词，会显示默认的 🛒 图标——这不是错误，只是
+  说明这个商品的名称还没有被这个表格覆盖到。
+- 想让它匹配上，把新增团购的具体商品名称发给 Claude，让它把合适的关键词
+  加进 `product-emoji-map.json`（加进已有分类，或者新增一个分类都可以），
+  再把更新后的文件上传到仓库根目录即可，`index.html` 不需要改动。
+
+## 复制付款消息（`message-template.json`）
+
+每位成员卡片上的 **"💬 复制付款消息"** 按钮，会把该成员的订单明细、任何
+送货日调整（附原因，例如"到货少一份"）和应付总额，拼成一段可以直接粘贴
+进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"标记已付款"按钮是
+两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
+导出 PDF 的留档功能也完全不受影响。
+
+示例：
+
+```
+Peter 你好，你的订单：
+🥟 招牌鲜肉馄饨 x2盒 $13.00
+🥟 鲜虾鲜肉馄饨 x1盒 $7.20
+↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
+合计：$13.70
+麻烦付款哈，谢谢！🙏
+```
+
+消息的**措辞**（问候语怎么说、每行怎么写、结尾语等）存放在
+`message-template.json` 里，和商品数据、价格、调整记录是分开的——想改
+措辞，只需要编辑这个文件再重新上传，不需要碰 `index.html`。文件里每个
+字段的说明和用法，都写在它自己的 `description` 字段里。
+
 ## 导出报告
 
 点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
@@ -197,10 +241,19 @@ chat), but works for any group buy once you swap in your own data.
   cards per screen
 - Lists each member's order itemized by flavor/product, with a
   per-item subtotal and a personal total
+- Every product name gets an emoji prefix looked up automatically by
+  keyword (🍑 for peaches, 🐔 for chicken, 🥟 for dumplings, etc.) —
+  new products get matched automatically too, no manual tagging
+  needed (see "Product emoji icons" below)
 - One-tap paid-status toggle ("标记已付款" / "已付款 ✓" — "Mark
   paid" / "Paid ✓"), and **paid status is shared live across
   everyone who opens the link** (see "Shared live payment status"
   below)
+- Each member's card has a **"💬 复制付款消息"** (copy payment
+  message) button that copies a ready-to-paste WeChat message with
+  their itemized order, any delivery-day adjustments (with the
+  reason, e.g. a shortage), and the total due (see "Copy payment
+  message" below)
 - Summary stats card: participant count, quantity per unit (box/kg/
   etc.), order total, amount collected, amount outstanding — tapping
   a "总数量（unit）" row pops up a breakdown of exactly which
@@ -224,6 +277,8 @@ chat), but works for any group buy once you swap in your own data.
 | `index.html` | The whole app — reads `manifest.json` and whichever `data-*.json` files it references, and reads/writes paid status via Firebase. You normally don't need to touch this file. |
 | `manifest.json` | Lists every group buy: `{ date, label, file }`. Most recent date first. |
 | `data-<date>.json` | One file per group buy: products, prices, and every member's order. |
+| `product-emoji-map.json` | Keyword → emoji lookup table that decides which icon shows next to each product name. Safe to extend any time. |
+| `message-template.json` | The wording used by the "copy payment message" button — greeting, per-line phrasing, closing line, etc. To change how the message reads, edit this file — `index.html` doesn't need to change. |
 
 Paid status is **not** stored in any file in this repo — it lives
 live in Firebase Firestore (see below).
@@ -363,6 +418,47 @@ a clean record of what was ordered vs. what was actually charged.
    Claude in chat and it can generate the adjustment entries as JSON
    to paste into the toolbar's **"📋 批量导入调整"** (bulk import)
    panel, applying them all at once.
+
+## Product emoji icons (`product-emoji-map.json`)
+
+The icon shown next to each product name is matched automatically by keyword
+from `product-emoji-map.json` (a name containing "水蜜桃" matches 🍑, "馄饨"
+matches 🥟, etc.) — icons don't need to be picked by hand per product.
+
+- If a new product doesn't match any keyword, it falls back to the default
+  🛒 icon — that's not a bug, it just means that product's wording isn't
+  covered by the table yet.
+- To fix that, send Claude the new round's actual product names and have it
+  add the right keywords to `product-emoji-map.json` (into an existing
+  category, or a new one), then upload the updated file to the repo root —
+  `index.html` doesn't need to change.
+
+## Copy payment message (`message-template.json`)
+
+Each member's card has a **"💬 复制付款消息"** button that assembles their
+itemized order, any delivery-day adjustments (with the reason, e.g. "到货少
+一份" for a shortage), and the total due into a message, then copies it to
+the clipboard so it can be pasted straight into WeChat. This is separate
+from the "mark paid" button — one person can sort/collect payment while
+another tracks who's paid, and the PDF export for a paper trail is
+unaffected either way.
+
+Example:
+
+```
+Peter 你好，你的订单：
+🥟 招牌鲜肉馄饨 x2盒 $13.00
+🥟 鲜虾鲜肉馄饨 x1盒 $7.20
+↳ 🥟 招牌鲜肉馄饨 -1盒（到货少一份） $-6.50
+合计：$13.70
+麻烦付款哈，谢谢！🙏
+```
+
+The message's **wording** (how the greeting reads, how each line is
+phrased, the closing line, etc.) lives in `message-template.json`, separate
+from the product data, prices, and adjustment records. To reword it, just
+edit and re-upload that file — no `index.html` changes needed. Each field's
+purpose is documented in the file's own `description` field.
 
 ## Exporting a report
 
