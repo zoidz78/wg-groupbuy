@@ -19,6 +19,10 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 - 按 全部 / 未付款 / 已付款 筛选
 - 支持多场团购，超过一场后以标签页形式切换（按日期排序）
 - 自动浅色/深色模式，手机和电脑均适配
+- 送货日调整：短缺、退款/补款、现场加购都可以在页面上直接记录，
+  金额自动重新计算（详见下方"送货日调整"）
+- 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
+  多而变成好几页
 
 ## 文件说明
 
@@ -101,12 +105,15 @@ Firestore 中，见下方说明。
       match /paidStatus/{groupBuyDate} {
         allow read, write: if true;
       }
+      match /adjustments/{groupBuyDate} {
+        allow read, write: if true;
+      }
     }
   }
   ```
 
-  这条规则只开放了 `paidStatus` 这一个 collection 的读写权限给任
-  何拥有链接的人，项目里其他数据不受影响。
+  这条规则只开放了 `paidStatus` 和 `adjustments` 这两个 collection
+  的读写权限给任何拥有链接的人，项目里其他数据不受影响。
 
 - 如果页面顶部出现红色的 🔧 提示条，说明 Firestore 读取或写入时
   出错了，提示条会显示具体的错误信息，方便排查。
@@ -118,6 +125,45 @@ GitHub Pages 的 CDN 缓存还没刷新到最新的 `index.html`——等一两�
 钟，或者用无痕/私密窗口重新打开链接（绕过缓存）即可自行恢复。如
 果等待后依然不一致，检查页面源码里是否包含 `firebase` 字样，确
 认线上确实是最新版本。
+
+## 送货日调整（短缺 / 退款补款 / 现场加购）
+
+接龙下单和实际送货之间经常会出现差异：少了一份、需要退款、或是现
+场多卖了一些。这些调整**不会**修改原始的 `data-<日期>.json`——它
+们和付款状态一样，实时存放在 Firebase Firestore 的 `adjustments`
+collection 里，每场团购一个 document，作为原始订单之外的第二层记
+录，方便随时对照"当初订了什么"和"最后实际收了多少钱"。
+
+**使用方式：**
+
+1. 点击页面底部工具栏的 **"✏️ 编辑调整"**，输入编辑密码解锁（密
+   码写在 `index.html` 脚本开头的 `EDIT_PIN` 常量里，默认是
+   `1117`，可以自行修改）。这只是防止误触的软限制，不是真正的权
+   限控制——Firestore 规则本身对拥有链接的任何人都是开放读写的，
+   和已收款状态一样。
+2. 解锁后，每位成员卡片下方会出现 **"+ 调整"** 按钮，点开后可以
+   选择：
+   - **品项数量变化**：某个商品的数量增加或减少（例如到货少一
+     份、或现场多卖一份），系统会按该商品的单价自动换算金额，不
+     需要手动心算。这也是**大宗按重量分装商品**（例如一起买1kg
+     五花肉，两人分装）的处理方式：接龙时先填一个预估数量，等实
+     际过秤后再用这个功能改成真实重量。
+   - **退款/补款（固定金额）**：不对应具体商品的一笔整额调整，
+     附上备注说明原因。
+3. 工具栏的 **"+ 新增买家"** 用于记录一位原本不在接龙名单里、纯
+   粹现场临时购买的人。
+4. 每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
+5. 如果情况比较复杂（例如很多人的订单都要调整），可以把送货情况
+   讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
+   **"📋 批量导入调整"** 面板一次性套用。
+
+## 导出报告
+
+点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
+示一份紧凑的表格版报告——不论当前的筛选状态如何，都会列出所有成
+员，附带每人的明细、金额、付款状态，以及备货清单。可以直接打印，
+或在打印对话框里选择"存为 PDF"保存文件。这个表格式排版是特意和
+屏幕上的卡片式排版分开设计的，人数较多时也不会变成好几页。
 
 ## 补充说明
 
@@ -165,6 +211,11 @@ chat), but works for any group buy once you swap in your own data.
 - Supports multiple group buys — once there's more than one, tabs
   appear (sorted by date) to switch between them
 - Automatic light/dark mode, responsive on both mobile and desktop
+- Delivery-day adjustments: shortages, refunds/surcharges, and
+  walk-in extras can all be recorded right on the page, with amounts
+  recalculated automatically (see "Delivery-day adjustments" below)
+- One-tap report export: a dense table format you can print or save
+  as a PDF, so a large round doesn't turn into several pages
 
 ## Files
 
@@ -252,12 +303,16 @@ needed.
       match /paidStatus/{groupBuyDate} {
         allow read, write: if true;
       }
+      match /adjustments/{groupBuyDate} {
+        allow read, write: if true;
+      }
     }
   }
   ```
 
-  This only opens read/write access to the `paidStatus` collection
-  for anyone with the link — nothing else in the project is exposed.
+  This only opens read/write access to the `paidStatus` and
+  `adjustments` collections for anyone with the link — nothing else
+  in the project is exposed.
 
 - If a red 🔧 banner appears at the top of the page, it means a
   Firestore read or write failed — the banner shows the specific
@@ -271,6 +326,53 @@ the old `index.html` — wait a minute or two, or reopen the link in a
 private/incognito window to bypass the cache. If it's still
 inconsistent after that, check the page source for the word
 `firebase` to confirm the live version is actually the latest one.
+
+## Delivery-day adjustments (shortages / refunds / walk-in extras)
+
+What actually gets delivered often doesn't match the original order
+exactly: something's missing, a refund is owed, or extra stuff gets
+sold on the spot. These adjustments **never modify** the original
+`data-<date>.json` — like paid status, they live in Firebase
+Firestore (an `adjustments` collection, one document per round) as a
+second layer on top of the frozen original order, so there's always
+a clean record of what was ordered vs. what was actually charged.
+
+**How to use it:**
+
+1. Tap **"✏️ 编辑调整"** (Edit adjustments) in the bottom toolbar and
+   enter the edit PIN to unlock (set via the `EDIT_PIN` constant near
+   the top of `index.html`'s script — `1117` by default; change it
+   freely). This is only a soft gate against accidental taps, not
+   real access control — the Firestore rules themselves stay open to
+   anyone with the link, same as paid status.
+2. Once unlocked, each member's card gets a **"+ 调整"** (+ Adjust)
+   button with two options:
+   - **品项数量变化** (quantity change): a product's quantity goes up
+     or down (e.g. one box missing on delivery, or an extra one sold
+     on the spot) — the dashboard computes the dollar amount from
+     that product's price automatically. This is also how to handle
+     a **bulk item split by weight** (e.g. 1kg of pork belly shared
+     between two people): log an estimated quantity at order time,
+     then correct it to the real weighed amount here once it's known.
+   - **退款/补款（固定金额）** (refund/surcharge): a flat dollar
+     adjustment not tied to any specific product, with a note.
+3. **"+ 新增买家"** (+ Add buyer) in the toolbar records someone who
+   bought on the spot but wasn't in the original order at all.
+4. Every adjustment line has a **"撤销"** (undo) link to remove it.
+5. For a messier delivery-day recap, describe what happened to
+   Claude in chat and it can generate the adjustment entries as JSON
+   to paste into the toolbar's **"📋 批量导入调整"** (bulk import)
+   panel, applying them all at once.
+
+## Exporting a report
+
+**"🖨️ 导出报告（PDF/打印）"** (Export report) opens the browser's
+print dialog with a dense, table-formatted report — every member
+regardless of the current filter, with their itemized order, amount,
+and paid status, plus the stocking list. Print it directly, or choose
+"Save as PDF" in the dialog. This table layout is deliberately
+separate from the on-screen card layout so a large round doesn't turn
+into several pages of paper.
 
 ## Notes
 
