@@ -215,6 +215,13 @@
     border: 1px dashed var(--line); border-radius: 10px; padding: 3px 10px;
     margin-top: 8px; cursor: pointer; user-select: none;
   }
+  .copyMsgBtn {
+    display: inline-block; font-size: 12.5px; color: var(--ink);
+    border: 1px solid var(--line); background: var(--bg); border-radius: 12px;
+    padding: 5px 12px; margin-top: 8px; margin-right: 6px;
+    cursor: pointer; user-select: none;
+  }
+  .copyMsgBtn.copied { background: var(--green-btn); border-color: var(--green-btn); color: white; }
   .adjForm {
     margin-top: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 6px;
     background: var(--bg); font-size: 13px;
@@ -296,6 +303,7 @@
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
     let openUnit = null; // which unit's detail overlay is currently open, if any
+    let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
 
     let editUnlocked = false;
     try { editUnlocked = localStorage.getItem("wg_edit_unlocked") === "1"; } catch (e) {}
@@ -476,6 +484,60 @@
       return out;
     }
 
+    // Builds the plain-text WeChat message for one member — their itemized
+    // order, any shortage/refund/extra adjustments (with the reason, so the
+    // total doesn't look arbitrary), and the final amount due. Meant to be
+    // copied and pasted straight into a WeChat DM or the group chat; never
+    // sent automatically, so it's fine if the organizer wants to hand-edit
+    // it (e.g. to append payment/QR info) before sending.
+    function buildMemberMessage(m) {
+      const gb = GROUP_BUYS[activeIndex];
+      const lines = [];
+      lines.push(`【${DATA.groupName || "团购"}】${gb ? (gb.label || gb.date) : ""}`);
+      lines.push(`${m.name} 你好，你的订单：`);
+      Object.entries(m.items).forEach(([k, qty]) => {
+        const info = DATA.products[k];
+        if (!info) return;
+        const unverified = isUnverified(k);
+        const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
+        lines.push(`${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)} ${amtText}${unverified ? "（缺失/待确认）" : ""}`);
+      });
+      adjustmentsForMember(m.name).forEach(a => {
+        const sign = a.amountDelta >= 0 ? "+" : "";
+        if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
+          const info = DATA.products[a.itemKey];
+          const qtySign = a.qtyDelta >= 0 ? "+" : "";
+          lines.push(`↳ ${emojiLabel(info)} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `（${a.note}）` : ""} ${sign}$${a.amountDelta.toFixed(2)}`);
+        } else {
+          lines.push(`↳ ${a.note || "退款/补款"} ${sign}$${a.amountDelta.toFixed(2)}`);
+        }
+      });
+      lines.push(`合计：$${m.total.toFixed(2)}`);
+      lines.push(paidState[m.name] ? "已收到你的付款，谢谢！🙏" : "麻烦付款哈，谢谢！🙏");
+      return lines.join("\n");
+    }
+
+    // navigator.clipboard needs a secure context + user gesture, both true
+    // here (GitHub Pages is https, this runs from a tap), but falls back to
+    // the old textarea+execCommand trick for any browser that lacks it.
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(() => legacyCopyToClipboard(text));
+      }
+      return Promise.resolve(legacyCopyToClipboard(text));
+    }
+    function legacyCopyToClipboard(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
     // Sums quantities per unit type (e.g. {"盒": 45, "kg": 3.5}) instead of
     // blindly adding boxes and kilos together into one meaningless number.
     function unitTotals(itemsList) {
@@ -526,6 +588,7 @@
           showBulkPanel = false;
           bulkError = "";
           bulkDraft = "";
+          copiedFor = null;
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -740,6 +803,7 @@
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
+              <div class="copyMsgBtn${copiedFor === m.name ? " copied" : ""}" data-name="${m.name}">${copiedFor === m.name ? "已复制 ✓" : "💬 复制付款消息"}</div>
               ${editMode ? `<div class="adjAddBtn" data-member="${m.name}">${openAdjustFormFor === m.name ? "取消调整" : "+ 调整"}</div>` : ""}
               ${editMode && openAdjustFormFor === m.name ? renderAdjForm(m.name) : ""}
             </div>
@@ -834,6 +898,20 @@
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
 
+      document.querySelectorAll(".copyMsgBtn").forEach(el => {
+        el.addEventListener("click", () => {
+          const name = el.dataset.name;
+          const member = members.find(mm => mm.name === name);
+          if (!member) return;
+          copyTextToClipboard(buildMemberMessage(member)).then(() => {
+            copiedFor = name;
+            render();
+            setTimeout(() => {
+              if (copiedFor === name) { copiedFor = null; render(); }
+            }, 1500);
+          });
+        });
+      });
       document.querySelectorAll(".adjAddBtn").forEach(el => {
         el.addEventListener("click", () => {
           const target = el.dataset.member;
