@@ -626,3 +626,18 @@ label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
 
 **A fully-paid round won't let you add an adjustment or new buyer:** it's auto-locked
 (see A5) — tap "🔓 解锁" in the toolbar and enter the edit PIN.
+
+**The whole page is blank/frozen and nothing is clickable, with repeated
+`TypeError: ... amountDelta.toFixed` (or similar) errors in the browser console:**
+a malformed entry exists in that round's `adjustments/{date}` Firestore doc — missing
+a field (`amountDelta`, `qtyDelta`, or `actualGrams`) the render code expects for its
+type. Because the whole page renders as one big template string, one bad entry
+throws mid-render and aborts everything before any button gets wired up — this is
+why it looks fully broken rather than just showing one broken row. Fixed defensively
+in `index.html`: `isValidAdjustmentShape()` filters out anything malformed before it
+ever reaches a `.toFixed()`/`formatQty()` call, and a "🔧 发现 N 条调整记录格式有问题"
+banner appears with a one-tap "点击清理" button (in edit mode) that deletes the bad
+entries via `cleanupInvalidAdjustments()` — no Firebase console needed. If this ever
+recurs, it means something wrote a non-conforming entry into `adjustments` (a bad
+manual Firestore edit, or a bug in whatever wrote it) — the cleanup button treats the
+symptom; worth checking what wrote the entry if it keeps happening.
