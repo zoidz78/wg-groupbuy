@@ -137,7 +137,6 @@ branch → `main` / root）。推送到 `main` 分支后，线上页面会在一
 
 # WG Group Buy — Payment Collection Dashboard
 
-*(English translation of the above)*
 
 A simple, self-hosted, receipt-style dashboard for tracking group-buy
 orders and payment status. Built for WG团购群 (the "WG Group Buy"
