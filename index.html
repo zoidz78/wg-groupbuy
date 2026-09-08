@@ -609,12 +609,50 @@
       return n;
     }
 
+    // Guards every adjustment entry against the exact fields the rest of the
+    // code assumes are present before doing math or calling .toFixed() on
+    // them — a hand-edited Firestore entry, a bad paste into the bulk-import
+    // panel some other way, or a future schema change could otherwise leave
+    // one malformed entry that crashes rendering for every single visitor
+    // (the whole page is one big template string, so one thrown error while
+    // building it aborts the entire render — nothing gets displayed or wired
+    // up). Anything failing this check is silently excluded from
+    // adjustmentsForMember() below rather than ever reaching a `.toFixed()`
+    // call; see countInvalidAdjustments()/renderInvalidAdjustmentsBanner()
+    // for how it's surfaced instead of just vanishing unexplained.
+    function isValidAdjustmentShape(a) {
+      if (!a || typeof a !== "object" || !a.member) return false;
+      if (a.type === "weight") return typeof a.actualGrams === "number";
+      if (a.type === "item") return typeof a.qtyDelta === "number" && typeof a.amountDelta === "number";
+      return typeof a.amountDelta === "number"; // "credit" and anything else
+    }
+
     // All adjustment entries for one member, oldest first.
     function adjustmentsForMember(name) {
       return Object.entries(adjustments)
-        .filter(([id, e]) => e.member === name)
+        .filter(([id, e]) => e && e.member === name && isValidAdjustmentShape(e))
         .map(([id, e]) => ({ id, ...e }))
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    }
+
+    // Every malformed entry across the whole round (any member), so it can
+    // be surfaced in a banner and cleaned up in one tap instead of silently
+    // disappearing with no trace.
+    function invalidAdjustmentEntries() {
+      return Object.entries(adjustments).filter(([id, e]) => e && e.member && !isValidAdjustmentShape(e));
+    }
+
+    async function cleanupInvalidAdjustments(dateKey) {
+      const bad = invalidAdjustmentEntries();
+      if (!bad.length) return;
+      const patch = {};
+      bad.forEach(([id]) => { patch[id] = deleteField(); });
+      try {
+        await setDoc(adjustmentsDocRef(dateKey), patch, { merge: true });
+      } catch (e) {
+        storageDebug = `清理出错：${e.message}`;
+      }
+      render();
     }
     // Net dollar effect of a member's adjustments (shortages/refunds/extras).
     function adjustmentTotal(name) {
@@ -1067,6 +1105,8 @@
         return true;
       });
 
+      const badAdjustments = invalidAdjustmentEntries();
+
       app.innerHTML = `
         <div class="shopHead">
           <h1 class="shopName">${DATA.groupName || "团购"}</h1>
@@ -1084,6 +1124,12 @@
 
         ${countUnverifiedLines(members) > 0 ? `
           <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
+        ` : ""}
+
+        ${badAdjustments.length > 0 ? `
+          <div class="warnBanner">🔧 发现 ${badAdjustments.length} 条调整记录格式有问题，已自动忽略（不影响其他数据显示）。
+            ${editMode ? `<span class="adjUndo" id="cleanupInvalidBtn">点击清理</span>` : "解锁编辑模式后可以清理。"}
+          </div>
         ` : ""}
 
         ${roundLocked ? `
@@ -1360,6 +1406,12 @@
         });
         if (Object.keys(patch).length === 0) { unitsSaveMsg = "没有改动"; render(); return; }
         saveMemberUnits(patch);
+      });
+
+      const cleanupInvalidBtn = document.getElementById("cleanupInvalidBtn");
+      if (cleanupInvalidBtn) cleanupInvalidBtn.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        cleanupInvalidAdjustments(GROUP_BUYS[activeIndex].date);
       });
     }
 
