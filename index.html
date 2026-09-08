@@ -56,6 +56,11 @@
   }
 
   .shopHead { text-align: center; margin-bottom: 18px; }
+  .debugBanner {
+    background: #222; color: #f88; font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; padding: 8px 10px; border-radius: 6px; margin: 0 0 14px;
+    word-break: break-all; line-height: 1.5;
+  }
   .shopName {
     font-family: Georgia, "Iowan Old Style", "Songti SC", serif;
     font-size: 26px;
@@ -192,7 +197,21 @@
 <body>
   <div class="page" id="app"></div>
 
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAmfejtmHiICRpYbQsnSGfzDrq7qkWendo",
+      authDomain: "wg-group-buy.firebaseapp.com",
+      projectId: "wg-group-buy",
+      storageBucket: "wg-group-buy.firebasestorage.app",
+      messagingSenderId: "373350678794",
+      appId: "1:373350678794:web:4308b6043bd5c74f64baf3"
+    };
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+
     const MANIFEST_URL = "./manifest.json";
     let GROUP_BUYS = [];
     let activeIndex = 0;
@@ -201,24 +220,42 @@
     let filter = "all";
     let openUnit = null; // which unit's detail overlay is currently open, if any
 
-    function currentSourceKey() {
-      const gb = GROUP_BUYS[activeIndex];
-      return gb ? gb.file : "current";
+    let unsubscribePaidState = null;
+    let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
+
+    function paidDocRef(dateKey) {
+      return doc(db, "paidStatus", dateKey);
     }
 
-    function storageKey() {
-      return "groupbuy_paid_" + currentSourceKey();
+    // Subscribes to live updates for this group buy's paid status. Every
+    // change — from this browser or anyone else's — re-renders automatically,
+    // so the dashboard stays in sync across everyone with the link.
+    function subscribeToPaidState(dateKey) {
+      if (unsubscribePaidState) { unsubscribePaidState(); unsubscribePaidState = null; }
+      unsubscribePaidState = onSnapshot(
+        paidDocRef(dateKey),
+        (snap) => {
+          paidState = snap.exists() ? snap.data() : {};
+          storageDebug = "";
+          render();
+        },
+        (err) => {
+          storageDebug = `Firestore 读取出错：${err.message}`;
+          paidState = {};
+          render();
+        }
+      );
     }
 
-    function loadPaidState() {
+    // Writes just the one member's field, so two people tapping different
+    // rows at the same time can't clobber each other's change.
+    async function togglePaid(dateKey, name) {
       try {
-        const raw = localStorage.getItem(storageKey());
-        paidState = raw ? JSON.parse(raw) : {};
-      } catch (e) { paidState = {}; }
-    }
-
-    function savePaidState() {
-      try { localStorage.setItem(storageKey(), JSON.stringify(paidState)); } catch (e) {}
+        await setDoc(paidDocRef(dateKey), { [name]: !paidState[name] }, { merge: true });
+      } catch (e) {
+        storageDebug = `保存出错：${e.message}`;
+        render();
+      }
     }
 
     function cost(items) {
@@ -279,7 +316,12 @@
       const gb = GROUP_BUYS[index];
       fetch(gb.file)
         .then(r => r.json())
-        .then(json => { DATA = json; loadPaidState(); filter = "all"; openUnit = null; render(); });
+        .then(json => {
+          DATA = json;
+          filter = "all";
+          openUnit = null;
+          subscribeToPaidState(gb.date);
+        });
     }
 
     function render() {
@@ -385,13 +427,15 @@
           </div>
         </div>
 
+        ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
+
         <div class="toolbar">
           <label class="toolBtn">📂 导入新订单（JSON）
             <input type="file" id="fileInput" accept="application/json">
           </label>
           <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
         </div>
-        <p class="footNote">付款状态仅保存在此浏览器中。新增团购请在 manifest.json 中添加条目。</p>
+        <p class="footNote">付款状态实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
         ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
       `;
@@ -404,10 +448,7 @@
       });
       document.querySelectorAll(".payBtn").forEach(el => {
         el.addEventListener("click", () => {
-          const name = el.dataset.name;
-          paidState[name] = !paidState[name];
-          savePaidState();
-          render();
+          togglePaid(GROUP_BUYS[activeIndex].date, el.dataset.name);
         });
       });
       document.querySelectorAll(".unitRow").forEach(el => {
@@ -454,8 +495,8 @@
           const parsed = JSON.parse(evt.target.result);
           if (!parsed.products || !parsed.orders) throw new Error("Missing products or orders");
           DATA = parsed;
-          loadPaidState();
-          render();
+          if (GROUP_BUYS[activeIndex]) subscribeToPaidState(GROUP_BUYS[activeIndex].date);
+          else render();
         } catch (err) {
           alert("无法读取此文件：" + err.message);
         }
@@ -487,7 +528,7 @@
         reader.onload = (evt) => {
           GROUP_BUYS = [];
           DATA = JSON.parse(evt.target.result);
-          loadPaidState();
+          paidState = {};
           render();
         };
         reader.readAsText(file);
@@ -503,7 +544,7 @@
         activeIndex = 0;
         return fetch(GROUP_BUYS[0].file).then(r => r.json());
       })
-      .then(json => { DATA = json; loadPaidState(); render(); })
+      .then(json => { DATA = json; subscribeToPaidState(GROUP_BUYS[0].date); })
       .catch(() => showUploadFallback("未找到 manifest.json 或数据文件"));
   </script>
 </body>
