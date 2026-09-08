@@ -270,17 +270,24 @@ mapping to:
   procurement numbers reflect reality), while money always comes from `amountDelta`
   specifically — the two are computed separately on purpose.
 
-**Grams-to-quantity helper for bagged/bulk items (added 2026-09-08).** Some
-products are ordered in fractional package units but, when a bag gets split
-between two or more people (e.g. one person orders 0.5包 of `tangerine_seedless`
-"无籽蜜橘(2kg/包)"), the split happens by weighing, not by literally halving the
-bag — so the weight handed over rarely lands exactly on the ordered fraction. The
-fix for that is still an ordinary `type: "item"` adjustment (NOT `type: "weight"`,
-which is annotation-only and never touches money — see above), but figuring out
-the right `qtyDelta` from a scale reading in grams used to require hand-converting
-grams → kg → fraction-of-a-package, and typing the grams straight into the
-qtyDelta field instead (its unit is always the product's own unit — 包/份/etc.,
-never grams) silently produced nonsense (e.g. "1200" read as "1200 more bags").
+**Grams-to-quantity helper for weight-priced items (added 2026-09-08, broadened
+same day).** Two distinct pain points, same fix. (1) Bulk produce sold in
+pre-weighed bags is ordered in fractional package units, but when a bag gets
+split between two or more people (e.g. one person orders 0.5包 of
+`tangerine_seedless` "无籽蜜橘(2kg/包)") the split happens by weighing, not by
+literally halving the bag — so the weight handed over rarely lands exactly on
+the ordered fraction. (2) Plain `unit: "kg"` produce (脆甜大荔冬枣, 普罗旺斯番茄,
+etc.) has the same problem in miniature: the field is denominated in kg, but a
+kitchen scale reads grams, so someone will eventually type the grams reading
+straight into a kg field (an early version of this feature only covered case 1
+and a user did exactly this for case 2 the same day it shipped). Either way the
+fix is still an ordinary `type: "item"` adjustment (NOT `type: "weight"`, which
+is annotation-only and never touches money — see above); the only thing that
+needed solving was converting a grams reading into the right number for
+whatever unit that product happens to use, without the admin doing the
+arithmetic (or the field silently accepting the raw gram count as if it were
+that unit — e.g. "1200" read as "1200 more bags", or "600" read as "600 more
+kilograms").
 
 To fix this without inventing a new adjustment type (which would have meant
 touching all four consumer functions again — `adjustmentLineHtml()`,
@@ -288,15 +295,18 @@ touching all four consumer functions again — `adjustmentLineHtml()`,
 Troubleshooting below), the "品项数量变化" form gained an optional helper input
 instead:
 
-- `gramsPerUnitFromLabel(key)` extracts the per-unit weight straight out of the
-  product's own `label` text via regex (`/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i`)
-  — e.g. "无籽蜜橘(2kg/包)" → 2000 (grams). No new data field to keep in sync;
-  it just reads what's already in `data-<date>.json`. Returns `null` for products
-  whose label doesn't encode a single per-unit weight (count-based items like
-  "红心奇异果(2盒/份)", or multi-pack items like "娃娃菜(300g*2包/份)" where the
-  regex deliberately doesn't match — those aren't reweighed-bulk items).
+- `gramsPerUnit(key)` returns grams-per-unit for any weight-priced product, or
+  `null` for anything else (count-based items like 盒/份/粒/只/瓶/袋 just use
+  the plain qty field, unchanged). Two cases: `unit === "kg"` → `1000`,
+  trivially; otherwise it extracts a per-unit weight straight out of the
+  product's own `label` text via regex
+  (`/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i`) — e.g. "无籽蜜橘(2kg/包)" →
+  `2000`. No new data field to keep in sync either way; it just reads what's
+  already in `data-<date>.json`. The regex deliberately doesn't match
+  count-based parenthetical labels ("红心奇异果(2盒/份)") or multi-pack ones
+  ("娃娃菜(300g*2包/份)") — those aren't reweighed-bulk items.
 - When the selected product in the "品项数量变化" form has a non-null
-  `gramsPerUnitFromLabel`, an extra "或输入实际到手重量（克）" input appears.
+  `gramsPerUnit`, an extra "或输入实际到手重量（克）" input appears.
   Typing a grams value there calls `handleAdjGramsHelperInput(memberKey, value)`,
   which: rounds down to the nearest 100g (`roundGramsDown` — the house billing
   rule, in the member's favor), divides by the per-unit gram weight to get the

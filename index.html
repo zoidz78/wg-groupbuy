@@ -381,7 +381,7 @@
     // via Firestore mid-edit, or by switching the item/credit radio.
     let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
     // Live preview text for the "按实际重量换算" helper on the 品项数量变化
-    // form (see gramsPerUnitFromLabel below) — recomputed on every keystroke
+    // form (see gramsPerUnit below) — recomputed on every keystroke
     // in the grams-helper input, cleared whenever the form resets.
     let adjGramsPreview = "";
     let showBulkPanel = false;
@@ -610,20 +610,29 @@
       return (DATA.products[key] && DATA.products[key].unit) || "盒";
     }
 
-    // Some products (bulk produce sold in pre-weighed bags, e.g. "无籽蜜橘
-    // (2kg/包)") are ordered by 包/份/etc. but, when a bag is split between
-    // members, actually portioned out by weighing rather than by fraction of
-    // a bag — so the weight received doesn't land exactly on the ordered
-    // fraction. This reads the per-unit weight straight out of the product's
-    // own label text (no separate data field to keep in sync) so the
-    // adjustment form can offer a "type the actual grams" shortcut instead of
-    // making someone hand-convert grams to a 包 fraction (see the
-    // "按实际重量换算" helper in renderAdjForm/handleAdjGramsHelperInput).
-    // Returns grams-per-unit, or null when the label doesn't encode one
-    // (most products aren't sold this way and just use the plain qty field).
-    function gramsPerUnitFromLabel(key) {
+    // Any product priced by weight can have its actual-weight-received
+    // measurement (in grams, straight off a scale) converted into the right
+    // quantity for the "品项数量变化" field. Two shapes of weight-priced
+    // product exist in this data:
+    //   - unit: "kg" directly (e.g. 脆甜大荔冬枣, 普罗旺斯番茄) — ordered and
+    //     billed by the kilogram, so 1 unit = 1000g, trivially.
+    //   - bulk produce sold in pre-weighed bags whose label embeds the pack
+    //     weight (e.g. "无籽蜜橘(2kg/包)") — ordered by 包/份/etc., but when
+    //     a bag is split between members it's actually portioned out by
+    //     weighing rather than by fraction of a bag, so the weight received
+    //     doesn't land exactly on the ordered fraction.
+    // Either way the admin only ever has a grams reading from a scale, and
+    // hand-converting that to kg (easy) or to a fraction of a multi-kg bag
+    // (error-prone — see the "无籽蜜橘" mixup that prompted this) shouldn't
+    // be necessary. Returns grams-per-unit for either shape, or null when
+    // neither applies (count-based items like 盒/份/粒/只/瓶/袋 aren't sold
+    // by weight at all and just use the plain qty field) — see the "或输入
+    // 实际到手重量（克）" helper in renderAdjForm/handleAdjGramsHelperInput.
+    function gramsPerUnit(key) {
       const info = DATA.products[key];
-      if (!info || !info.label) return null;
+      if (!info) return null;
+      if (info.unit === "kg") return 1000;
+      if (!info.label) return null;
       const m = info.label.match(/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i);
       if (!m) return null;
       const value = parseFloat(m[1]);
@@ -988,7 +997,7 @@
               }).join("")}
             </select>
             <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
-            ${!isWalkin && gramsPerUnitFromLabel(selectedItemKey) ? `
+            ${!isWalkin && gramsPerUnit(selectedItemKey) ? `
               <input type="number" id="adjGramsHelper" data-member="${memberKey}" placeholder="或输入实际到手重量（克），自动换算并按100g向下取整，例如 1230" step="any" value="${escapeHtml(adjDraft.gramsHelper)}">
               <div class="adjGramsPreview" id="adjGramsPreview" ${adjGramsPreview ? "" : "hidden"}>${escapeHtml(adjGramsPreview)}</div>
             ` : ""}
@@ -1014,10 +1023,11 @@
     }
 
     // Live-converts the "实际到手重量" grams helper into the qtyDelta field
-    // for bagged/bulk items (see gramsPerUnitFromLabel), so an admin can type
-    // what the scale actually showed instead of hand-computing a 包 fraction.
-    // Walk-ins (memberKey === "__walkin__") don't have a fixed base order
-    // yet, so the helper only applies to existing members.
+    // for any weight-priced item (see gramsPerUnit — plain kg items and
+    // bagged/bulk items alike), so an admin can type what the scale actually
+    // showed instead of hand-computing kg or a 包 fraction. Walk-ins
+    // (memberKey === "__walkin__") don't have a fixed base order yet, so the
+    // helper only applies to existing members.
     //
     // Deliberately does NOT call render(): render() rebuilds the whole page
     // via app.innerHTML, which would tear down and recreate this very input
@@ -1029,7 +1039,7 @@
     function handleAdjGramsHelperInput(memberKey, rawValue) {
       adjDraft.gramsHelper = rawValue;
       const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
-      const perUnit = gramsPerUnitFromLabel(itemKey);
+      const perUnit = gramsPerUnit(itemKey);
       const grams = parseFloat(rawValue);
       const qtyEl = document.getElementById("adjQtyDelta");
       const previewEl = document.getElementById("adjGramsPreview");
@@ -1431,7 +1441,7 @@
       if (adjItemKeyEl) adjItemKeyEl.addEventListener("change", () => {
         adjDraft.itemKey = adjItemKeyEl.value;
         // Switching products changes whether the grams-helper shortcut even
-        // applies (see gramsPerUnitFromLabel) — a select's "change" is a
+        // applies (see gramsPerUnit) — a select's "change" is a
         // discrete action, not continuous typing, so re-rendering here is
         // safe (unlike the text inputs above, which never render() on
         // "input" to avoid losing cursor position mid-keystroke).
