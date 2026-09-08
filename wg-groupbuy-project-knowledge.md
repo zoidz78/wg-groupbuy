@@ -22,7 +22,7 @@ Files in this project:
 | `index.html` | The whole app. Generic — never hardcodes a group's data, only the Firebase project it talks to. Rarely needs editing. |
 | `manifest.json` | Lists every round: `{ date, label, file }`, newest first. |
 | `data-<date>.json` | One per round: `groupName`, `products`, `orders`. |
-| `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` collection only). |
+| `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` and `adjustments` collections only). |
 | `README.md` | User-facing docs (Chinese + English) for this specific deployment. |
 
 There used to be a Claude-artifact version (`.jsx`, `window.storage`-based) — abandoned
@@ -135,6 +135,75 @@ list, or too ambiguous to price confidently, don't drop it or silently guess:
 
 ---
 
+## A2. Delivery-day adjustments (shortages, refunds, walk-in extras)
+
+On delivery day, reality often doesn't match the original 接龙: some items are missing
+or short, some need a refund, and sometimes extra stuff gets sold on the spot. This is
+handled as a **second, live layer on top of the frozen original order** — never by
+editing `data-<date>.json` itself, so there's always a clean record of what was
+originally ordered vs. what actually got charged.
+
+**Where it lives:** a Firestore collection `adjustments/{date}` (same live-sync pattern
+as `paidStatus`), one document per round. Each field is an auto-generated entry ID
+mapping to:
+
+```json
+{
+  "member": "Peter",
+  "type": "item",
+  "itemKey": "sig",
+  "qtyDelta": -1,
+  "amountDelta": -6.5,
+  "note": "到货少一份",
+  "ts": 1234567890
+}
+```
+
+- `type: "item"` — a quantity change to an existing product line (negative = shortage,
+  positive = extra sold). `amountDelta` is computed and frozen at entry time
+  (`price × qtyDelta`), so a later price change never retroactively alters it.
+- `type: "credit"` — a flat dollar adjustment not tied to any product (a refund or
+  surcharge with just a note + `amountDelta`, no `itemKey`/`qtyDelta`).
+- A member's final amount due = their original item total + the sum of their
+  `amountDelta`s. The dashboard shows this automatically; nothing else needs updating.
+- A brand-new `member` name (someone who bought on the spot but wasn't in the original
+  接龙) automatically becomes its own row — no need to touch `data-<date>.json` for that.
+- Quantity-type adjustments also feed into the stocking list / unit totals (so
+  procurement numbers reflect reality), while money always comes from `amountDelta`
+  specifically — the two are computed separately on purpose.
+
+**Two ways entries get written to that same Firestore doc:**
+
+1. **Live in-dashboard editing.** The organizer taps "✏️ 编辑调整" in the toolbar,
+   enters the PIN (`EDIT_PIN` constant near the top of `index.html`'s script — currently
+   `"1117"`; this is a soft UI gate only, not real security, since Firestore rules stay
+   open to anyone with the link, same as paid-status), then gets a "+ 调整" button per
+   member (and a "+ 新增买家" button for walk-ins) that opens a small inline form. Saves
+   go straight to Firestore — instant, no GitHub push needed.
+2. **Chat-mediated bulk.** For a messy delivery-day recap pasted into a new chat, parse
+   it into the same entry shape (member/type/itemKey?/qtyDelta?/amountDelta/note) as a
+   JSON array, and give it to the user to paste into the dashboard's "📋 批量导入调整"
+   panel (visible once edit mode is unlocked) — clicking "应用调整" writes them all to
+   Firestore in one go. Example payload to hand the user:
+   ```json
+   [
+     {"member": "Peter", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
+     {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"}
+   ]
+   ```
+   When computing `amountDelta` for an `"item"` type entry yourself, multiply by that
+   product's `price` from the round's `data-<date>.json` — don't leave it for the page
+   to infer, since the page trusts whatever `amountDelta` you send.
+
+Entries can be undone individually from the dashboard (an "撤销" link next to each
+adjustment line, visible in edit mode) — this deletes just that one Firestore field.
+
+### Suggested first message for this ask
+
+> "Delivery day for [date]: [describe what happened — shortages, refunds, extra sales]"
+
+---
+
 ## B. Setting up a brand-new dashboard from scratch (a different group)
 
 `index.html` is fully generic — it only knows about `manifest.json`, the
@@ -155,7 +224,8 @@ independent dashboard for a different group:
    secrets and are fine to be public — access control comes from the security rules,
    not from hiding the config.
 5. **Set Firestore security rules** (Firebase console → Firestore Database → Rules) —
-   same shape as this project's `firestore.rules`, scoped only to `paidStatus`:
+   copy this project's `firestore.rules` as-is (scoped to `paidStatus` and
+   `adjustments`, nothing else):
    ```
    rules_version = '2';
    service cloud.firestore {
@@ -163,9 +233,14 @@ independent dashboard for a different group:
        match /paidStatus/{groupBuyDate} {
          allow read, write: if true;
        }
+       match /adjustments/{groupBuyDate} {
+         allow read, write: if true;
+       }
      }
    }
    ```
+   Also consider changing the `EDIT_PIN` constant near the top of `index.html`'s script
+   if you don't want to share the same PIN across dashboards for different groups.
 6. **Create the first round's files**: `manifest.json` with one entry, and
    `data-<date>.json` with that group's `groupName`, `products`, and `orders` (schema
    above in section A).

@@ -7,5 +7,12 @@ service cloud.firestore {
     match /paidStatus/{groupBuyDate} {
       allow read, write: if true;
     }
+    // Delivery-day adjustments (shortages, refunds, walk-in extras) — same
+    // open-access model as paidStatus above. The dashboard's own "编辑调整"
+    // PIN is a soft UI gate only, not real access control; this rule is what
+    // actually governs who can write.
+    match /adjustments/{groupBuyDate} {
+      allow read, write: if true;
+    }
   }
 }

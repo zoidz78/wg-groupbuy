@@ -131,6 +131,13 @@
     font-size: 14px; color: var(--muted); padding: 4px 0;
   }
   .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
+  .itemLine.adjustment { font-style: italic; }
+  .itemLine.adjustment .itemAmt { display: flex; align-items: center; gap: 6px; font-style: normal; }
+  .adjUndo {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 11px; color: var(--red); cursor: pointer; text-decoration: underline;
+    font-style: normal;
+  }
   .rowTotalLine {
     display: flex; justify-content: space-between;
     margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
@@ -151,16 +158,16 @@
     padding: 2px 6px;
     font-weight: 600;
   }
-  .unverifiedTag {
+  .unverifiedTag, .walkinTag {
     display: inline-block;
     font-size: 10.5px;
     font-weight: 700;
-    background: var(--warn-tag-bg);
-    color: var(--warn-tag-text);
     border-radius: 4px;
     padding: 1px 5px;
     margin-left: 6px;
   }
+  .unverifiedTag { background: var(--warn-tag-bg); color: var(--warn-tag-text); }
+  .walkinTag { background: var(--line); color: var(--muted); }
   .warnBanner {
     background: var(--warn-bg);
     border: 1px solid var(--warn-border);
@@ -192,6 +199,30 @@
   }
   .toolBtn input { display: none; }
   .footNote { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  .adjAddBtn {
+    display: inline-block; font-size: 12px; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 10px; padding: 3px 10px;
+    margin-top: 8px; cursor: pointer; user-select: none;
+  }
+  .adjForm {
+    margin-top: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 6px;
+    background: var(--bg); font-size: 13px;
+  }
+  .adjForm input, .adjForm select, .bulkPanel textarea {
+    width: 100%; margin-bottom: 8px; padding: 7px 8px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    font-size: 13px; box-sizing: border-box; font-family: inherit;
+  }
+  .bulkPanel textarea {
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; min-height: 100px;
+  }
+  .adjFormRow { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; font-size: 12.5px; }
+  .adjFormRow label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .adjFormBtns { display: flex; gap: 8px; }
+  .adjError { color: var(--red); font-size: 12px; margin: 2px 0 8px; }
+  .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
+  .pinRow input { width: 140px; }
 </style>
 </head>
 <body>
@@ -199,7 +230,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAmfejtmHiICRpYbQsnSGfzDrq7qkWendo",
@@ -212,19 +243,57 @@
     const firebaseApp = initializeApp(firebaseConfig);
     const db = getFirestore(firebaseApp);
 
+    // Soft gate only — Firestore rules stay open to anyone with the link (same
+    // trust model as paid-status today). This just stops accidental taps.
+    // Change this before sharing the link if you want a different passcode.
+    const EDIT_PIN = "1117";
+
     const MANIFEST_URL = "./manifest.json";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     let DATA = null;
     let paidState = {};
+    let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
     let openUnit = null; // which unit's detail overlay is currently open, if any
 
+    let editUnlocked = false;
+    try { editUnlocked = localStorage.getItem("wg_edit_unlocked") === "1"; } catch (e) {}
+    let editMode = false;
+    let showPinInput = false;
+    let pinError = "";
+    let pinDraft = "";
+    let openAdjustFormFor = null; // a member name, "__walkin__", or null
+    let adjFormType = "item";
+    let adjFormError = "";
+    // Draft values for the currently-open adjustment form. Kept in JS state
+    // (not just read from the DOM at submit time) so an in-progress edit
+    // survives a re-render triggered by someone else's live update arriving
+    // via Firestore mid-edit, or by switching the item/credit radio.
+    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "" };
+    let showBulkPanel = false;
+    let bulkError = "";
+    let bulkDraft = "";
+
     let unsubscribePaidState = null;
+    let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
 
     function paidDocRef(dateKey) {
       return doc(db, "paidStatus", dateKey);
+    }
+    function adjustmentsDocRef(dateKey) {
+      return doc(db, "adjustments", dateKey);
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function resetAdjDraft() {
+      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "" };
+      adjFormType = "item";
+      adjFormError = "";
     }
 
     // Subscribes to live updates for this group buy's paid status. Every
@@ -247,6 +316,24 @@
       );
     }
 
+    // Same live-sync pattern as paid status, for delivery-day adjustments
+    // (shortages, refunds, walk-in extras) — see adjustmentsForMember().
+    function subscribeToAdjustments(dateKey) {
+      if (unsubscribeAdjustments) { unsubscribeAdjustments(); unsubscribeAdjustments = null; }
+      unsubscribeAdjustments = onSnapshot(
+        adjustmentsDocRef(dateKey),
+        (snap) => {
+          adjustments = snap.exists() ? snap.data() : {};
+          render();
+        },
+        (err) => {
+          storageDebug = `调整记录读取出错：${err.message}`;
+          adjustments = {};
+          render();
+        }
+      );
+    }
+
     // Writes just the one member's field, so two people tapping different
     // rows at the same time can't clobber each other's change.
     async function togglePaid(dateKey, name) {
@@ -254,6 +341,39 @@
         await setDoc(paidDocRef(dateKey), { [name]: !paidState[name] }, { merge: true });
       } catch (e) {
         storageDebug = `保存出错：${e.message}`;
+        render();
+      }
+    }
+
+    function newEntryId(salt) {
+      return `${Date.now()}_${salt != null ? salt + "_" : ""}${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    async function saveAdjustment(dateKey, entry) {
+      try {
+        await setDoc(adjustmentsDocRef(dateKey), { [newEntryId()]: entry }, { merge: true });
+      } catch (e) {
+        storageDebug = `调整保存出错：${e.message}`;
+        render();
+      }
+    }
+
+    async function deleteAdjustment(dateKey, id) {
+      try {
+        await setDoc(adjustmentsDocRef(dateKey), { [id]: deleteField() }, { merge: true });
+      } catch (e) {
+        storageDebug = `调整删除出错：${e.message}`;
+        render();
+      }
+    }
+
+    async function bulkApplyAdjustments(dateKey, entries) {
+      const patch = {};
+      entries.forEach((entry, i) => { patch[newEntryId(i)] = entry; });
+      try {
+        await setDoc(adjustmentsDocRef(dateKey), patch, { merge: true });
+      } catch (e) {
+        storageDebug = `批量调整出错：${e.message}`;
         render();
       }
     }
@@ -274,6 +394,32 @@
       members.forEach(m => Object.keys(m.items).forEach(k => { if (isUnverified(k)) n++; }));
       return n;
     }
+
+    // All adjustment entries for one member, oldest first.
+    function adjustmentsForMember(name) {
+      return Object.entries(adjustments)
+        .filter(([id, e]) => e.member === name)
+        .map(([id, e]) => ({ id, ...e }))
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    }
+    // Net dollar effect of a member's adjustments (shortages/refunds/extras).
+    function adjustmentTotal(name) {
+      return adjustmentsForMember(name).reduce((s, a) => s + (a.amountDelta || 0), 0);
+    }
+    // A member's original items plus item-type adjustment deltas — used for
+    // procurement totals (stocking list, unit totals), never for money, since
+    // money is always base cost + amountDelta (frozen at adjustment time).
+    function effectiveItems(m) {
+      const out = { ...m.items };
+      adjustmentsForMember(m.name).forEach(a => {
+        if (a.type === "item" && a.itemKey) {
+          out[a.itemKey] = (out[a.itemKey] || 0) + a.qtyDelta;
+          if (!out[a.itemKey]) delete out[a.itemKey];
+        }
+      });
+      return out;
+    }
+
     // Sums quantities per unit type (e.g. {"盒": 45, "kg": 3.5}) instead of
     // blindly adding boxes and kilos together into one meaningless number.
     function unitTotals(itemsList) {
@@ -320,24 +466,159 @@
           DATA = json;
           filter = "all";
           openUnit = null;
+          openAdjustFormFor = null;
+          showBulkPanel = false;
+          bulkError = "";
+          bulkDraft = "";
+          resetAdjDraft();
           subscribeToPaidState(gb.date);
+          subscribeToAdjustments(gb.date);
         });
+    }
+
+    function adjustmentLineHtml(a) {
+      const sign = a.amountDelta >= 0 ? "+" : "";
+      let label;
+      if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
+        const info = DATA.products[a.itemKey];
+        const qtySign = a.qtyDelta >= 0 ? "+" : "";
+        label = `↳ ${info.label} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
+      } else {
+        label = `↳ ${escapeHtml(a.note || "退款/补款")}`;
+      }
+      return `
+        <div class="itemLine adjustment">
+          <span>${label}</span>
+          <span class="itemAmt">${sign}$${a.amountDelta.toFixed(2)}${editMode ? ` <span class="adjUndo" data-id="${a.id}">撤销</span>` : ""}</span>
+        </div>
+      `;
+    }
+
+    function renderAdjForm(memberKey) {
+      const isWalkin = memberKey === "__walkin__";
+      const productKeys = Object.keys(DATA.products);
+      const selectedItemKey = adjDraft.itemKey || productKeys[0] || "";
+      return `
+        <div class="adjForm">
+          ${isWalkin ? `<input type="text" id="adjWalkinName" placeholder="买家姓名（现场加购、原本不在名单里的人）" value="${escapeHtml(adjDraft.name)}">` : ""}
+          <div class="adjFormRow">
+            <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> 品项数量变化</label>
+            <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> 退款/补款（固定金额）</label>
+          </div>
+          ${adjFormType === "item" ? `
+            <select id="adjItemKey">
+              ${productKeys.map(k => {
+                const info = DATA.products[k];
+                return `<option value="${k}" ${k === selectedItemKey ? "selected" : ""}>${info.label}${info.price != null ? ` ($${info.price.toFixed(2)}/${info.unit || "盒"})` : ""}</option>`;
+              }).join("")}
+            </select>
+            <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
+          ` : `
+            <input type="number" id="adjAmount" placeholder="金额变化，例如 -6.5（退款）或 3（补款）" step="any" value="${escapeHtml(adjDraft.amount)}">
+          `}
+          <input type="text" id="adjNote" placeholder="备注，例如：到货少一份 / 现场加购" value="${escapeHtml(adjDraft.note)}">
+          ${adjFormError ? `<div class="adjError">${adjFormError}</div>` : ""}
+          <div class="adjFormBtns">
+            <div class="toolBtn" id="adjSaveBtn" data-member="${memberKey}">保存</div>
+            <div class="toolBtn" id="adjCancelBtn">取消</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleAdjSave(memberKey) {
+      const isWalkin = memberKey === "__walkin__";
+      const type = adjFormType;
+      const note = (adjDraft.note || "").trim();
+      let memberName = memberKey;
+      if (isWalkin) {
+        memberName = (adjDraft.name || "").trim();
+        if (!memberName) { adjFormError = "请填写买家姓名"; render(); return; }
+      }
+      let entry;
+      if (type === "item") {
+        const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
+        const qtyDelta = parseFloat(adjDraft.qtyDelta);
+        if (!itemKey || isNaN(qtyDelta) || qtyDelta === 0) { adjFormError = "请填写有效的数量变化（不能是 0）"; render(); return; }
+        const info = DATA.products[itemKey];
+        const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
+        entry = { member: memberName, type: "item", itemKey, qtyDelta, amountDelta, note, ts: Date.now() };
+      } else {
+        const amountDelta = parseFloat(adjDraft.amount);
+        if (isNaN(amountDelta) || amountDelta === 0) { adjFormError = "请填写有效的金额（不能是 0）"; render(); return; }
+        entry = { member: memberName, type: "credit", amountDelta, note, ts: Date.now() };
+      }
+      saveAdjustment(GROUP_BUYS[activeIndex].date, entry);
+      openAdjustFormFor = null;
+      resetAdjDraft();
+      render();
+    }
+
+    function handleBulkApply() {
+      let parsed;
+      try { parsed = JSON.parse(bulkDraft); } catch (e) { bulkError = "JSON 解析失败：" + e.message; render(); return; }
+      if (!Array.isArray(parsed)) { bulkError = "需要是一个 JSON 数组"; render(); return; }
+      const cleaned = parsed
+        .filter(e => e && e.member && typeof e.amountDelta === "number")
+        .map(e => ({
+          member: e.member,
+          type: e.type === "credit" ? "credit" : "item",
+          itemKey: e.itemKey,
+          qtyDelta: e.qtyDelta,
+          amountDelta: e.amountDelta,
+          note: e.note || "",
+          ts: Date.now()
+        }));
+      if (!cleaned.length) { bulkError = "没有找到有效的条目（每条至少需要 member 和 amountDelta）"; render(); return; }
+      bulkApplyAdjustments(GROUP_BUYS[activeIndex].date, cleaned);
+      bulkError = "";
+      bulkDraft = "";
+      showBulkPanel = false;
+      render();
+    }
+
+    function handlePinSubmit() {
+      if (pinDraft === EDIT_PIN) {
+        editUnlocked = true;
+        editMode = true;
+        showPinInput = false;
+        pinError = "";
+        pinDraft = "";
+        try { localStorage.setItem("wg_edit_unlocked", "1"); } catch (e) {}
+      } else {
+        pinError = "密码错误";
+      }
+      render();
     }
 
     function render() {
       const app = document.getElementById("app");
-      const members = DATA.orders.map((m, i) => ({
-        ...m, id: i, total: cost(m.items)
+
+      const baseMembers = DATA.orders.map((m, i) => ({ ...m, id: i }));
+      // Walk-ins: names that only show up in adjustments (e.g. someone who
+      // bought extra on delivery day but wasn't in the original 接龙).
+      const walkinNames = Array.from(new Set(
+        Object.values(adjustments)
+          .map(a => a.member)
+          .filter(name => name && !baseMembers.some(m => m.name === name))
+      ));
+      const walkinMembers = walkinNames.map((name, i) => ({ name, items: {}, id: `walkin-${i}`, isWalkin: true }));
+
+      const members = [...baseMembers, ...walkinMembers].map(m => ({
+        ...m, total: cost(m.items) + adjustmentTotal(m.name)
       }));
+      const baseGrandTotal = members.reduce((s, m) => s + cost(m.items), 0);
       const grandTotal = members.reduce((s, m) => s + m.total, 0);
-      const grandUnitTotals = unitTotals(members.map(m => m.items));
-      const grandUnitBreakdown = unitProductBreakdown(members.map(m => m.items));
+      const grandUnitTotals = unitTotals(members.map(m => effectiveItems(m)));
+      const grandUnitBreakdown = unitProductBreakdown(members.map(m => effectiveItems(m)));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
 
       const flavorTotals = {};
       Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
-      members.forEach(m => Object.entries(m.items).forEach(([k, qty]) => flavorTotals[k] += qty));
+      members.forEach(m => Object.entries(effectiveItems(m)).forEach(([k, qty]) => {
+        if (flavorTotals[k] != null) flavorTotals[k] += qty;
+      }));
 
       const visible = members.filter(m => {
         if (filter === "paid") return paidState[m.name];
@@ -371,6 +652,9 @@
             </div>
           `).join("")}
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
+          ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
+            <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
+          ` : ""}
           <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
           <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
           <div style="padding-bottom:14px">
@@ -389,7 +673,7 @@
           ${visible.map(m => `
             <div class="row">
               <div class="rowHead">
-                <div class="rowName">${m.name}</div>
+                <div class="rowName">${m.name}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
                 <div class="payBtn ${paidState[m.name] ? "on" : ""}" data-name="${m.name}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
               </div>
               ${Object.entries(m.items).map(([k, qty]) => {
@@ -398,13 +682,19 @@
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
                 return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${info.label} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
               }).join("")}
+              ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
+              ${editMode ? `<div class="adjAddBtn" data-member="${m.name}">${openAdjustFormFor === m.name ? "取消调整" : "+ 调整"}</div>` : ""}
+              ${editMode && openAdjustFormFor === m.name ? renderAdjForm(m.name) : ""}
             </div>
           `).join("")}
         </div>
 
+        ${editMode && openAdjustFormFor === "__walkin__" ? `<div class="row">${renderAdjForm("__walkin__")}</div>` : ""}
+
         <div class="card">
           <div class="sectionTitle">备货清单 — 各口味所需数量</div>
+          <div class="footNote" style="text-align:left;margin:-6px 0 8px">已按调整记录更新（含短缺/退款/现场加购）</div>
           <div class="flavorGrid">
             <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
             ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
@@ -434,8 +724,36 @@
             <input type="file" id="fileInput" accept="application/json">
           </label>
           <div class="toolBtn" id="downloadBtn">⬇️ 下载当前数据（data.json）</div>
+          <div class="toolBtn" id="editToggleBtn">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>
+          ${editMode ? `<div class="toolBtn" id="addWalkinBtn">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
+          ${editMode ? `<div class="toolBtn" id="bulkToggleBtn">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
         </div>
-        <p class="footNote">付款状态实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
+
+        ${showPinInput && !editUnlocked ? `
+          <div class="pinRow">
+            <input type="password" id="pinInput" placeholder="输入编辑密码" value="${escapeHtml(pinDraft)}">
+            <div class="toolBtn" id="pinSubmitBtn">解锁</div>
+          </div>
+          ${pinError ? `<div class="adjError" style="text-align:center">${pinError}</div>` : ""}
+        ` : ""}
+
+        ${editMode && showBulkPanel ? `
+          <div class="card bulkPanel">
+            <div class="sectionTitle" style="margin-top:0">批量导入调整（JSON）</div>
+            <div class="footNote" style="text-align:left;margin-bottom:8px;font-size:11px">
+              粘贴一个调整条目数组，例如（把这段发给 Claude，让它根据送货情况帮你生成）：<br>
+              [{"member":"Peter","type":"item","itemKey":"sig","qtyDelta":-1,"amountDelta":-6.5,"note":"到货少一份"},<br>
+              {"member":"Amy","type":"credit","amountDelta":-3,"note":"退款：等太久"}]
+            </div>
+            <textarea id="bulkJson" placeholder="粘贴 JSON 数组">${escapeHtml(bulkDraft)}</textarea>
+            ${bulkError ? `<div class="adjError">${bulkError}</div>` : ""}
+            <div class="adjFormBtns">
+              <div class="toolBtn" id="bulkApplyBtn">应用调整</div>
+            </div>
+          </div>
+        ` : ""}
+
+        <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
         ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
       `;
@@ -460,6 +778,65 @@
       }
       document.getElementById("fileInput").addEventListener("change", handleFileUpload);
       document.getElementById("downloadBtn").addEventListener("click", downloadData);
+
+      document.querySelectorAll(".adjAddBtn").forEach(el => {
+        el.addEventListener("click", () => {
+          const target = el.dataset.member;
+          if (openAdjustFormFor === target) { openAdjustFormFor = null; }
+          else { openAdjustFormFor = target; resetAdjDraft(); }
+          render();
+        });
+      });
+      document.querySelectorAll(".adjUndo").forEach(el => {
+        el.addEventListener("click", (evt) => {
+          evt.stopPropagation();
+          deleteAdjustment(GROUP_BUYS[activeIndex].date, el.dataset.id);
+        });
+      });
+      document.querySelectorAll('input[name="adjType"]').forEach(el => {
+        el.addEventListener("change", () => { adjFormType = el.value; render(); });
+      });
+      const adjWalkinNameEl = document.getElementById("adjWalkinName");
+      if (adjWalkinNameEl) adjWalkinNameEl.addEventListener("input", () => { adjDraft.name = adjWalkinNameEl.value; });
+      const adjItemKeyEl = document.getElementById("adjItemKey");
+      if (adjItemKeyEl) adjItemKeyEl.addEventListener("change", () => { adjDraft.itemKey = adjItemKeyEl.value; });
+      const adjQtyDeltaEl = document.getElementById("adjQtyDelta");
+      if (adjQtyDeltaEl) adjQtyDeltaEl.addEventListener("input", () => { adjDraft.qtyDelta = adjQtyDeltaEl.value; });
+      const adjAmountEl = document.getElementById("adjAmount");
+      if (adjAmountEl) adjAmountEl.addEventListener("input", () => { adjDraft.amount = adjAmountEl.value; });
+      const adjNoteEl = document.getElementById("adjNote");
+      if (adjNoteEl) adjNoteEl.addEventListener("input", () => { adjDraft.note = adjNoteEl.value; });
+      const adjSaveBtn = document.getElementById("adjSaveBtn");
+      if (adjSaveBtn) adjSaveBtn.addEventListener("click", () => handleAdjSave(adjSaveBtn.dataset.member));
+      const adjCancelBtn = document.getElementById("adjCancelBtn");
+      if (adjCancelBtn) adjCancelBtn.addEventListener("click", () => { openAdjustFormFor = null; resetAdjDraft(); render(); });
+
+      const editToggleBtn = document.getElementById("editToggleBtn");
+      if (editToggleBtn) editToggleBtn.addEventListener("click", () => {
+        if (!editUnlocked) { showPinInput = !showPinInput; }
+        else { editMode = !editMode; openAdjustFormFor = null; showBulkPanel = false; resetAdjDraft(); }
+        render();
+      });
+      const pinSubmitBtn = document.getElementById("pinSubmitBtn");
+      if (pinSubmitBtn) pinSubmitBtn.addEventListener("click", handlePinSubmit);
+      const pinInputEl = document.getElementById("pinInput");
+      if (pinInputEl) {
+        pinInputEl.addEventListener("input", () => { pinDraft = pinInputEl.value; });
+        pinInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handlePinSubmit(); });
+      }
+
+      const addWalkinBtn = document.getElementById("addWalkinBtn");
+      if (addWalkinBtn) addWalkinBtn.addEventListener("click", () => {
+        if (openAdjustFormFor === "__walkin__") { openAdjustFormFor = null; }
+        else { openAdjustFormFor = "__walkin__"; resetAdjDraft(); }
+        render();
+      });
+      const bulkToggleBtn = document.getElementById("bulkToggleBtn");
+      if (bulkToggleBtn) bulkToggleBtn.addEventListener("click", () => { showBulkPanel = !showBulkPanel; bulkError = ""; render(); });
+      const bulkJsonEl = document.getElementById("bulkJson");
+      if (bulkJsonEl) bulkJsonEl.addEventListener("input", () => { bulkDraft = bulkJsonEl.value; });
+      const bulkApplyBtn = document.getElementById("bulkApplyBtn");
+      if (bulkApplyBtn) bulkApplyBtn.addEventListener("click", handleBulkApply);
     }
 
     function renderUnitOverlay(u, breakdown) {
@@ -495,8 +872,10 @@
           const parsed = JSON.parse(evt.target.result);
           if (!parsed.products || !parsed.orders) throw new Error("Missing products or orders");
           DATA = parsed;
-          if (GROUP_BUYS[activeIndex]) subscribeToPaidState(GROUP_BUYS[activeIndex].date);
-          else render();
+          if (GROUP_BUYS[activeIndex]) {
+            subscribeToPaidState(GROUP_BUYS[activeIndex].date);
+            subscribeToAdjustments(GROUP_BUYS[activeIndex].date);
+          } else render();
         } catch (err) {
           alert("无法读取此文件：" + err.message);
         }
@@ -529,6 +908,7 @@
           GROUP_BUYS = [];
           DATA = JSON.parse(evt.target.result);
           paidState = {};
+          adjustments = {};
           render();
         };
         reader.readAsText(file);
@@ -544,7 +924,11 @@
         activeIndex = 0;
         return fetch(GROUP_BUYS[0].file).then(r => r.json());
       })
-      .then(json => { DATA = json; subscribeToPaidState(GROUP_BUYS[0].date); })
+      .then(json => {
+        DATA = json;
+        subscribeToPaidState(GROUP_BUYS[0].date);
+        subscribeToAdjustments(GROUP_BUYS[0].date);
+      })
       .catch(() => showUploadFallback("未找到 manifest.json 或数据文件"));
   </script>
 </body>
