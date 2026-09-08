@@ -132,3 +132,160 @@ GitHub Pages 的 CDN 缓存还没刷新到最新的 `index.html`——等一两�
 本仓库通过 **GitHub Pages** 提供服务（Settings → Pages → Deploy from
 branch → `main` / root）。推送到 `main` 分支后，线上页面会在一分钟
 左右自动更新。
+
+---
+
+# WG Group Buy — Payment Collection Dashboard
+
+*(English translation of the above)*
+
+A simple, self-hosted, receipt-style dashboard for tracking group-buy
+orders and payment status. Built for WG团购群 (the "WG Group Buy"
+chat), but works for any group buy once you swap in your own data.
+
+**Live site:** https://zoidz78.github.io/wg-groupbuy/
+
+## Features
+
+- Card-based layout: the summary stats, each member, and the stocking
+  list are each their own card — on mobile you can see roughly 2–3
+  cards per screen
+- Lists each member's order itemized by flavor/product, with a
+  per-item subtotal and a personal total
+- One-tap paid-status toggle ("标记已付款" / "已付款 ✓" — "Mark
+  paid" / "Paid ✓"), and **paid status is shared live across
+  everyone who opens the link** (see "Shared live payment status"
+  below)
+- Summary stats card: participant count, quantity per unit (box/kg/
+  etc.), order total, amount collected, amount outstanding — tapping
+  a "总数量（unit）" row pops up a breakdown of exactly which
+  products make up that unit and their subtotal; tap anywhere on the
+  overlay to close it
+- Stocking list showing the total quantity needed per flavor/product
+- Filter by All / Unpaid / Paid
+- Supports multiple group buys — once there's more than one, tabs
+  appear (sorted by date) to switch between them
+- Automatic light/dark mode, responsive on both mobile and desktop
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `index.html` | The whole app — reads `manifest.json` and whichever `data-*.json` files it references, and reads/writes paid status via Firebase. You normally don't need to touch this file. |
+| `manifest.json` | Lists every group buy: `{ date, label, file }`. Most recent date first. |
+| `data-<date>.json` | One file per group buy: products, prices, and every member's order. |
+
+Paid status is **not** stored in any file in this repo — it lives
+live in Firebase Firestore (see below).
+
+## Adding a new group buy
+
+1. Create a new `data-<date>.json` file (see "Data schema" below).
+2. Add a line to `manifest.json`:
+   ```json
+   { "date": "2026-09-14", "label": "9/14", "file": "data-2026-09-14.json" }
+   ```
+3. Upload both files to this repo (Add file → Upload files).
+   `index.html` doesn't need to change.
+
+Once `manifest.json` has 2 or more entries, tabs automatically appear
+at the top of the page to switch between group buys.
+
+## `data-<date>.json` schema
+
+```json
+{
+  "groupName": "WG团购群",
+  "products": {
+    "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
+    "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
+  },
+  "orders": [
+    { "name": "小明", "items": { "sig": 3 } },
+    { "name": "小华", "items": { "sig": 1, "shrimp": 1 } },
+    { "name": "阿强", "items": { "pork_belly": 0.5 } },
+    { "name": "小美 & 阿杰", "items": { "corn": 2 } }
+  ]
+}
+```
+
+- `products` — short key → `{ label (Chinese name), price, unit?
+  (optional) }`. `unit` defaults to `"盒"` (box) if omitted — set it
+  explicitly (e.g. `"kg"`) for anything sold by weight or another
+  unit.
+- `orders` — one entry per amount to collect. Quantities in `items`
+  can be decimals (e.g. `0.5` for half a portion/half a kg).
+- **Combined orders**: if two members order together and pay as one
+  lump sum, represent it as **one** entry with the names combined
+  into a single string, e.g. `"name": "小美 & 阿杰"`.
+- **Missing/unverified products**: if a product's price can't be
+  confirmed yet (not on the price list, or the reference is
+  ambiguous), still add it to that member's `items`, but set that
+  product's `"price"` to `null` in `products` and add
+  `"unverified": true`. The page highlights these in amber, tags
+  them "缺失/待确认" (missing/unconfirmed), shows the amount as
+  "待确认" (to be confirmed), excludes them from all totals, and
+  shows a warning banner at the top. Once confirmed, set a real
+  `price` and remove the `unverified` field.
+
+## Shared live payment status (Firebase)
+
+Paid status syncs in real time via **Firebase Firestore** — when
+anyone with the link marks someone as paid, everyone else currently
+viewing the page sees the update instantly, with no manual refresh
+needed.
+
+- **Firebase project:** WG Group Buy (`wg-group-buy`)
+- **Data shape:** under the `paidStatus` collection, one document per
+  group buy (keyed by date), with fields mapping each member's name
+  → `true`/`false`
+- **How the frontend connects:** `index.html` embeds the Firebase
+  `firebaseConfig` directly (apiKey, projectId, etc.). These values
+  aren't secrets and are fine to be public — actual access control
+  comes from the security rules below, not from hiding this config.
+- **Firestore security rules** (Firebase console → Firestore
+  Database → Rules):
+
+  ```
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /paidStatus/{groupBuyDate} {
+        allow read, write: if true;
+      }
+    }
+  }
+  ```
+
+  This only opens read/write access to the `paidStatus` collection
+  for anyone with the link — nothing else in the project is exposed.
+
+- If a red 🔧 banner appears at the top of the page, it means a
+  Firestore read or write failed — the banner shows the specific
+  error message to help debug.
+
+### Troubleshooting: devices showing different data
+
+If different devices show different paid status shortly after a
+push, it's usually GitHub Pages' CDN still serving a cached copy of
+the old `index.html` — wait a minute or two, or reopen the link in a
+private/incognito window to bypass the cache. If it's still
+inconsistent after that, check the page source for the word
+`firebase` to confirm the live version is actually the latest one.
+
+## Notes
+
+- All text on the page is intentionally in Mandarin — keep any new
+  text in Mandarin to match the existing style.
+- A Claude Artifact (`window.storage`) approach was tried first for
+  shared cross-device payment status, but hit a known Anthropic
+  platform postMessage cross-origin bug at the time (publicly
+  tracked as `anthropics/claude-code#42064`) that kept it from
+  working reliably — hence the move to the current GitHub Pages +
+  Firebase setup.
+
+## Hosting
+
+This repo is served via **GitHub Pages** (Settings → Pages → Deploy
+from branch → `main` / root). Pushing to the `main` branch updates
+the live site automatically within about a minute.
