@@ -197,11 +197,6 @@
       "price": 4.5,
       "unit": "份"
     },
-    "soysauce_choice": {
-      "label": "海天生抽或味极鲜(1.9L大瓶，待确认选哪款)",
-      "price": null,
-      "unverified": true
-    },
     "oyster_sauce_haitian": {
       "label": "海天上等蚝油(590g/瓶)",
       "price": 3.7,
@@ -291,6 +286,11 @@
       "label": "芦笋(500g/份)",
       "price": 7.8,
       "unit": "份"
+    },
+    "soy_sauce_shengchou": {
+      "label": "海天生抽(1.9L大瓶)",
+      "price": 6,
+      "unit": "瓶"
     }
   },
   "orders": [
@@ -436,9 +436,9 @@
         "blueberry_twotree": 1,
         "lettuce_luomen": 1,
         "vinegar": 1,
-        "soysauce_choice": 1,
         "oyster_sauce_haitian": 1,
-        "chicken_feet_lemon": 1
+        "chicken_feet_lemon": 1,
+        "soy_sauce_shengchou": 1
       }
     },
     {
