@@ -67,6 +67,18 @@ Firestore 中，见下方说明。
 `manifest.json` 中有 2 场以上的记录时，页面顶部会自动出现标签页，可
 以在不同场次的团购之间切换。
 
+**如果 `data-<日期>.json` 里有格式错误或笔误**（手打 JSON 很容易漏
+掉一个逗号、引号或括号，或者某位成员的 `items` 里写错了商品的短
+键）：
+- 如果是 JSON 格式本身有问题（漏逗号/括号等），点开那个标签页会
+  显示一条清楚的错误提示（说明具体哪里解析失败），而不是卡住不
+  动或什么都不显示，其他标签页照常使用。
+- 如果 JSON 格式没问题，但某位成员的 `items` 里的商品短键在
+  `products` 里找不到（拼错了、或者改名/删除了），那一行会显示
+  "⚠️ 商品未找到，请检查 data 文件"，而不是整个页面卡死打不开——
+  这类问题以前会导致所有人都无法点开页面，现在只会在那一行显示
+  提醒，方便你回去核对修正。
+
 ## `data-<日期>.json` 数据结构
 
 ```json
@@ -184,22 +196,33 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
        kg"，包装商品会被当成"多卖1230包"）。如果同一个人这个商
        品之前已经调整过一次，再调一次会在上一次调整后的基础上继
        续换算，不会重复计算。
-     - 这个换算只是帮你把克数转成正确的数量差值，本质上还是一条
-       普通的"品项数量变化"记录，撤销、导出报告、付款消息里的显
-       示方式都和手动填数量差值完全一样。
+     - 填了克数之后，**过秤读数本身也会记在这条调整上**，并显示
+       在成员卡片、导出报告和"复制付款消息"里，例如
+       "↳ 无籽蜜橘 -0.4包（1230g · 到货偏轻） -$4.4"。显示的是
+       **过秤原始读数**（1230g），不是向下取整后用来算钱的数字
+       （1200g）——这样对方一眼就能看到向下取整让他们占了这点便
+       宜，不用自己去猜。
+     - 如果你没用这个换算框、而是直接手填数量差值，就不会记录克
+       数，那条调整只显示数量和金额（例如"↳ 哈密瓜 -1盒（到货少
+       一份） -$6.5"）。手填数量差值也会自动清掉之前填过的克数，
+       避免出现"显示的重量和实际收的钱对不上"的情况。
+     - 除了多带一个克数，本质上还是一条普通的"品项数量变化"记
+       录，撤销、导出报告的方式都和手动填数量差值完全一样。
+     - **足重的整包商品不需要记录**：一包 2kg 的商品过秤刚好
+       2000g，就是本来该有的状态，没有金额变化也没什么要告诉对方
+       的——数量差值填 0 会被拒绝。重量只在**确实改变了金额**时
+       才会被记下来。
    - **退款/补款（固定金额）**：不对应具体商品的一笔整额调整，
      附上备注说明原因。
-   - **实际到手重量（仅备注，不影响金额）**：像水果、肉类这类现
-     场分装的商品，实际分到每个人手上的重量常常和接龙时的预估对
-     不上——这个选项不改变收费（按惯例向下取整，不多收），但会
-     记下实际重量，"复制付款消息"里会自动显示给对方看（例如
-     "彩虹油蟠桃  16（2044g）"）。
 3. 工具栏的 **"+ 新增买家"** 用于记录一位原本不在接龙名单里、纯
    粹现场临时购买的人。
 4. 每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
 5. 如果情况比较复杂（例如很多人的订单都要调整），可以把送货情况
    讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
-   **"📋 批量导入调整"** 面板一次性套用。
+   **"📋 批量导入调整"** 面板一次性套用。批量导入的"品项数量变
+   化"条目也可以带一个 `actualGrams` 字段（过秤读数），显示方式
+   和在页面上用换算框填的完全一样；金额始终以 `amountDelta` 为
+   准，`actualGrams` 只用于显示。
 
 以上这些编辑操作，在该场团购**全部收款并自动锁定**后会暂时无法使
 用——见下方"全部收款后自动锁定"。
@@ -271,19 +294,40 @@ match /memberInfo/{docId} {
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
 
-格式和这个群平时手写的收款消息一致（不带表情图标、不带"$"符号）。示例：
+格式和这个群平时手写的收款消息一致（不带表情图标）。示例：
 
 ```
 @may
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$39.3～
 ```
+
+**送货日调整会紧跟在对应商品下面**，用 "↳" 开头，而不是全部堆在
+消息最后——这样对方一眼就能看出这笔加减是针对哪件商品的：
+
+```
+@may
+
+无籽蜜橘  $11
+↳ 无籽蜜橘 -0.4包（1230g · 到货偏轻） -$4.4
+普罗旺斯番茄  $6.5
+土鸡蛋  $9.3
+
+一共$22.4～
+```
+
+- 括号里是这条调整的附加说明，**过秤重量和备注合用一个括号**、
+  中间用 " · " 分隔（`（1230g · 到货偏轻）`）。只有其中一项时就
+  只显示那一项（`（1740g）` 或 `（到货少一份）`），两项都没有就
+  不显示括号。
+- **找不到对应商品行的调整会排在最后**——例如不对应具体商品的
+  退款/补款，或者原本不在接龙名单里、现场才加购的商品（那件商品
+  在这个人的原始订单里没有行可以挂）。
 
 消息的**措辞**（问候语怎么说、每行怎么写、结尾语等）存放在
 `message-template.json` 里，和商品数据、价格、调整记录是分开的——想改
@@ -425,6 +469,21 @@ live in Firebase Firestore (see below).
 Once `manifest.json` has 2 or more entries, tabs automatically appear
 at the top of the page to switch between group buys.
 
+**If `data-<date>.json` has a syntax error or a typo** (hand-typing
+JSON makes it easy to drop a comma, quote, or bracket, or to
+mistype a product's short key in someone's `items`):
+- A genuine JSON syntax error (missing comma/bracket/etc.) shows a
+  clear error message when you open that tab — naming what failed
+  to parse — instead of the tab doing nothing or the page hanging.
+  Every other tab keeps working normally.
+- A valid JSON file where some member's `items` references a
+  product key that doesn't exist in `products` (typo'd, or renamed/
+  removed) shows "⚠️ 商品未找到，请检查 data 文件" (product not
+  found, please check the data file) on just that line instead of
+  crashing the whole page — this used to make the entire dashboard
+  unclickable for everyone; now it's a visible, localized warning
+  you can go fix.
+
 ## `data-<date>.json` schema
 
 ```json
@@ -560,27 +619,39 @@ a clean record of what was ordered vs. what was actually charged.
        "1230" as 1230 bags — and produce nonsense either way).
        Correcting the same person's same item a second time nets
        against the already-corrected amount, not the original order.
-     - This is purely a shortcut for computing the right number to
-       put in the quantity field — the saved record is an ordinary
-       "品项数量变化" entry, so undo, report export, and the payment
-       message all behave exactly as if you'd typed the quantity
-       change by hand.
+     - When you use this field, **the scale reading itself is kept on
+       the adjustment** and shown on the member's card, in the report
+       export, and in the payment message — e.g. "↳ 无籽蜜橘 -0.4包
+       （1230g · 到货偏轻） -$4.4". What's shown is the **raw scale
+       reading** (1230g), not the rounded-down figure the charge is
+       based on (1200g) — so the rounding in the buyer's favour is
+       visible rather than something they have to take on trust.
+     - Typing a quantity difference by hand instead records no weight,
+       and that adjustment just shows the quantity and amount (e.g.
+       "↳ 哈密瓜 -1盒（到货少一份） -$6.5"). Hand-editing the quantity
+       field also clears any grams already entered, so a displayed
+       weight can never contradict the amount charged.
+     - Apart from carrying that weight, it's still an ordinary
+       "品项数量变化" entry — undo and report export behave exactly as
+       if you'd typed the quantity change by hand.
+     - **A full-weight pack needs no entry at all**: a 2kg bag reading
+       a clean 2000g is simply the ordered state — no money changes and
+       there's nothing to tell the buyer — so a quantity difference of
+       0 is rejected. Weights are only ever recorded alongside a real
+       price change.
    - **退款/补款（固定金额）** (refund/surcharge): a flat dollar
      adjustment not tied to any specific product, with a note.
-   - **实际到手重量（仅备注，不影响金额）** (actual weight received,
-     info only): for produce or meat that gets portioned out by hand,
-     what each person actually receives often doesn't match the
-     estimated order exactly. This option doesn't change what they're
-     charged (rounded down as usual, never charging extra) but records
-     the real weight, which the "copy payment message" button then
-     shows automatically (e.g. "彩虹油蟠桃  16（2044g）").
 3. **"+ 新增买家"** (+ Add buyer) in the toolbar records someone who
    bought on the spot but wasn't in the original order at all.
 4. Every adjustment line has a **"撤销"** (undo) link to remove it.
 5. For a messier delivery-day recap, describe what happened to
    Claude in chat and it can generate the adjustment entries as JSON
    to paste into the toolbar's **"📋 批量导入调整"** (bulk import)
-   panel, applying them all at once.
+   panel, applying them all at once. A bulk-imported "品项数量变化"
+   entry can carry an `actualGrams` field (the scale reading) too,
+   displayed exactly as if entered via the grams field on the page;
+   `amountDelta` always governs the money, `actualGrams` is display
+   only.
 
 These editing actions are all temporarily unavailable once a round has
 **auto-locked after full payment** — see "Auto-lock after full payment"
@@ -668,19 +739,44 @@ another tracks who's paid, and the PDF export for a paper trail is
 unaffected either way.
 
 The format matches how this group already writes these messages by hand
-(no emoji icons, no "$" sign). Example:
+(no emoji icons). Example:
 
 ```
 @may
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$39.3～
 ```
+
+**Delivery-day adjustments sit directly beneath the product they
+adjust**, prefixed with "↳", rather than all being grouped at the end —
+so it's immediately clear which item a given credit or charge relates
+to:
+
+```
+@may
+
+无籽蜜橘  $11
+↳ 无籽蜜橘 -0.4包（1230g · 到货偏轻） -$4.4
+普罗旺斯番茄  $6.5
+土鸡蛋  $9.3
+
+一共$22.4～
+```
+
+- The bracket holds that adjustment's supporting detail: **the weighed
+  amount and the reason share one bracket**, joined by " · "
+  (`（1230g · 到货偏轻）`). With only one of the two present it holds
+  just that (`（1740g）` or `（到货少一份）`); with neither, there's no
+  bracket.
+- **Adjustments with no matching product line go last** — flat
+  refunds/surcharges that aren't tied to a product, and on-the-spot
+  purchases of something that wasn't in that person's original order
+  (there's no line above them to attach to).
 
 The message's **wording** (how the greeting reads, how each line is
 phrased, the closing line, etc.) lives in `message-template.json`, separate
