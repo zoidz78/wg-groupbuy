@@ -210,6 +210,22 @@
     padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
   }
 
+  /* Every stocking-list row is tappable to pop up who-ordered-what for that
+     product (see renderProductOverlay) — same idea as the old total-by-unit
+     overlay this replaced, just scoped to one product instead of one unit. */
+  .flavorGrid [data-key] { cursor: pointer; }
+  .flavorGrid [data-key]:active { opacity: 0.65; }
+  .productOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .productOverlayCard {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 18px 16px; max-width: 380px; width: 100%; max-height: 80vh;
+    overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  }
+
   .toolbar {
     display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; flex-wrap: wrap;
   }
@@ -280,7 +296,7 @@
      see render()) needs its own visible focus ring — a <div> has none by
      default the way a real <button> would, and these are now keyboard-
      reachable (see the Enter/Space handler at the bottom of the script). */
-  .payBtn:focus-visible, .copyMsgBtn:focus-visible,
+  .payBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
@@ -363,7 +379,8 @@
     let paidState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
-    let selectedProduct = null; // product key currently selected in 商品查询, or null for the full list
+    let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
+    let selectedProductOverlay = null; // product key whose who-ordered-what popup is open, from tapping a 备货清单 row
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
@@ -969,6 +986,7 @@
           DATA = json;
           filter = "all";
           selectedProduct = null;
+          selectedProductOverlay = null;
           openAdjustFormFor = null;
           showBulkPanel = false;
           bulkError = "";
@@ -1291,6 +1309,7 @@
       // adjustment zeroed out its only order) — fall back to the full list
       // rather than showing a detail panel for a product nobody has anymore.
       if (selectedProduct && !roundProductKeys.includes(selectedProduct)) selectedProduct = null;
+      if (selectedProductOverlay && !roundProductKeys.includes(selectedProductOverlay)) selectedProductOverlay = null;
 
       const visible = members.filter(m => {
         if (filter === "paid") return paidState[m.name];
@@ -1455,6 +1474,8 @@
 
         <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
+        ${selectedProductOverlay && DATA.products[selectedProductOverlay] ? renderProductOverlay(selectedProductOverlay, members) : ""}
+
         ${renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotals)}
       `;
 
@@ -1475,6 +1496,13 @@
           selectedProduct = e.target.value || null;
           render();
         });
+      }
+      document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
+        el.addEventListener("click", () => { selectedProductOverlay = el.dataset.key; render(); });
+      });
+      const productOverlayEl = document.getElementById("productOverlay");
+      if (productOverlayEl) {
+        productOverlayEl.addEventListener("click", () => { selectedProductOverlay = null; render(); });
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
 
@@ -1718,17 +1746,22 @@
             // whoever wrote data-<date>.json forgot to also set
             // `unverified: true` — otherwise `info.price.toFixed(2)` below
             // throws on a null/undefined price and crashes the whole page.
+            // Every cell carries data-key so the whole visual row is
+            // clickable (see the .flavorGrid [data-key] wiring in render());
+            // only the first cell is a real keyboard stop (role="button"
+            // tabindex="0") so tabbing through the list costs one stop per
+            // product, not three.
             if (isUnverified(k)) {
               return `
-                <div>${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
-                <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-                <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+                <div role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
+                <div class="flavorQty" style="color:var(--warn-text)" data-key="${k}">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                <div class="flavorAmt" style="color:var(--warn-text)" data-key="${k}">待确认</div>
               `;
             }
             return `
-              <div>${emojiLabel(info)} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
-              <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-              <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
+              <div role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+              <div class="flavorQty" data-key="${k}">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+              <div class="flavorAmt" data-key="${k}">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
             `;
           }).join("")}
         </div>
@@ -1764,6 +1797,24 @@
       `;
     }
 
+    // Popup wrapper around renderProductMembers() for a 备货清单 row tap —
+    // same content the 商品查询 dropdown's detail panel shows, just in a
+    // modal instead of inline, so you don't have to touch the dropdown to
+    // check one product you're already looking at in the table. Styled
+    // like (and replacing) the old per-unit overlay this project used to
+    // have. No stopPropagation anywhere inside — clicking the backdrop OR
+    // the card itself closes it, matching the "点击任意处关闭" label.
+    function renderProductOverlay(key, members) {
+      return `
+        <div class="productOverlay" id="productOverlay">
+          <div class="productOverlayCard">
+            ${renderProductMembers(key, members)}
+            <div class="footNote" style="margin-top:14px">点击任意处关闭</div>
+          </div>
+        </div>
+      `;
+    }
+
     // Opens the browser's print dialog with a clean, formatted version of the
     // current round (every member regardless of the active filter, no edit
     // controls) — the person can print it or choose "Save as PDF" for a file.
@@ -1771,9 +1822,11 @@
     function exportReport() {
       const prevFilter = filter;
       const prevEditMode = editMode;
+      const prevSelectedProductOverlay = selectedProductOverlay;
       const prevTitle = document.title;
       filter = "all";
       editMode = false;
+      selectedProductOverlay = null;
       openAdjustFormFor = null;
       showBulkPanel = false;
       showPinInput = false;
@@ -1787,6 +1840,7 @@
         restored = true;
         filter = prevFilter;
         editMode = prevEditMode;
+        selectedProductOverlay = prevSelectedProductOverlay;
         document.title = prevTitle;
         render();
         window.removeEventListener("afterprint", restore);
@@ -1839,14 +1893,15 @@
 
     // Keyboard activation for every interactive element that's a <div> rather
     // than a real <button>/<a> (payBtn, tabs, copyMsgBtn, adjAddBtn,
-    // toolBtn, adjUndo, announceBtn — see role="button"/role="tab" in the
-    // render() template above; the 商品查询 picker is a native <select> and
-    // needs none of this). These already have mouse click handlers wired up
-    // per-render; without this they'd be completely unreachable by keyboard
-    // (WCAG 2.1.1). Delegated on the persistent #app node (never replaced
-    // itself, only its innerHTML) so it keeps working across every
-    // re-render without needing to be re-attached — same reasoning as the
-    // per-render querySelectorAll wiring above, just for the keyboard path.
+    // toolBtn, adjUndo, announceBtn, the first cell of each 备货清单 row —
+    // see role="button"/role="tab" in the render() template above; the
+    // 商品查询 picker itself is a native <select> and needs none of this).
+    // These already have mouse click handlers wired up per-render; without
+    // this they'd be completely unreachable by keyboard (WCAG 2.1.1).
+    // Delegated on the persistent #app node (never replaced itself, only
+    // its innerHTML) so it keeps working across every re-render without
+    // needing to be re-attached — same reasoning as the per-render
+    // querySelectorAll wiring above, just for the keyboard path.
     document.getElementById("app").addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       const el = e.target.closest('[role="button"], [role="tab"]');
@@ -1854,6 +1909,13 @@
       if (el.getAttribute("aria-disabled") === "true") return;
       e.preventDefault();
       el.click();
+    });
+
+    // Escape closes the 备货清单-row popup, matching the modal/sheet
+    // convention of always offering a keyboard close path alongside
+    // click-anywhere-to-close (which the popup already has).
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && selectedProductOverlay) { selectedProductOverlay = null; render(); }
     });
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.

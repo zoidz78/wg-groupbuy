@@ -30,7 +30,14 @@ Files in this project:
 There used to be a Claude-artifact version (`.jsx`, `window.storage`-based) — abandoned
 because of a platform postMessage cross-origin bug (`anthropics/claude-code#42064`).
 Don't resurrect that approach unless asked; GitHub Pages + Firebase is the current and
-working setup.
+working setup. **An `.html` twin of that same abandoned approach
+(`groupbuy_dashboard.html` — embedded/baked-in data, `window.storage` for shared
+state, no Firebase, no manifest fetch) had been sitting in this project's files;
+it was never the live deployment and was deleted 2026-09-09** (see the dated entry
+in Troubleshooting/A7 below for how it was found and why). If a chat ever finds a
+similarly-named standalone file with baked-in `EMBEDDED_BUYS` data again, treat it
+the same way: it's not `index.html`, don't edit it as if it were, and confirm with
+the user before deleting anything, same as this time.
 
 **Every file this project touches gets sent to the user as a downloadable file —
 no exceptions, not just the ones that go to GitHub.** This means every repo file
@@ -223,12 +230,6 @@ before reaching "凤爪" (chicken feet).
    alongside `manifest.json`) — it needs to exist in the live repo for icons to show
    at all; a missing/failed fetch just falls back to 🛒 for everything, it doesn't break
    the page.
-
-**Two copies exist and must be kept in sync:** `index.html` fetches the JSON file at
-runtime. The abandoned/reference `groupbuy_dashboard.html` artifact-preview version
-can't fetch local files, so it carries the same table embedded inline as a JS constant.
-When editing the map, update both, or just tell the user only `index.html` matters for
-the live site.
 
 ---
 
@@ -448,10 +449,8 @@ like:
 variant. That was discussed during ideation but not requested for the build; don't add it unless
 asked.
 
-**index.html only:** `buildMemberMessage` depends on the adjustments/edit-mode data already loaded
-into `index.html`'s state. The legacy/reference `groupbuy_dashboard.html` doesn't have that
-infrastructure and was NOT given this feature — it only got the emoji-map sync (see A1). If asked
-to add it there too, the adjustments system would need to be ported over first.
+**index.html only:** `buildMemberMessage` depends on the adjustments/edit-mode data already
+loaded into `index.html`'s state — this is the only place this feature exists.
 
 **Wording lives in `message-template.json`, not `index.html`.** Same pattern as the emoji map
 (A1): `index.html` fetches `./message-template.json` at boot and merges it over a built-in
@@ -634,6 +633,59 @@ elsewhere in this project. Split it into two fields only if asked.
 > written into the directory (needs Firestore write access from this session, or
 > hand the user the `{name: unit}` pairs to type into the "🏠 门牌管理" panel
 > themselves).
+
+---
+
+## A7. Product lookup (商品查询 — who ordered a given product)
+
+The old design had a **总数量（单位）** row per unit (盒/kg/份/etc.) in the top
+summary ticket; tapping one popped up every product contributing to that unit
+and its subtotal. This was removed (2026-09-09) as redundant — the 备货清单
+card right below already lists every product with its price and quantity, so
+the same information was shown twice, once grouped by unit and once by
+product.
+
+**What replaced it, in two steps (both 2026-09-09, same day):**
+
+1. First pass: the 备货清单 card became **"商品查询 — 备货清单 & 认购明细"**,
+   with a `<select>` dropdown above the stocking table. The dropdown lists
+   **only products actually ordered this round** (`flavorTotals[k] > 0` —
+   nothing from `products` that got zero orders appears as an option).
+   Picking one swaps the panel below from the full stocking list into
+   `renderProductMembers()`'s output for just that product: every buyer's
+   name and quantity (via `effectiveItems()`, so it reflects delivery-day
+   adjustments the same way the stocking list itself does), plus a subtotal.
+   Picking the first option ("📋 全部商品（本轮备货清单）", value `""`) — or
+   just never touching the dropdown — shows the full list again
+   (`renderAllProductsList()`).
+   - Tried an in-between design first (a text search box filtering a
+     tappable list of rows) before landing on a plain `<select>` — a native
+     dropdown is the simpler control for "pick one item from a list you
+     don't need to type-ahead search," and it's what got asked for
+     specifically. Don't reintroduce the search-box version unless asked.
+2. Second pass, same day: **every row in the always-visible 备货清单 table is
+   now itself clickable**, independent of the dropdown. Clicking a product's
+   name/qty/amount cells pops up the exact same per-product breakdown
+   (`renderProductMembers()` again — no duplicate logic) in a modal overlay
+   (`.productOverlay`/`.productOverlayCard`, styled like the old
+   `.unitOverlay` this replaced), so you don't have to scroll/search the
+   dropdown to check one product you're already looking at in the table.
+   Click anywhere on the overlay (backdrop or card — no `stopPropagation`,
+   matching the old unit overlay's "点击任意处关闭" behavior) to close it;
+   Escape also closes it (`selectedProductOverlay` state, reset on round
+   switch and before `exportReport()`'s print dialog, same handling the old
+   `openUnit` state got).
+   - Only the first cell of each stocking-list row carries
+     `role="button" tabindex="0"` (for one keyboard stop per row via the
+     existing delegated Enter/Space handler); the other two cells share the
+     same `data-key` and click handler so the whole visual row is tappable,
+     without adding two more redundant tab stops per product.
+
+**Net result:** three ways to see who-ordered-what for a given product —
+dropdown, or tap its row in the stocking list either while a specific product
+is already selected or while viewing the full list — all backed by the same
+`renderProductMembers()` function, so there's exactly one place to fix a bug
+in that breakdown, not three.
 
 ---
 
