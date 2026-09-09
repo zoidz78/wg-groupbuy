@@ -94,21 +94,7 @@
   .card .sectionTitle { margin-top: 0; }
   .statRow { display: flex; justify-content: space-between; padding: 10px 0; }
   .statRow + .statRow { border-top: 1px dashed var(--line); }
-  .statRow.unitRow { cursor: pointer; }
-  .statRow.unitRow:active { opacity: 0.7; }
-  .unitChevron { color: var(--muted); margin-left: 4px; font-size: 15px; }
   .statLabel { font-size: 13px; color: var(--muted); }
-
-  .unitOverlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px; z-index: 50;
-  }
-  .unitOverlayCard {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
-    padding: 18px 18px 16px; max-width: 380px; width: 100%; max-height: 80vh;
-    overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.3);
-  }
   .statValue { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 15px; font-weight: 600; }
   .statValue.big { font-size: 19px; }
   .statValue.green { color: var(--green); }
@@ -212,6 +198,18 @@
     text-align: center; margin-top: 6px; font-size: 12.5px; line-height: 1.7;
   }
 
+  .productSelect {
+    width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit; margin-bottom: 14px;
+  }
+  .productSelect:focus { outline: none; border-color: var(--muted); }
+  .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
+  .productDetailHeader {
+    display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
+    padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
+  }
+
   .toolbar {
     display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; flex-wrap: wrap;
   }
@@ -282,7 +280,7 @@
      see render()) needs its own visible focus ring — a <div> has none by
      default the way a real <button> would, and these are now keyboard-
      reachable (see the Enter/Space handler at the bottom of the script). */
-  .payBtn:focus-visible, .unitRow:focus-visible, .copyMsgBtn:focus-visible,
+  .payBtn:focus-visible, .copyMsgBtn:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
@@ -365,7 +363,7 @@
     let paidState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
-    let openUnit = null; // which unit's detail overlay is currently open, if any
+    let selectedProduct = null; // product key currently selected in 商品查询, or null for the full list
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
@@ -419,16 +417,6 @@
     let showUnitsPanel = false;
     let unitsDraft = {}; // working copy while the panel is open; committed on "保存"
     let unitsSaveMsg = "";
-    // Bulk-paste sub-panel inside 门牌管理: parses "姓名: 门牌" lines straight
-    // into unitsDraft (the same working copy the per-member inputs write to)
-    // rather than writing to Firestore itself — one entry per member is a lot
-    // of typing/tapping when there's a whole contact list to transcribe, so
-    // this just fills the existing form in bulk; the existing "保存" button
-    // still does the actual commit, same diff-against-memberUnits logic as
-    // ever, so there's no second write path to keep in sync with the first.
-    let showUnitsBulkPanel = false;
-    let unitsBulkDraft = "";
-    let unitsBulkError = "";
 
     let unsubscribePaidState = null;
     let unsubscribeAdjustments = null;
@@ -953,21 +941,6 @@
       });
       return totals;
     }
-    // Which distinct products contribute to each unit bucket, with their
-    // quantities — used to power the tap-to-see-detail overlay instead of
-    // crowding the summary card itself.
-    function unitProductBreakdown(itemsList) {
-      const map = {}; // unit -> { productKey: qty }
-      itemsList.forEach(items => {
-        Object.entries(items).forEach(([key, qty]) => {
-          const u = unitOf(key);
-          if (!DATA.products[key]) return;
-          if (!map[u]) map[u] = {};
-          map[u][key] = (map[u][key] || 0) + qty;
-        });
-      });
-      return map;
-    }
     function formatQty(qty) {
       // trims trailing zeros: 1.50 -> 1.5, 3.00 -> 3
       // Number(qty) first: this is called all over (member cards, print,
@@ -990,18 +963,12 @@
       const previousIndex = activeIndex; // restored on failure — see .catch below
       activeIndex = index;
       const gb = GROUP_BUYS[index];
-      // cache: "no-store" — this is hand-edited data that changes after the
-      // page has already been loaded (a price fix, a resolved unverified
-      // item, a new round pushed minutes ago); browsers happily serve a
-      // stale cached copy of a same-origin JSON GET otherwise, especially on
-      // iOS Safari, so every load of a round's data bypasses HTTP cache
-      // entirely rather than trusting cache headers.
-      fetch(gb.file, { cache: "no-store" })
+      fetch(gb.file)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(json => {
           DATA = json;
           filter = "all";
-          openUnit = null;
+          selectedProduct = null;
           openAdjustFormFor = null;
           showBulkPanel = false;
           bulkError = "";
@@ -1015,9 +982,6 @@
           showUnitsPanel = false;
           unitsDraft = {};
           unitsSaveMsg = "";
-          showUnitsBulkPanel = false;
-          unitsBulkDraft = "";
-          unitsBulkError = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -1235,21 +1199,6 @@
             平时的卡片视图上。门牌信息会一直保留给所有团购场次使用，不需要每场重填。
             序号和接龙楼层里的顺序一致，方便核对。
           </div>
-          <div class="toolBtn" id="unitsBulkToggleBtn" role="button" tabindex="0">${showUnitsBulkPanel ? "收起批量粘贴" : "📋 批量粘贴门牌"}</div>
-          ${showUnitsBulkPanel ? `
-            <div class="footNote" style="text-align:left;margin:8px 0;font-size:11px">
-              每行一条，格式"姓名: 门牌号"（半角/全角冒号都行），例如：<br>
-              Vincy: 107 04-03<br>
-              Caroline 琛琛: 107 26-10<br>
-              解析后会填入下面对应的输入框（含通讯录里有、但本场还没下单的人），
-              仍需点击最下面的"保存"才会真正写入。
-            </div>
-            <textarea id="unitsBulkText" placeholder="粘贴&quot;姓名: 门牌&quot;列表，每行一条">${escapeHtml(unitsBulkDraft)}</textarea>
-            ${unitsBulkError ? `<div class="adjError">${unitsBulkError}</div>` : ""}
-            <div class="adjFormBtns">
-              <div class="toolBtn" id="unitsBulkApplyBtn" role="button" tabindex="0">解析并填入</div>
-            </div>
-          ` : ""}
           ${names.map((name, i) => `
             <div class="unitsPanelRow">
               <span class="unitsPanelName">${i < baseCount ? `<span class="serialNum">${i + 1}.</span>` : ""}${escapeHtml(name)}</span>
@@ -1262,37 +1211,6 @@
           </div>
         </div>
       `;
-    }
-
-    // Splits pasted "姓名: 门牌" lines (one per line) into unitsDraft entries.
-    // Deliberately permissive: skips blank lines and lines with no colon
-    // rather than failing the whole paste on one bad line — this is
-    // hand-copied from a screenshot/contact list, so a stray line (a header,
-    // a name with no address yet) is expected, not exceptional. Accepts
-    // both a half-width ":" and full-width "：" colon since the source text
-    // this gets pasted from is usually Chinese contact names/notes.
-    function applyUnitsBulkPaste() {
-      let count = 0;
-      unitsBulkDraft.split("\n").forEach(raw => {
-        const line = raw.trim();
-        if (!line) return;
-        const idx = line.search(/[:：]/);
-        if (idx === -1) return; // no colon on this line -- skip, don't error out the whole paste
-        const name = line.slice(0, idx).trim();
-        const unit = line.slice(idx + 1).trim();
-        if (!name) return;
-        unitsDraft[name] = unit;
-        count++;
-      });
-      if (count === 0) {
-        unitsBulkError = "没有找到任何 \"姓名: 门牌\" 格式的行，检查一下有没有冒号";
-        render();
-        return;
-      }
-      unitsBulkError = "";
-      unitsBulkDraft = "";
-      showUnitsBulkPanel = false;
-      render();
     }
 
     function handlePinSubmit() {
@@ -1356,7 +1274,6 @@
       const baseGrandTotal = members.reduce((s, m) => s + cost(m.items), 0);
       const grandTotal = members.reduce((s, m) => s + m.total, 0);
       const grandUnitTotals = unitTotals(members.map(m => effectiveItems(m)));
-      const grandUnitBreakdown = unitProductBreakdown(members.map(m => effectiveItems(m)));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
 
@@ -1365,6 +1282,15 @@
       members.forEach(m => Object.entries(effectiveItems(m)).forEach(([k, qty]) => {
         if (flavorTotals[k] != null) flavorTotals[k] += qty;
       }));
+
+      // Products actually ordered this round, for the 商品查询 dropdown —
+      // same set 备货清单 already filtered to (flavorTotals[k] > 0). Anything
+      // never ordered this round never appears as an option.
+      const roundProductKeys = Object.keys(DATA.products).filter(k => flavorTotals[k] > 0);
+      // A previously-selected product can drop out of the round (e.g. an
+      // adjustment zeroed out its only order) — fall back to the full list
+      // rather than showing a detail panel for a product nobody has anymore.
+      if (selectedProduct && !roundProductKeys.includes(selectedProduct)) selectedProduct = null;
 
       const visible = members.filter(m => {
         if (filter === "paid") return paidState[m.name];
@@ -1405,12 +1331,6 @@
 
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
-          ${Object.entries(grandUnitTotals).map(([u, qty]) => `
-            <div class="statRow unitRow" role="button" tabindex="0" data-unit="${u}">
-              <span class="statLabel">总数量（${u}）<span class="unitChevron">›</span></span>
-              <span class="statValue">${formatQty(qty)}</span>
-            </div>
-          `).join("")}
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
             <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
@@ -1469,33 +1389,20 @@
         ${editMode && !roundLocked && openAdjustFormFor === "__walkin__" ? `<div class="row">${renderAdjForm("__walkin__")}</div>` : ""}
 
         <div class="card">
-          <div class="sectionTitle">备货清单 — 各口味所需数量</div>
+          <div class="sectionTitle">商品查询 — 备货清单 &amp; 认购明细</div>
           <div class="footNote" style="text-align:left;margin:-6px 0 8px">已按调整记录更新（含短缺/退款/现场加购）</div>
-          <div class="flavorGrid">
-            <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
-            ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
-              // isUnverified() (not a bare `info.unverified` check) so a
-              // product missing its `price` is caught here too, even if
-              // whoever wrote data-<date>.json forgot to also set
-              // `unverified: true` — otherwise `info.price.toFixed(2)` below
-              // throws on a null/undefined price and crashes the whole page.
-              if (isUnverified(k)) {
-                return `
-                  <div>${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
-                  <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-                  <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
-                `;
-              }
-              return `
-                <div>${emojiLabel(info)} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
-                <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-                <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
-              `;
+          <select class="productSelect" id="productSelect" aria-label="选择商品查看认购明细">
+            <option value=""${selectedProduct ? "" : " selected"}>📋 全部商品（本轮备货清单）</option>
+            ${roundProductKeys.map(k => {
+              const info = DATA.products[k];
+              const meta = isUnverified(k) ? "待确认" : `$${info.price.toFixed(2)}/${info.unit || "盒"}`;
+              return `<option value="${k}"${selectedProduct === k ? " selected" : ""}>${emojiLabel(info)} · ${meta}</option>`;
             }).join("")}
-          </div>
-          <div class="grandTotalBlock">
-            <div class="grandTotalRow"><span>合计</span><span class="grandTotalAmt">$${grandTotal.toFixed(2)}</span></div>
-            <div class="grandTotalQty">${formatUnitTotals(grandUnitTotals)}</div>
+          </select>
+          <div class="productDetail">
+            ${selectedProduct
+              ? renderProductMembers(selectedProduct, members)
+              : renderAllProductsList(flavorTotals, grandUnitTotals, grandTotal)}
           </div>
         </div>
 
@@ -1548,8 +1455,6 @@
 
         <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
 
-        ${openUnit && grandUnitBreakdown[openUnit] ? renderUnitOverlay(openUnit, grandUnitBreakdown[openUnit]) : ""}
-
         ${renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotals)}
       `;
 
@@ -1564,12 +1469,12 @@
           togglePaid(GROUP_BUYS[activeIndex].date, el.dataset.name);
         });
       });
-      document.querySelectorAll(".unitRow").forEach(el => {
-        el.addEventListener("click", () => { openUnit = el.dataset.unit; render(); });
-      });
-      const overlayEl = document.getElementById("unitOverlay");
-      if (overlayEl) {
-        overlayEl.addEventListener("click", () => { openUnit = null; render(); });
+      const productSelect = document.getElementById("productSelect");
+      if (productSelect) {
+        productSelect.addEventListener("change", (e) => {
+          selectedProduct = e.target.value || null;
+          render();
+        });
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
 
@@ -1695,16 +1600,6 @@
         unitsSaveMsg = "";
         render();
       });
-      const unitsBulkToggleBtn = document.getElementById("unitsBulkToggleBtn");
-      if (unitsBulkToggleBtn) unitsBulkToggleBtn.addEventListener("click", () => {
-        showUnitsBulkPanel = !showUnitsBulkPanel;
-        unitsBulkError = "";
-        render();
-      });
-      const unitsBulkTextEl = document.getElementById("unitsBulkText");
-      if (unitsBulkTextEl) unitsBulkTextEl.addEventListener("input", () => { unitsBulkDraft = unitsBulkTextEl.value; });
-      const unitsBulkApplyBtn = document.getElementById("unitsBulkApplyBtn");
-      if (unitsBulkApplyBtn) unitsBulkApplyBtn.addEventListener("click", applyUnitsBulkPaste);
       document.querySelectorAll(".unitInput").forEach(el => {
         el.addEventListener("input", () => { unitsDraft[el.dataset.name] = el.value; });
       });
@@ -1810,31 +1705,62 @@
       `;
     }
 
-    function renderUnitOverlay(u, breakdown) {
-      const entries = Object.entries(breakdown);
-      // isUnverified(), not a bare `info.unverified` check — see the matching
-      // comment on the 备货清单 sections above (same reasoning: a price-less
-      // product without the flag set shouldn't silently count as $0/show
-      // "$NaN" here either).
-      const subtotal = entries.reduce((s, [key, qty]) => {
-        const info = DATA.products[key];
-        if (!info || isUnverified(key)) return s;
-        return s + info.price * qty;
-      }, 0);
+    // Shown in the 商品查询 detail area when no single product is selected:
+    // the full stocking list for the round (same content the old standalone
+    // 备货清单 card always showed).
+    function renderAllProductsList(flavorTotals, grandUnitTotals, grandTotal) {
       return `
-        <div class="unitOverlay" id="unitOverlay">
-          <div class="unitOverlayCard">
-            <div class="sectionTitle" style="margin-top:0">总数量（${u}）明细</div>
-            ${entries.map(([key, qty]) => {
-              const info = DATA.products[key];
-              const unverified = isUnverified(key);
-              const amt = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-              return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${u}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amt}</span></div>`;
-            }).join("")}
-            <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">$${subtotal.toFixed(2)}</span></div>
-            <div class="footNote" style="margin-top:14px">点击任意处关闭</div>
-          </div>
+        <div class="flavorGrid">
+          <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
+          ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
+            // isUnverified() (not a bare `info.unverified` check) so a
+            // product missing its `price` is caught here too, even if
+            // whoever wrote data-<date>.json forgot to also set
+            // `unverified: true` — otherwise `info.price.toFixed(2)` below
+            // throws on a null/undefined price and crashes the whole page.
+            if (isUnverified(k)) {
+              return `
+                <div>${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
+                <div class="flavorQty" style="color:var(--warn-text)">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+                <div class="flavorAmt" style="color:var(--warn-text)">待确认</div>
+              `;
+            }
+            return `
+              <div>${emojiLabel(info)} <span style="color:var(--muted)">· $${info.price.toFixed(2)}/${info.unit || "盒"}</span></div>
+              <div class="flavorQty">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
+              <div class="flavorAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</div>
+            `;
+          }).join("")}
         </div>
+        <div class="grandTotalBlock">
+          <div class="grandTotalRow"><span>合计</span><span class="grandTotalAmt">$${grandTotal.toFixed(2)}</span></div>
+          <div class="grandTotalQty">${formatUnitTotals(grandUnitTotals)}</div>
+        </div>
+      `;
+    }
+
+    // Shown in the 商品查询 detail area once a single product is selected:
+    // who ordered it and how much, using effectiveItems() so it reflects
+    // adjustments (shortages/refunds/walk-ins) the same way 备货清单 does.
+    function renderProductMembers(key, members) {
+      const info = DATA.products[key];
+      if (!info) return "";
+      const unit = unitOf(key);
+      const unverified = isUnverified(key);
+      const buyers = members
+        .map(m => ({ m, qty: effectiveItems(m)[key] }))
+        .filter(x => x.qty);
+      const totalQty = buyers.reduce((s, x) => s + x.qty, 0);
+      const subtotal = unverified ? null : totalQty * info.price;
+      return `
+        <div class="productDetailHeader">
+          <span>${emojiLabel(info)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span>
+          <span>${formatQty(totalQty)}${unit}</span>
+        </div>
+        ${buyers.length === 0 ? `<div class="emptyNote">暂无人认购</div>` : buyers.map(({ m, qty }) => `
+          <div class="itemLine"><span>${escapeHtml(m.name)}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</span><span class="itemAmt">x${formatQty(qty)}${unit}</span></div>
+        `).join("")}
+        <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">${unverified ? "待确认" : `$${subtotal.toFixed(2)}`}</span></div>
       `;
     }
 
@@ -1845,11 +1771,9 @@
     function exportReport() {
       const prevFilter = filter;
       const prevEditMode = editMode;
-      const prevOpenUnit = openUnit;
       const prevTitle = document.title;
       filter = "all";
       editMode = false;
-      openUnit = null;
       openAdjustFormFor = null;
       showBulkPanel = false;
       showPinInput = false;
@@ -1863,7 +1787,6 @@
         restored = true;
         filter = prevFilter;
         editMode = prevEditMode;
-        openUnit = prevOpenUnit;
         document.title = prevTitle;
         render();
         window.removeEventListener("afterprint", restore);
@@ -1897,7 +1820,7 @@
     // (not blocking boot on it) — if it's still on the way when the first
     // render happens, items just show the plain default icon until it lands
     // and triggers a re-render.
-    fetch(EMOJI_MAP_URL, { cache: "no-store" })
+    fetch(EMOJI_MAP_URL)
       .then(r => r.ok ? r.json() : null)
       .then(map => { if (map) { EMOJI_MAP = map; if (DATA) render(); } })
       .catch(() => {});
@@ -1905,7 +1828,7 @@
     // Loads the copy-message wording. Not render-affecting (the message is
     // only built when the button is tapped), so no re-render needed here —
     // just swap in whatever loaded, or silently keep the built-in default.
-    fetch(MESSAGE_TEMPLATE_URL, { cache: "no-store" })
+    fetch(MESSAGE_TEMPLATE_URL)
       .then(r => r.ok ? r.json() : null)
       .then(tpl => { if (tpl) MESSAGE_TEMPLATE = Object.assign({}, MESSAGE_TEMPLATE, tpl); })
       .catch(() => {});
@@ -1915,12 +1838,13 @@
     subscribeToMemberUnits();
 
     // Keyboard activation for every interactive element that's a <div> rather
-    // than a real <button>/<a> (payBtn, tabs, copyMsgBtn, adjAddBtn, unitRow,
+    // than a real <button>/<a> (payBtn, tabs, copyMsgBtn, adjAddBtn,
     // toolBtn, adjUndo, announceBtn — see role="button"/role="tab" in the
-    // render() template above). These already have mouse click handlers
-    // wired up per-render; without this they'd be completely unreachable by
-    // keyboard (WCAG 2.1.1). Delegated on the persistent #app node (never
-    // replaced itself, only its innerHTML) so it keeps working across every
+    // render() template above; the 商品查询 picker is a native <select> and
+    // needs none of this). These already have mouse click handlers wired up
+    // per-render; without this they'd be completely unreachable by keyboard
+    // (WCAG 2.1.1). Delegated on the persistent #app node (never replaced
+    // itself, only its innerHTML) so it keeps working across every
     // re-render without needing to be re-attached — same reasoning as the
     // per-render querySelectorAll wiring above, just for the keyboard path.
     document.getElementById("app").addEventListener("keydown", (e) => {
@@ -1932,25 +1856,14 @@
       el.click();
     });
 
-    // Escape closes the unit-breakdown overlay, matching the modal/sheet
-    // convention of always offering a keyboard close path alongside
-    // click-outside-to-close (which the overlay already had).
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && openUnit) { openUnit = null; render(); }
-    });
-
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
-    // cache: "no-store" on both fetches here for the same reason as
-    // loadGroupBuy() above — manifest.json is exactly the file that changes
-    // every time a new round ships, so the very first page load is the most
-    // important place of all to never trust a stale cached copy.
-    fetch(MANIFEST_URL, { cache: "no-store" })
+    fetch(MANIFEST_URL)
       .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
       .then(manifest => {
         GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
         if (!GROUP_BUYS.length) throw new Error("manifest.json 里没有任何 groupBuys 条目");
         activeIndex = 0;
-        return fetch(GROUP_BUYS[0].file, { cache: "no-store" })
+        return fetch(GROUP_BUYS[0].file)
           .then(r => { if (!r.ok) throw new Error(`${GROUP_BUYS[0].file}: HTTP ${r.status}`); return r.json(); });
       })
       .then(json => {
