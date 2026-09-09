@@ -252,11 +252,6 @@
       "price": 23.8,
       "unit": "箱"
     },
-    "milk_hokkaido": {
-      "label": "北海道原味牛乳(24盒/箱)",
-      "price": 42,
-      "unit": "箱"
-    },
     "kimchi_kr": {
       "label": "韩国风味泡菜",
       "price": 6.5,
@@ -301,6 +296,91 @@
       "label": "海带苗",
       "price": 6,
       "unit": "kg"
+    },
+    "peach_box_czd": {
+      "label": "川中岛水蜜桃礼盒(2.5kg左右/箱)",
+      "price": 25.8,
+      "unit": "箱"
+    },
+    "peach_box_bj": {
+      "label": "白金水蜜桃礼盒(2.5kg左右/箱)",
+      "price": 25.8,
+      "unit": "箱"
+    },
+    "peach_rainbow_oil_loose": {
+      "label": "散装彩虹油蟠桃(2kg/包)",
+      "price": 16,
+      "unit": "包"
+    },
+    "dazao": {
+      "label": "脆甜大荔冬枣",
+      "price": 10.5,
+      "unit": "kg"
+    },
+    "kiwi": {
+      "label": "红心奇异果(2盒/份)",
+      "price": 9,
+      "unit": "份"
+    },
+    "kiwi_cuixiang": {
+      "label": "翠香猕猴桃",
+      "price": 8,
+      "unit": "kg"
+    },
+    "grape_jufeng": {
+      "label": "福安巨峰",
+      "price": 12.8,
+      "unit": "箱"
+    },
+    "grape_xiaoguangtou": {
+      "label": "小光头辽宁巨峰(2.8kg左右/箱)",
+      "price": 19.8,
+      "unit": "箱"
+    },
+    "pear_qiuyue_box": {
+      "label": "秋月梨礼盒(3.5kg左右/箱，8粒)",
+      "price": 23.8,
+      "unit": "箱"
+    },
+    "orange_locsweet": {
+      "label": "Loc sweet甜橙(12粒/份)",
+      "price": 15,
+      "unit": "份"
+    },
+    "tangerine_seedless_big": {
+      "label": "少籽大蜜橘(2kg左右/包，约8粒)",
+      "price": 10,
+      "unit": "包"
+    },
+    "cherry_tomato": {
+      "label": "番夫子釜山88小番茄礼盒",
+      "price": 12.8,
+      "unit": "kg"
+    },
+    "coconut_jelly_taho": {
+      "label": "泰国Taho椰子冻(3粒/份)",
+      "price": 10,
+      "unit": "份"
+    },
+    "banana_ph": {
+      "label": "菲律宾长香蕉(900g/份)",
+      "price": 2.9,
+      "unit": "份"
+    },
+    "dragonfruit_white": {
+      "label": "越南白肉火龙果(4粒/份)",
+      "price": 5,
+      "unit": "份"
+    },
+    "dragonfruit_red": {
+      "label": "中国红绣球火龙果(4粒/份)",
+      "price": 6,
+      "unit": "份"
+    },
+    "milk_hokkaido_12": {
+      "label": "北海道原味牛乳(12盒/箱)",
+      "price": 22,
+      "unit": "箱"
     }
   },
   "orders": [
@@ -573,7 +653,7 @@
       "items": {
         "egg_my": 1,
         "corn_47": 1,
-        "milk_hokkaido": 1,
+        "milk_hokkaido_12": 1,
         "kimchi_kr": 1
       }
     },
@@ -633,6 +713,14 @@
       "items": {
         "peach_loose_czd": 1,
         "peach_loose_bj": 1
+      }
+    },
+    {
+      "name": "Wu",
+      "items": {
+        "egg_my": 1,
+        "honey_plum": 0.5,
+        "cherry_tomato": 1
       }
     }
   ]
