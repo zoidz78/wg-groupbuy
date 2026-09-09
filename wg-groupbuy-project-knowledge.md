@@ -754,6 +754,19 @@ in a private/incognito window. If still wrong, view page source and confirm the 
 **Red 🔧 banner at the top of the page:** a Firestore read/write failed — the banner
 shows the actual error message, which is the fastest way to debug it.
 
+**"Pulling down doesn't refresh the page" when saved to the iOS Home Screen**
+(added 2026-09-09): expected, not a bug — a page saved via "Add to Home Screen"
+opens full-screen with no Safari chrome, and pull-to-refresh is a gesture Safari's
+UI provides, not something the page itself can opt into or reimplement via a
+manifest/meta tag. **Fix:** a `#refreshBtn` toolbar button (🔄 刷新) was added that
+just calls `location.reload()` — a real navigation, not a custom re-fetch of
+`manifest.json`/`data-<date>.json`, deliberately, so it re-runs every boot step
+exactly once (product-emoji-map.json, message-template.json, Firestore
+subscriptions, everything) with nothing to keep in sync by hand as future
+boot-time fetches get added. If the person reports the button itself doesn't seem
+to update anything, that's almost always the GitHub Pages CDN-caching issue above,
+not this button — same fix (wait, or force-quit and reopen).
+
 **"🖨️ 导出报告" needed several clicks before the print dialog actually opened**
 (fixed 2026-09-08): `exportReport()` reset some UI state (filter/edit mode/open
 panels) and called `render()`, then called `window.print()` inside a

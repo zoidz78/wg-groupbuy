@@ -42,6 +42,10 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   （详见下方"门牌管理"）
 - 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
   多而变成好几页
+- 工具栏 **"🔄 刷新"** 按钮：手动重新加载整个页面。保存到 iOS 主屏
+  幕、以"网页 App"方式打开时没有 Safari 那个下拉刷新的手势（这个
+  手势属于 Safari 的界面外壳，全屏网页 App 里没有），这个按钮就是
+  用来代替它的（详见下方"排查：主屏幕网页 App 没法下拉刷新"）
 
 ## 文件说明
 
@@ -161,6 +165,16 @@ GitHub Pages 的 CDN 缓存还没刷新到最新的 `index.html`——等一两�
 钟，或者用无痕/私密窗口重新打开链接（绕过缓存）即可自行恢复。如
 果等待后依然不一致，检查页面源码里是否包含 `firebase` 字样，确
 认线上确实是最新版本。
+
+### 排查：主屏幕网页 App 没法下拉刷新
+
+把这个页面保存到 iOS 主屏幕后（分享 → 添加到主屏幕），打开时是全
+屏显示、没有 Safari 的地址栏和工具栏——这种全屏模式下，下拉刷新
+这个手势本身就不存在，它是 Safari 界面自带的功能，不属于网页本
+身，所以不管怎么下拉都不会有反应，这不是这个页面的 bug。用工具栏
+里的 **"🔄 刷新"** 按钮即可手动重新加载整页；如果按了之后内容看起
+来还是旧的，通常还是上面那条"两台设备数据对不上"里说的 CDN 缓存
+问题，多等一两分钟或强制退出这个网页 App 再重新打开一次即可。
 
 ## 送货日调整（短缺 / 退款补款 / 现场加购）
 
@@ -416,6 +430,12 @@ chat), but works for any group buy once you swap in your own data.
   below)
 - One-tap report export: a dense table format you can print or save
   as a PDF, so a large round doesn't turn into several pages
+- Toolbar **"🔄 刷新"** (Refresh) button: manually reloads the whole
+  page. Saved to the iOS Home Screen as a "web app," the page opens
+  full-screen with no Safari UI — including no pull-to-refresh gesture,
+  since that belongs to Safari's chrome, not the page itself — so this
+  button is the reliable substitute (see "Troubleshooting: Home Screen
+  web app won't pull-to-refresh" below)
 
 ## Files
 
@@ -547,6 +567,19 @@ the old `index.html` — wait a minute or two, or reopen the link in a
 private/incognito window to bypass the cache. If it's still
 inconsistent after that, check the page source for the word
 `firebase` to confirm the live version is actually the latest one.
+
+### Troubleshooting: Home Screen web app won't pull-to-refresh
+
+Saving this page to the iOS Home Screen (Share → Add to Home Screen)
+opens it full-screen with no Safari address bar or toolbar. Pull-to-
+refresh is a gesture that belongs to Safari's own UI, not to the
+page — in full-screen mode there's no Safari chrome to provide it,
+so pulling down does nothing there. That's expected, not a bug in
+this page. Use the toolbar's **"🔄 刷新"** (Refresh) button instead —
+it reloads the whole page manually. If the content still looks stale
+right after tapping it, that's almost always the CDN-caching issue
+above, not the button itself: wait a minute or two, or force-quit the
+web app and reopen it from the Home Screen icon.
 
 ## Delivery-day adjustments (shortages / refunds / walk-in extras)
 

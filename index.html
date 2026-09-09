@@ -1428,6 +1428,7 @@
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
 
         <div class="toolbar">
+          <div class="toolBtn" id="refreshBtn" role="button" tabindex="0">🔄 刷新</div>
           <div class="toolBtn" id="exportReportBtn" role="button" tabindex="0">🖨️ 导出报告（PDF/打印）</div>
           ${roundLocked
             ? `<div class="toolBtn" id="unlockToggleBtn" role="button" tabindex="0">${showUnlockPrompt ? "取消解锁" : "🔓 解锁"}</div>`
@@ -1505,6 +1506,15 @@
         productOverlayEl.addEventListener("click", () => { selectedProductOverlay = null; render(); });
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
+      // Home-screen-saved web apps on iOS run full-screen with no Safari
+      // chrome, so the pull-down-to-refresh gesture (which belongs to
+      // Safari's UI, not the page) isn't available — this button is the
+      // guaranteed alternative. A real navigation (not a custom re-fetch of
+      // manifest.json/data-<date>.json), so it also re-runs every boot step
+      // exactly once: fresh product-emoji-map.json/message-template.json,
+      // fresh Firestore subscriptions, everything — nothing to keep in sync
+      // by hand as new boot-time fetches get added later.
+      document.getElementById("refreshBtn").addEventListener("click", () => location.reload());
 
       const announceBtnEl = document.getElementById("announceBtn");
       if (announceBtnEl) {
