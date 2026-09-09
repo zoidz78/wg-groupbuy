@@ -344,6 +344,26 @@
     const EDIT_PIN = "1117";
 
     const MANIFEST_URL = "./manifest.json";
+
+    // --- Cache busting for every static JSON fetch ------------------------
+    // GitHub Pages serves these files with a max-age cache header, so a
+    // browser tab that has visited before re-serves the OLD copy straight
+    // from disk and never hits the network at all. Symptom: a new round is
+    // pushed to the repo, but the page keeps showing the previous data —
+    // while a private tab or the Home Screen web app (separate, cold caches)
+    // shows the new data correctly, which makes it look like a deploy problem
+    // when it isn't. Fixed by appending a unique ?v= to every data URL AND
+    // sending cache: "no-store"; belt and braces, because the query param
+    // alone can still be served from a Service-Worker-style cache and
+    // no-store alone is ignored by some intermediate CDN layers.
+    // One timestamp per page load (not per fetch) so switching rounds back
+    // and forth within a session stays cheap.
+    const BOOT_TS = Date.now();
+    function noCacheUrl(url) {
+      return url + (url.indexOf("?") === -1 ? "?" : "&") + "v=" + BOOT_TS;
+    }
+    const NO_STORE = { cache: "no-store" };
+
     // Keyword -> emoji lookup for product labels (see product-emoji-map.json).
     // Loaded in parallel with the group-buy data; falls back to a plain
     // shopping-cart icon for anything unmatched or while it's still loading.
@@ -980,7 +1000,7 @@
       const previousIndex = activeIndex; // restored on failure — see .catch below
       activeIndex = index;
       const gb = GROUP_BUYS[index];
-      fetch(gb.file)
+      fetch(noCacheUrl(gb.file), NO_STORE)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(json => {
           DATA = json;
@@ -1884,7 +1904,7 @@
     // (not blocking boot on it) — if it's still on the way when the first
     // render happens, items just show the plain default icon until it lands
     // and triggers a re-render.
-    fetch(EMOJI_MAP_URL)
+    fetch(noCacheUrl(EMOJI_MAP_URL), NO_STORE)
       .then(r => r.ok ? r.json() : null)
       .then(map => { if (map) { EMOJI_MAP = map; if (DATA) render(); } })
       .catch(() => {});
@@ -1892,7 +1912,7 @@
     // Loads the copy-message wording. Not render-affecting (the message is
     // only built when the button is tapped), so no re-render needed here —
     // just swap in whatever loaded, or silently keep the built-in default.
-    fetch(MESSAGE_TEMPLATE_URL)
+    fetch(noCacheUrl(MESSAGE_TEMPLATE_URL), NO_STORE)
       .then(r => r.ok ? r.json() : null)
       .then(tpl => { if (tpl) MESSAGE_TEMPLATE = Object.assign({}, MESSAGE_TEMPLATE, tpl); })
       .catch(() => {});
@@ -1929,13 +1949,13 @@
     });
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
-    fetch(MANIFEST_URL)
+    fetch(noCacheUrl(MANIFEST_URL), NO_STORE)
       .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
       .then(manifest => {
         GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
         if (!GROUP_BUYS.length) throw new Error("manifest.json 里没有任何 groupBuys 条目");
         activeIndex = 0;
-        return fetch(GROUP_BUYS[0].file)
+        return fetch(noCacheUrl(GROUP_BUYS[0].file), NO_STORE)
           .then(r => { if (!r.ok) throw new Error(`${GROUP_BUYS[0].file}: HTTP ${r.status}`); return r.json(); });
       })
       .then(json => {
