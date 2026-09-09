@@ -23,6 +23,7 @@ Files in this project:
 | `manifest.json` | Lists every round: `{ date, label, file }`, newest first. |
 | `data-<date>.json` | One per round: `groupName`, `products`, `orders`. |
 | `product-emoji-map.json` | Keyword → emoji lookup table used to prefix each product label with a matching icon (🍑 for peaches, 🐔 for chicken, etc.) across every round, current and future. See "Product emoji icons" below. |
+| `product-catalog.json` | **Not fetched by `index.html` — never uploaded to GitHub, never referenced at runtime.** A build-time-only reference (`key → {label, unit, aka?, note?}`, deliberately no `price`) consulted when authoring each new round's `products`, so the same product gets the same key/label/unit every time instead of drifting. See "Product key consistency" below. |
 | `message-template.json` | Wording for the "复制付款消息" copy-message button — greeting, item-line phrasing, adjustment phrasing, total line, closing lines. Edit this (not `index.html`) to change how the message reads. See "Copy WeChat payment message" below. |
 | `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` and `adjustments` collections only). |
 | `README.md` | User-facing docs (Chinese + English) for this specific deployment. |
@@ -51,6 +52,12 @@ records. Saving a file to the project docs (`project_write`) is never a substitu
 for sending it — do both, every time, for every file created or edited in this
 project.
 
+**Exception: `product-catalog.json` is not sent or uploaded by default.** It's a
+build-time-only reference with no runtime role (see the files table above and
+"Product key consistency" below) — update it silently as part of the normal
+per-round workflow, the same way scratch verification scripts aren't sent. Only
+share it if the user explicitly asks to see/download it.
+
 ## First thing in a new chat: figure out which of these two the user wants
 
 1. **Add a new round to the existing WG团购群 dashboard** (by far the more common ask —
@@ -70,25 +77,39 @@ in order, some combine orders, some use shorthand like "各1" for one of each, o
 
 Steps:
 
-1. Extract the product list into `products`: short English key → `{label (Chinese), price}`.
+1. **Check `product-catalog.json` first** (see "Product key consistency" below) for
+   every product in the thread. If a matching key already exists there, reuse its
+   exact `label`/`unit` — don't re-derive wording from scratch each round, that's how
+   drift happens (e.g. "油麦菜" one round, "油麦菜(300g*2袋/份)" the next, same product).
+   Only mint a new key for something genuinely not in the catalog yet. Add `price`
+   (round-specific, never in the catalog) to build that round's `products` entry.
+2. Extract the product list into `products`: short English key → `{label (Chinese), price}`.
    Reuse existing keys across rounds when the product line is unchanged (`sig`, `corn`,
    `mush`, `seaweed`, `chive`, `shrimp`, `salted`, `century` are the ones seen so far) —
-   give genuinely new products new keys.
-2. Parse every member line into `orders`: `{ name, items: {key: qty, ...} }`. Preserve
+   give genuinely new products new keys. **Critically: a different pack size/price is a
+   different product for this purpose** — don't reuse a key across rounds just because
+   the Chinese name matches if the deal itself (grams-per-unit, price-per-piece) has
+   changed; see the `mango_pzh` cautionary entry in `product-catalog.json` for what
+   happens when this rule gets missed.
+3. Parse every member line into `orders`: `{ name, items: {key: qty, ...} }`. Preserve
    the name exactly as written, including emoji/symbols.
-3. Resolve ambiguous flavor references using judgment (e.g. "原味"/bare "鲜肉" usually
+4. Resolve ambiguous flavor references using judgment (e.g. "原味"/bare "鲜肉" usually
    means the base/signature flavor), but flag the assumption to the user rather than
    silently guessing when it's genuinely unclear.
-4. **Verify totals with a script, don't hand-total** — sum each member's cost, total
+5. **Verify totals with a script, don't hand-total** — sum each member's cost, total
    quantity per unit, and grand total; sanity-check against any delivery minimum
    mentioned in the message.
-5. Write `data-<date>.json` per the schema below. Use the date embedded in the message
+6. Write `data-<date>.json` per the schema below. Use the date embedded in the message
    if there is one; otherwise ask, don't assume. Also set `itemsLabel` to a short phrase
    for this round (e.g. "小馄饨团购") unless the raw product labels already read fine
    joined together — it's what the "📢 复制到货通知" button (A4) uses to say what arrived.
-6. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
+7. **Update `product-catalog.json`** with any genuinely new keys from this round (no
+   `price` field — see "Product key consistency" below). This file is never uploaded to
+   GitHub or sent to the user unless they ask; it's kept purely for the next round's
+   step 1.
+8. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
    Newest date goes first.
-7. Get both files into the live repo (commit + push if this session has repo access;
+9. Get both files into the live repo (commit + push if this session has repo access;
    otherwise hand the user the full contents of both files and point them to GitHub's
    "Add file → Upload files"). `index.html` doesn't need to change. New product labels
    are automatically iconified by `product-emoji-map.json` at render time (see below) —
@@ -230,6 +251,51 @@ before reaching "凤爪" (chicken feet).
    alongside `manifest.json`) — it needs to exist in the live repo for icons to show
    at all; a missing/failed fetch just falls back to 🛒 for everything, it doesn't break
    the page.
+
+---
+
+## A1.5. Product key consistency (`product-catalog.json`)
+
+**Not fetched by `index.html`. Never uploaded to GitHub. Not part of the live
+site at all.** This is a Claude-side reference only — a flat `key → {label, unit,
+aka?, note?}` map covering every product key ever used across every round, built
+2026-09-10 from the first three rounds' `data-<date>.json` files and updated
+incrementally since. It exists to stop the same product drifting into two
+different keys, labels, or units across rounds (this happened for real — see the
+`mango_pzh` entry below — before this file existed).
+
+**Deliberately has no `price` field.** Price is round-specific and belongs only in
+that round's `data-<date>.json`; a shared catalog with prices baked in would risk
+silently rewriting historical totals the moment someone "fixed" a price in it (see
+the project's standing rule: price/unit changes only ever touch the current
+round's file, never past ones).
+
+**Workflow (see step 1 of section A above):**
+1. Before assigning a key to any product in a new 接龙 thread, check this file.
+   A match → reuse its exact `label` and `unit` verbatim in the new round's
+   `products` entry (just add that round's `price`). No match → mint a new key
+   and add it here with no price.
+2. **A different pack size or price-per-unit is a different product, not a
+   relabel** — don't reuse a key across rounds just because the Chinese name is
+   the same if the actual deal changed (grams-per-piece, price-per-kg, etc.).
+   Give it a new key instead (e.g. `mango_pzh_4` if a 4-per-pack version shows up
+   again alongside the existing 2-per-pack `mango_pzh`).
+3. When a genuinely fuller/clearer label surfaces for an existing key (e.g. a
+   later round specifies the pack size that an earlier one omitted), it's fine to
+   update the catalog entry to the fuller version and record the shorter one
+   under `"aka"` — this is normal label-quality drift, not a product change. The
+   test for "relabel" vs. "different product" is whether the price-per-unit
+   actually changed, not whether the wording changed.
+4. This file is silently maintained as part of the normal per-round workflow —
+   it does not need to be sent to the user or mentioned unless they ask (see the
+   exception carved out in the file-sending rule near the top of this doc).
+
+**Known flagged entry:** `mango_pzh` carries a `note` field because this exact
+mistake already happened once — 2026-09-01 sold it at $7/2粒 ($3.50/粒), 2026-09-10
+reused the same key at $8/4粒 ($2.00/粒). Both dated files were left as-shipped
+(never edit past rounds), but the catalog note exists so this doesn't get treated
+as one consistent product in any future analysis across rounds, and so a repeat
+of the 4粒 pack gets its own key next time instead of overloading `mango_pzh` again.
 
 ---
 

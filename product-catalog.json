@@ -1,0 +1,487 @@
+{
+  "_readme": "Build-time reference only. NOT fetched by index.html. Consulted when building each new data-<date>.json to keep product keys/labels/units consistent across rounds and avoid accidental key reuse or duplicate keys for the same product. Deliberately has NO price field --- price is round-specific and belongs only in data-<date>.json, never here.",
+  "products": {
+    "apple_envy": {
+      "label": "Envy苹果(5粒/份)",
+      "unit": "份"
+    },
+    "apple_nz_danshuo": {
+      "label": "新西兰丹烁苹果(5粒/份)",
+      "unit": "份"
+    },
+    "apple_yunnan_cherry": {
+      "label": "云南樱桃小苹果",
+      "unit": "箱"
+    },
+    "asparagus": {
+      "label": "芦笋(500g/份)",
+      "unit": "份"
+    },
+    "banana_ph": {
+      "label": "菲律宾长香蕉(900g/份)",
+      "unit": "份"
+    },
+    "beansprout_green": {
+      "label": "绿豆芽",
+      "unit": "kg"
+    },
+    "beef_shank": {
+      "label": "五香卤牛腱肉",
+      "unit": "份"
+    },
+    "blueberry_sa": {
+      "label": "CORE南非巨无霸大蓝莓",
+      "unit": "桶"
+    },
+    "blueberry_twotree": {
+      "label": "名牌Two Tree桶装Jumbo蓝莓(200g/桶)",
+      "unit": "桶"
+    },
+    "bokchoy_sh": {
+      "label": "上海青(250g*2袋/份)",
+      "unit": "份"
+    },
+    "broccoli": {
+      "label": "西兰花",
+      "unit": "份"
+    },
+    "broccolini": {
+      "label": "西兰苔",
+      "unit": "份"
+    },
+    "cabbage_baby": {
+      "label": "娃娃菜(300g*2包/份)",
+      "unit": "份"
+    },
+    "cabbage_bj": {
+      "label": "北京包菜",
+      "unit": "粒"
+    },
+    "celery": {
+      "label": "长嫩芹菜",
+      "unit": "份"
+    },
+    "celery_western": {
+      "label": "西芹",
+      "unit": "kg"
+    },
+    "century": {
+      "label": "皮蛋鲜肉馄饨",
+      "unit": "盒"
+    },
+    "cherry_tomato": {
+      "label": "番夫子釜山88小番茄礼盒",
+      "unit": "kg",
+      "aka": [
+        "番夫子釜山88小番茄"
+      ]
+    },
+    "chicken_feet_lemon": {
+      "label": "柠檬无骨泡凤爪(170g/袋)",
+      "unit": "袋"
+    },
+    "chicken_shred": {
+      "label": "香酥手撕鸡",
+      "unit": "只"
+    },
+    "chili_luosi": {
+      "label": "螺丝椒",
+      "unit": "kg"
+    },
+    "chili_oil_yao": {
+      "label": "幺麻子藤椒油",
+      "unit": "瓶"
+    },
+    "chili_th": {
+      "label": "泰国小红尖椒",
+      "unit": "份"
+    },
+    "chili_yangjiao": {
+      "label": "羊角椒",
+      "unit": "kg"
+    },
+    "chive": {
+      "label": "韭菜鲜肉馄饨",
+      "unit": "盒"
+    },
+    "coconut_jelly_taho": {
+      "label": "泰国Taho椰子冻(3粒/份)",
+      "unit": "份"
+    },
+    "corn": {
+      "label": "玉米鲜肉馄饨",
+      "unit": "盒"
+    },
+    "corn_47": {
+      "label": "北纬47度白糯玉米(10根/箱)",
+      "unit": "箱"
+    },
+    "corn_km": {
+      "label": "金马伦爆汁白玉米(4根/份)",
+      "unit": "份"
+    },
+    "cucumber_fruit": {
+      "label": "水果黄瓜",
+      "unit": "kg"
+    },
+    "dazao": {
+      "label": "脆甜大荔冬枣",
+      "unit": "kg"
+    },
+    "dragonfruit_red": {
+      "label": "中国红绣球火龙果(4粒/份)",
+      "unit": "份"
+    },
+    "dragonfruit_white": {
+      "label": "越南白肉火龙果(4粒/份)",
+      "unit": "份"
+    },
+    "duck_gizzard": {
+      "label": "双椒鸭胗",
+      "unit": "份"
+    },
+    "duck_pipi": {
+      "label": "特色片皮鸭",
+      "unit": "只"
+    },
+    "duck_shred": {
+      "label": "手撕香酥鸭",
+      "unit": "只"
+    },
+    "duck_wing_salt": {
+      "label": "盐焗鸭翅",
+      "unit": "份"
+    },
+    "egg_aa": {
+      "label": "AA级大鸡蛋",
+      "unit": "盘"
+    },
+    "egg_my": {
+      "label": "马来西亚土鸡蛋",
+      "unit": "盘"
+    },
+    "flour": {
+      "label": "Baker's Choice特级面粉",
+      "unit": "袋"
+    },
+    "fungus_black": {
+      "label": "新鲜木耳(200g*2盒/份)",
+      "unit": "份"
+    },
+    "garlic_brown_sugar": {
+      "label": "红糖蒜(350g/袋)",
+      "unit": "袋"
+    },
+    "garlic_scape": {
+      "label": "新鲜蒜苔",
+      "unit": "kg"
+    },
+    "garlic_sprout": {
+      "label": "青蒜苗",
+      "unit": "kg"
+    },
+    "ginger_young": {
+      "label": "仔姜",
+      "unit": "kg"
+    },
+    "grape_jufeng": {
+      "label": "福安巨峰",
+      "unit": "箱"
+    },
+    "grape_jufeng_ln": {
+      "label": "辽宁巨峰(3串/箱)",
+      "unit": "箱"
+    },
+    "grape_nina": {
+      "label": "妮娜皇后小盒装(450g/盒)",
+      "unit": "盒"
+    },
+    "grape_raisin_xj": {
+      "label": "新疆黑加仑黑提",
+      "unit": "箱"
+    },
+    "grape_xiaoguangtou": {
+      "label": "小光头辽宁巨峰(2.8kg左右/箱)",
+      "unit": "箱",
+      "aka": [
+        "小光头辽宁巨峰"
+      ]
+    },
+    "green_bean_km": {
+      "label": "金马伦四季豆",
+      "unit": "kg"
+    },
+    "honey_plum": {
+      "label": "蜂糖李",
+      "unit": "kg"
+    },
+    "jiaobaisun": {
+      "label": "茭白笋",
+      "unit": "kg"
+    },
+    "kelp_sprout": {
+      "label": "海带苗",
+      "unit": "kg"
+    },
+    "kimchi_kr": {
+      "label": "韩国风味泡菜",
+      "unit": "kg"
+    },
+    "kiwi": {
+      "label": "红心奇异果(2盒/份)",
+      "unit": "份"
+    },
+    "kiwi_cuixiang": {
+      "label": "翠香猕猴桃",
+      "unit": "kg"
+    },
+    "lemon_cn": {
+      "label": "中国柠檬(5粒/份)",
+      "unit": "份"
+    },
+    "lemon_fujian": {
+      "label": "福建香水柠檬",
+      "unit": "袋"
+    },
+    "lettuce_luomen": {
+      "label": "罗门生菜(500g/份)",
+      "unit": "份"
+    },
+    "lettuce_youmai": {
+      "label": "油麦菜(300g*2袋/份)",
+      "unit": "份",
+      "aka": [
+        "油麦菜"
+      ]
+    },
+    "lotus_root": {
+      "label": "洪湖莲藕",
+      "unit": "kg"
+    },
+    "luffa_th": {
+      "label": "泰国丝瓜",
+      "unit": "kg"
+    },
+    "mango_pzh": {
+      "label": "攀枝花凯特大芒果(4粒/份)",
+      "unit": "份",
+      "aka": [
+        "攀枝花凯特大芒果(2粒/份)"
+      ],
+      "note": "CAUTION: not a pure relabel - the 2025-09-01 round sold this at $7/2粒 ($3.50/粒) and the 2025-09-10 round at $8/4粒 ($2.00/粒), a genuinely different deal under the same key. Per project convention this should have been a new key on 09-10 rather than reusing mango_pzh. Left as-is in both dated files (never edit past rounds), but do not treat past and current mango_pzh prices as comparable, and consider a distinct key (e.g. mango_pzh_4) if this exact 4粒 pack recurs."
+    },
+    "melon_niusan": {
+      "label": "牛三网纹瓜",
+      "unit": "粒"
+    },
+    "melon_wang": {
+      "label": "86王哈密瓜",
+      "unit": "粒"
+    },
+    "milk_hokkaido_12": {
+      "label": "北海道原味牛乳(12盒/箱)",
+      "unit": "箱"
+    },
+    "mush": {
+      "label": "香菇鲜肉馄饨",
+      "unit": "盒"
+    },
+    "mushroom_king": {
+      "label": "杏鲍菇(200g*2盒/份)",
+      "unit": "份"
+    },
+    "mushroom_mix": {
+      "label": "什锦菌菇",
+      "unit": "盒"
+    },
+    "mushroom_white": {
+      "label": "白色口蘑",
+      "unit": "kg"
+    },
+    "nectarine_loose": {
+      "label": "散装芒果油桃(2kg/包)",
+      "unit": "包"
+    },
+    "orange_locsweet": {
+      "label": "Loc sweet甜橙(12粒/份)",
+      "unit": "份",
+      "aka": [
+        "Loc sweet甜橙(3kg/包)"
+      ]
+    },
+    "oyster_sauce_ht": {
+      "label": "海天上等蚝油(590g/瓶)",
+      "unit": "瓶"
+    },
+    "passionfruit_qinmi": {
+      "label": "钦蜜百香果",
+      "unit": "kg"
+    },
+    "peach_box_bj": {
+      "label": "白金水蜜桃礼盒(2.5kg左右/箱)",
+      "unit": "箱"
+    },
+    "peach_box_czd": {
+      "label": "川中岛水蜜桃礼盒(2.5kg左右/箱)",
+      "unit": "箱",
+      "aka": [
+        "川中岛水蜜桃礼盒"
+      ]
+    },
+    "peach_box_lqy": {
+      "label": "龙泉驿凤凰水蜜桃礼盒(2.3kg/箱)",
+      "unit": "箱"
+    },
+    "peach_loose_bj": {
+      "label": "散装白金水蜜桃(2kg/包)",
+      "unit": "包"
+    },
+    "peach_loose_czd": {
+      "label": "散装川中岛水蜜桃(2kg/包)",
+      "unit": "包"
+    },
+    "peach_mix4": {
+      "label": "缤纷桃4粒拼装礼盒",
+      "unit": "盒"
+    },
+    "peach_mix_gift": {
+      "label": "缤纷桃拼装小礼盒(4粒/份)",
+      "unit": "份"
+    },
+    "peach_rainbow_loose": {
+      "label": "散装彩虹毛蟠桃(2kg/包)",
+      "unit": "包"
+    },
+    "peach_rainbow_oil": {
+      "label": "散装彩虹油蟠桃(2kg/包)",
+      "unit": "包"
+    },
+    "peach_rainbow_oil_loose": {
+      "label": "散装彩虹油蟠桃(2kg/包)",
+      "unit": "包"
+    },
+    "peach_rainbow_unclear": {
+      "label": "彩虹蟠桃(品种待确认，6粒)",
+      "unit": "盒"
+    },
+    "pear_qiuyue": {
+      "label": "散装秋月梨(2kg左右/包)",
+      "unit": "包"
+    },
+    "pear_qiuyue_box": {
+      "label": "秋月梨礼盒(3.5kg左右/箱，8粒)",
+      "unit": "箱"
+    },
+    "pear_shaanxi": {
+      "label": "散装陕西酥梨(3kg/包)",
+      "unit": "包"
+    },
+    "persimmon": {
+      "label": "火晶柿子(2盒/份)",
+      "unit": "份"
+    },
+    "pomegranate": {
+      "label": "会理软籽石榴(4粒/份)",
+      "unit": "份"
+    },
+    "pomelo_taiwan": {
+      "label": "台湾老树文旦柚",
+      "unit": "粒"
+    },
+    "pork_tongue": {
+      "label": "川卤猪舌头(2只/份)",
+      "unit": "份"
+    },
+    "potato_big": {
+      "label": "新鲜大土豆(约2kg/袋)",
+      "unit": "袋"
+    },
+    "prune": {
+      "label": "新鲜甜西梅",
+      "unit": "kg",
+      "aka": [
+        "新鲜西梅"
+      ]
+    },
+    "qinglongcai": {
+      "label": "青龙菜(2包/份)",
+      "unit": "份"
+    },
+    "radish_spicy": {
+      "label": "四川麻辣萝卜干(500g/袋)",
+      "unit": "袋"
+    },
+    "redpomelo": {
+      "label": "红文旦柚",
+      "unit": "粒"
+    },
+    "salted": {
+      "label": "咸蛋黄鲜肉馄饨",
+      "unit": "盒"
+    },
+    "seaweed": {
+      "label": "紫菜鲜肉馄饨",
+      "unit": "盒"
+    },
+    "shrimp": {
+      "label": "鲜虾鲜肉馄饨",
+      "unit": "盒"
+    },
+    "sig": {
+      "label": "招牌鲜肉馄饨",
+      "unit": "盒"
+    },
+    "soda_dayao": {
+      "label": "大窑橙诺汽水(480ml*12瓶/箱)",
+      "unit": "箱"
+    },
+    "soy_sauce_light": {
+      "label": "海天味极鲜",
+      "unit": "瓶"
+    },
+    "soy_sauce_light_ht": {
+      "label": "海天生抽(1.9L/瓶)",
+      "unit": "瓶"
+    },
+    "strawberry": {
+      "label": "澳洲草莓",
+      "unit": "盒"
+    },
+    "sweetpotato_durian": {
+      "label": "榴莲蜜薯(500g*2包/份)",
+      "unit": "份"
+    },
+    "tangerine_seedless": {
+      "label": "无籽蜜橘(2kg/包)",
+      "unit": "包"
+    },
+    "tangerine_seedless_big": {
+      "label": "少籽大蜜橘(2kg左右/包，约8粒)",
+      "unit": "包"
+    },
+    "taro_small": {
+      "label": "奶心小芋头",
+      "unit": "kg"
+    },
+    "tomato_provence": {
+      "label": "普罗旺斯番茄",
+      "unit": "kg"
+    },
+    "vinegar": {
+      "label": "恒顺镇江香醋",
+      "unit": "瓶"
+    },
+    "watermelon_my": {
+      "label": "马来西亚少籽西瓜(3-4kg/粒)",
+      "unit": "粒"
+    },
+    "wtmelon": {
+      "label": "泰国薄皮黑籽小西瓜",
+      "unit": "粒"
+    },
+    "yam": {
+      "label": "铁棍山药",
+      "unit": "kg"
+    }
+  }
+}
