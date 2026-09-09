@@ -980,7 +980,13 @@
       const previousIndex = activeIndex; // restored on failure — see .catch below
       activeIndex = index;
       const gb = GROUP_BUYS[index];
-      fetch(gb.file)
+      // cache: "no-store" — this is hand-edited data that changes after the
+      // page has already been loaded (a price fix, a resolved unverified
+      // item, a new round pushed minutes ago); browsers happily serve a
+      // stale cached copy of a same-origin JSON GET otherwise, especially on
+      // iOS Safari, so every load of a round's data bypasses HTTP cache
+      // entirely rather than trusting cache headers.
+      fetch(gb.file, { cache: "no-store" })
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(json => {
           DATA = json;
@@ -1822,7 +1828,7 @@
     // (not blocking boot on it) — if it's still on the way when the first
     // render happens, items just show the plain default icon until it lands
     // and triggers a re-render.
-    fetch(EMOJI_MAP_URL)
+    fetch(EMOJI_MAP_URL, { cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
       .then(map => { if (map) { EMOJI_MAP = map; if (DATA) render(); } })
       .catch(() => {});
@@ -1830,7 +1836,7 @@
     // Loads the copy-message wording. Not render-affecting (the message is
     // only built when the button is tapped), so no re-render needed here —
     // just swap in whatever loaded, or silently keep the built-in default.
-    fetch(MESSAGE_TEMPLATE_URL)
+    fetch(MESSAGE_TEMPLATE_URL, { cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
       .then(tpl => { if (tpl) MESSAGE_TEMPLATE = Object.assign({}, MESSAGE_TEMPLATE, tpl); })
       .catch(() => {});
@@ -1865,13 +1871,17 @@
     });
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
-    fetch(MANIFEST_URL)
+    // cache: "no-store" on both fetches here for the same reason as
+    // loadGroupBuy() above — manifest.json is exactly the file that changes
+    // every time a new round ships, so the very first page load is the most
+    // important place of all to never trust a stale cached copy.
+    fetch(MANIFEST_URL, { cache: "no-store" })
       .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
       .then(manifest => {
         GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
         if (!GROUP_BUYS.length) throw new Error("manifest.json 里没有任何 groupBuys 条目");
         activeIndex = 0;
-        return fetch(GROUP_BUYS[0].file)
+        return fetch(GROUP_BUYS[0].file, { cache: "no-store" })
           .then(r => { if (!r.ok) throw new Error(`${GROUP_BUYS[0].file}: HTTP ${r.status}`); return r.json(); });
       })
       .then(json => {
