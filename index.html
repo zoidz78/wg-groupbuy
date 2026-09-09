@@ -325,12 +325,13 @@
     const MESSAGE_TEMPLATE_URL = "./message-template.json";
     let MESSAGE_TEMPLATE = {
       greeting: "@{name}",
-      itemLine: "{item}{qtySuffix}  {amount}{weightSuffix}",
-      weightSuffix: "（{grams}g）",
+      itemLine: "{item}{qtySuffix}  {amount}",
+      weightPart: "{grams}g",
+      adjMeta: "（{meta}）",
+      adjMetaSeparator: " · ",
       unverifiedAmount: "待确认",
       unverifiedSuffix: "（缺失/待确认）",
-      adjItemLine: "↳ {item} {qtySign}{qty}{unit}{noteSuffix} {amount}",
-      adjNoteSuffix: "（{note}）",
+      adjItemLine: "↳ {item} {qtySign}{qty}{unit}{meta} {amount}",
       adjOtherLine: "↳ {note} {amount}",
       adjDefaultNote: "退款/补款",
       totalLine: "一共{total}～",
@@ -379,7 +380,7 @@
     // (not just read from the DOM at submit time) so an in-progress edit
     // survives a re-render triggered by someone else's live update arriving
     // via Firestore mid-edit, or by switching the item/credit radio.
-    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
+    let adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "", gramsHelper: "" };
     // Live preview text for the "按实际重量换算" helper on the 品项数量变化
     // form (see gramsPerUnit below) — recomputed on every keystroke
     // in the grams-helper input, cleared whenever the form resets.
@@ -422,7 +423,7 @@
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
     function resetAdjDraft() {
-      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
+      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", note: "", gramsHelper: "" };
       adjFormType = "item";
       adjFormError = "";
       adjGramsPreview = "";
@@ -686,7 +687,6 @@
     // vanishing unexplained.
     function isValidAdjustmentShape(a) {
       if (!a || typeof a !== "object" || !a.member) return false;
-      if (a.type === "weight") return typeof a.actualGrams === "number";
       if (a.type === "item") return typeof a.qtyDelta === "number" && typeof a.amountDelta === "number";
       return typeof a.amountDelta === "number"; // "credit" and anything else
     }
@@ -771,13 +771,18 @@
       return Number(Number(x).toFixed(2)).toString();
     }
 
-    // The "actual weight" note for one member's item, if one was recorded —
-    // see the "实际到手重量" adjustment type. Purely informational (never
-    // affects money or the stocking list), for items that get portioned out
-    // by hand and don't always land on the ordered amount; billing is left
-    // as-is (rounded down) but the buyer is still told what they actually got.
-    function actualWeightFor(memberName, itemKey) {
-      return adjustmentsForMember(memberName).find(a => a.type === "weight" && a.itemKey === itemKey);
+    // Money for the copy-message, trimmed of trailing zeros and prefixed
+    // with "$".
+    function money(x) {
+      return `$${formatAmt(x)}`;
+    }
+
+    // A signed adjustment amount. The sign goes OUTSIDE the "$" ("-$4.4",
+    // not "$-4.4") — formatAmt alone would put the minus where the currency
+    // symbol belongs, which reads as a typo.
+    function signedAmt(x) {
+      const n = Number(x) || 0;
+      return `${n >= 0 ? "+" : "-"}$${formatAmt(Math.abs(n))}`;
     }
 
     // Builds the plain-text WeChat message for one member — their itemized
@@ -800,42 +805,72 @@
       const lines = [];
       lines.push(fillTemplate(t.greeting, { name: m.name }));
       lines.push("");
+
+      const allAdj = adjustmentsForMember(m.name);
+
+      // Renders one adjustment line. Split out so it can be called from two
+      // places: inline under the product it adjusts, and again for the
+      // leftovers at the bottom.
+      const adjLineFor = (a) => {
+        const amount = signedAmt(a.amountDelta);
+        if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
+          const info = DATA.products[a.itemKey];
+          const qtySign = a.qtyDelta >= 0 ? "+" : "";
+          // The actual weight and the reason are both parenthetical asides
+          // about the same adjustment, so they share ONE bracket joined by a
+          // separator — "（1230g · 到货偏轻）", not "（1230g）（到货偏轻）".
+          // Either part can be absent, in which case the bracket holds just
+          // the other one and the separator isn't used; with neither, there's
+          // no bracket at all.
+          const metaParts = [];
+          if (typeof a.actualGrams === "number") {
+            metaParts.push(fillTemplate(t.weightPart, { grams: formatQty(a.actualGrams) }));
+          }
+          if (a.note) metaParts.push(a.note);
+          const meta = metaParts.length
+            ? fillTemplate(t.adjMeta, { meta: metaParts.join(t.adjMetaSeparator) })
+            : "";
+          return fillTemplate(t.adjItemLine, {
+            item: info.label, qtySign, qty: formatQty(a.qtyDelta), unit: unitOf(a.itemKey), meta, amount
+          });
+        }
+        return fillTemplate(t.adjOtherLine, { note: a.note || t.adjDefaultNote, amount });
+      };
+
+      // An adjustment belongs under a product line only if that product is
+      // actually in the member's original order — otherwise there's nothing
+      // above it to attach to (e.g. a walk-in's on-the-spot purchase, or a
+      // flat refund), and it goes in the trailing group instead.
+      const attached = new Set();
       Object.entries(m.items).forEach(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return;
         const unverified = isUnverified(k);
-        const amount = unverified ? t.unverifiedAmount : formatAmt(info.price * qty);
+        const amount = unverified ? t.unverifiedAmount : money(info.price * qty);
         // Weight-priced items (e.g. "2kg of peaches") never show "x2kg" here —
-        // the dollar amount already reflects the ordered weight, and the
-        // actual weight received (if recorded, see below) is shown instead.
-        // Only box-count items ("x2盒") get a quantity suffix.
+        // the dollar amount already reflects the actual delivered/adjusted
+        // weight. Only box-count items ("x2盒") get a quantity suffix.
         const unit = unitOf(k);
         const qtySuffix = (qty !== 1 && unit !== "kg") ? ` x${formatQty(qty)}${unit}` : "";
-        const weightEntry = actualWeightFor(m.name, k);
-        const weightSuffix = (weightEntry && !unverified)
-          ? fillTemplate(t.weightSuffix, { grams: formatQty(weightEntry.actualGrams) })
-          : "";
-        let line = fillTemplate(t.itemLine, { item: info.label, qtySuffix, amount, weightSuffix });
+        let line = fillTemplate(t.itemLine, { item: info.label, qtySuffix, amount });
         if (unverified) line += t.unverifiedSuffix;
         lines.push(line);
+        // Immediately follow this product with any adjustment against it, so
+        // the correction reads as part of that item rather than as an
+        // unexplained deduction floating at the bottom of the message.
+        allAdj.forEach(a => {
+          if (a.type === "item" && a.itemKey === k) {
+            attached.add(a.id);
+            lines.push(adjLineFor(a));
+          }
+        });
       });
-      adjustmentsForMember(m.name).forEach(a => {
-        if (a.type === "weight") return; // shown inline on the item's own line above, not as its own line
-        const sign = a.amountDelta >= 0 ? "+" : "";
-        const amount = `${sign}${formatAmt(a.amountDelta)}`;
-        if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
-          const info = DATA.products[a.itemKey];
-          const qtySign = a.qtyDelta >= 0 ? "+" : "";
-          const noteSuffix = a.note ? fillTemplate(t.adjNoteSuffix, { note: a.note }) : "";
-          lines.push(fillTemplate(t.adjItemLine, {
-            item: info.label, qtySign, qty: formatQty(a.qtyDelta), unit: unitOf(a.itemKey), noteSuffix, amount
-          }));
-        } else {
-          lines.push(fillTemplate(t.adjOtherLine, { note: a.note || t.adjDefaultNote, amount }));
-        }
-      });
+
+      // Everything that had no product line to sit under.
+      allAdj.forEach(a => { if (!attached.has(a.id)) lines.push(adjLineFor(a)); });
+
       lines.push("");
-      lines.push(fillTemplate(t.totalLine, { total: formatAmt(m.total) }));
+      lines.push(fillTemplate(t.totalLine, { total: money(m.total) }));
       const closing = paidState[m.name] ? t.closingPaid : t.closingUnpaid;
       if (closing) lines.push(closing);
       return lines.join("\n");
@@ -999,24 +1034,13 @@
     }
 
     function adjustmentLineHtml(a) {
-      // "weight" entries are informational only (no dollar amount) — see
-      // the "实际到手重量" adjustment type.
-      if (a.type === "weight") {
-        const info = a.itemKey && DATA.products[a.itemKey];
-        const label = `↳ ${info ? emojiLabel(info) : ""} 实际到手 ${formatQty(a.actualGrams)}g${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
-        return `
-          <div class="itemLine adjustment">
-            <span>${label}</span>
-            <span class="itemAmt">${editMode ? `<span class="adjUndo" data-id="${a.id}">撤销</span>` : ""}</span>
-          </div>
-        `;
-      }
       const sign = a.amountDelta >= 0 ? "+" : "";
       let label;
       if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
         const info = DATA.products[a.itemKey];
         const qtySign = a.qtyDelta >= 0 ? "+" : "";
-        label = `↳ ${emojiLabel(info)} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
+        const gramsSuffix = typeof a.actualGrams === "number" ? `（实收${formatQty(a.actualGrams)}g）` : "";
+        label = `↳ ${emojiLabel(info)} ${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${gramsSuffix}${a.note ? ` · ${escapeHtml(a.note)}` : ""}`;
       } else {
         label = `↳ ${escapeHtml(a.note || "退款/补款")}`;
       }
@@ -1038,7 +1062,6 @@
           <div class="adjFormRow">
             <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> 品项数量变化</label>
             <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> 退款/补款（固定金额）</label>
-            <label><input type="radio" name="adjType" value="weight" ${adjFormType === "weight" ? "checked" : ""}> 实际到手重量（仅备注，不影响金额）</label>
           </div>
           ${adjFormType === "item" ? `
             <select id="adjItemKey">
@@ -1052,14 +1075,6 @@
               <input type="number" id="adjGramsHelper" data-member="${memberKey}" placeholder="或输入实际到手重量（克），自动换算并按100g向下取整，例如 1230" step="any" value="${escapeHtml(adjDraft.gramsHelper)}">
               <div class="adjGramsPreview" id="adjGramsPreview" ${adjGramsPreview ? "" : "hidden"}>${escapeHtml(adjGramsPreview)}</div>
             ` : ""}
-          ` : adjFormType === "weight" ? `
-            <select id="adjItemKey">
-              ${productKeys.map(k => {
-                const info = DATA.products[k];
-                return `<option value="${k}" ${k === selectedItemKey ? "selected" : ""}>${emojiLabel(info)}</option>`;
-              }).join("")}
-            </select>
-            <input type="number" id="adjGrams" placeholder="实际到手重量（克），例如 2044" step="any" value="${escapeHtml(adjDraft.grams)}">
           ` : `
             <input type="number" id="adjAmount" placeholder="金额变化，例如 -6.5（退款）或 3（补款）" step="any" value="${escapeHtml(adjDraft.amount)}">
           `}
@@ -1127,15 +1142,25 @@
       if (type === "item") {
         const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
         const qtyDelta = parseFloat(adjDraft.qtyDelta);
-        if (!itemKey || isNaN(qtyDelta) || qtyDelta === 0) { adjFormError = "请填写有效的数量变化（不能是 0）"; render(); return; }
+        // A zero delta is always a no-op: an item delivered at its nominal
+        // weight (a sealed 2kg bag reading 2000g) is just the ordered state,
+        // so there is nothing to charge and nothing worth telling the buyer.
+        // Weights are only ever recorded alongside a real price change.
+        if (!itemKey || isNaN(qtyDelta) || qtyDelta === 0) {
+          adjFormError = "请填写有效的数量变化（不能是 0）";
+          render(); return;
+        }
         const info = DATA.products[itemKey];
         const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
         entry = { member: memberName, type: "item", itemKey, qtyDelta, amountDelta, note, ts: Date.now() };
-      } else if (type === "weight") {
-        const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
-        const actualGrams = parseFloat(adjDraft.grams);
-        if (!itemKey || isNaN(actualGrams) || actualGrams <= 0) { adjFormError = "请填写有效的实际重量（克）"; render(); return; }
-        entry = { member: memberName, type: "weight", itemKey, actualGrams, note, ts: Date.now() };
+        // The raw scale reading, if this adjustment came from the
+        // "或输入实际到手重量（克）" helper. Kept alongside
+        // qtyDelta/amountDelta (which are always what actually drive price)
+        // purely so the buyer can see what was weighed — the charge uses the
+        // 100g-rounded-down figure, so the raw number shows the rounding in
+        // their favour.
+        const gramsRaw = parseFloat(adjDraft.gramsHelper);
+        if (!isNaN(gramsRaw) && gramsRaw > 0) entry.actualGrams = gramsRaw;
       } else {
         const amountDelta = parseFloat(adjDraft.amount);
         if (isNaN(amountDelta) || amountDelta === 0) { adjFormError = "请填写有效的金额（不能是 0）"; render(); return; }
@@ -1152,22 +1177,26 @@
       try { parsed = JSON.parse(bulkDraft); } catch (e) { bulkError = "JSON 解析失败：" + e.message; render(); return; }
       if (!Array.isArray(parsed)) { bulkError = "需要是一个 JSON 数组"; render(); return; }
       const cleaned = parsed
-        .filter(e => e && e.member && (
-          typeof e.amountDelta === "number" ||
-          (e.type === "weight" && typeof e.actualGrams === "number")
-        ))
-        .map(e => e.type === "weight"
-          ? { member: e.member, type: "weight", itemKey: e.itemKey, actualGrams: e.actualGrams, note: e.note || "", ts: Date.now() }
-          : {
-              member: e.member,
-              type: e.type === "credit" ? "credit" : "item",
-              itemKey: e.itemKey,
-              qtyDelta: e.qtyDelta,
-              amountDelta: e.amountDelta,
-              note: e.note || "",
-              ts: Date.now()
-            });
-      if (!cleaned.length) { bulkError = "没有找到有效的条目（每条至少需要 member，以及 amountDelta，或 type:\"weight\" + actualGrams）"; render(); return; }
+        .filter(e => e && e.member && typeof e.amountDelta === "number")
+        .map(e => {
+          const out = {
+            member: e.member,
+            type: e.type === "credit" ? "credit" : "item",
+            itemKey: e.itemKey,
+            qtyDelta: e.qtyDelta,
+            amountDelta: e.amountDelta,
+            note: e.note || "",
+            ts: Date.now()
+          };
+          // Optional raw scale reading on an item adjustment — shown to the
+          // buyer, never used for money (amountDelta above is authoritative,
+          // same as for entries made in the dashboard form).
+          if (out.type === "item" && typeof e.actualGrams === "number" && e.actualGrams > 0) {
+            out.actualGrams = e.actualGrams;
+          }
+          return out;
+        });
+      if (!cleaned.length) { bulkError = "没有找到有效的条目（每条至少需要 member 和 amountDelta）"; render(); return; }
       bulkApplyAdjustments(GROUP_BUYS[activeIndex].date, cleaned);
       bulkError = "";
       bulkDraft = "";
@@ -1536,20 +1565,38 @@
         // discrete action, not continuous typing, so re-rendering here is
         // safe (unlike the text inputs above, which never render() on
         // "input" to avoid losing cursor position mid-keystroke).
+        // qtyDelta is cleared alongside the grams reading whenever it was
+        // the helper that filled it in: that number was computed from the
+        // PREVIOUS product's grams-per-unit, so carrying it over to a
+        // different product would silently charge the wrong quantity.
+        if (adjDraft.gramsHelper) adjDraft.qtyDelta = "";
         adjDraft.gramsHelper = "";
         adjGramsPreview = "";
         render();
       });
       const adjQtyDeltaEl = document.getElementById("adjQtyDelta");
-      if (adjQtyDeltaEl) adjQtyDeltaEl.addEventListener("input", () => { adjDraft.qtyDelta = adjQtyDeltaEl.value; });
+      if (adjQtyDeltaEl) adjQtyDeltaEl.addEventListener("input", () => {
+        adjDraft.qtyDelta = adjQtyDeltaEl.value;
+        // Typing directly into the qty field overrides whatever the grams
+        // helper computed, so the old scale reading no longer describes what
+        // is being charged — drop it rather than save a weight that
+        // contradicts the amount. Direct DOM writes (not render()) for the
+        // same cursor-position reason as handleAdjGramsHelperInput.
+        if (adjDraft.gramsHelper) {
+          adjDraft.gramsHelper = "";
+          adjGramsPreview = "";
+          const helperEl = document.getElementById("adjGramsHelper");
+          if (helperEl) helperEl.value = "";
+          const previewEl = document.getElementById("adjGramsPreview");
+          if (previewEl) { previewEl.textContent = ""; previewEl.hidden = true; }
+        }
+      });
       const adjGramsHelperEl = document.getElementById("adjGramsHelper");
       if (adjGramsHelperEl) adjGramsHelperEl.addEventListener("input", () => {
         handleAdjGramsHelperInput(adjGramsHelperEl.dataset.member, adjGramsHelperEl.value);
       });
       const adjAmountEl = document.getElementById("adjAmount");
       if (adjAmountEl) adjAmountEl.addEventListener("input", () => { adjDraft.amount = adjAmountEl.value; });
-      const adjGramsEl = document.getElementById("adjGrams");
-      if (adjGramsEl) adjGramsEl.addEventListener("input", () => { adjDraft.grams = adjGramsEl.value; });
       const adjNoteEl = document.getElementById("adjNote");
       if (adjNoteEl) adjNoteEl.addEventListener("input", () => { adjDraft.note = adjNoteEl.value; });
       const adjSaveBtn = document.getElementById("adjSaveBtn");
@@ -1638,18 +1685,11 @@
           : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
       }).filter(Boolean);
       const adjParts = adjustmentsForMember(m.name).map(a => {
-        // "weight" entries are informational only — no amountDelta at all by
-        // design (see the "实际到手重量" adjustment type) — so they must be
-        // handled separately, same as adjustmentLineHtml()/buildMemberMessage()
-        // already do, instead of falling into the amountDelta branch below.
-        if (a.type === "weight") {
-          const info = a.itemKey && DATA.products[a.itemKey];
-          return `${info ? emojiLabel(info) : ""}实收${formatQty(a.actualGrams)}g`;
-        }
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
-          return `${emojiLabel(info)}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`;
+          const gramsSuffix = typeof a.actualGrams === "number" ? `(实收${formatQty(a.actualGrams)}g)` : "";
+          return `${emojiLabel(info)}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${gramsSuffix}${a.note ? `[${a.note}]` : ""}`;
         }
         const sign = a.amountDelta >= 0 ? "+" : "";
         return `${sign}$${a.amountDelta.toFixed(2)}${a.note ? `[${a.note}]` : ""}`;
