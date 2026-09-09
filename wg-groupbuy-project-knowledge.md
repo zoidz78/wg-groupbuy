@@ -143,8 +143,11 @@ pickup/delivery. So:
    not the final number.
 2. Once it's actually weighed out, this is a job for the delivery-day adjustment
    feature (see A2 below): for each affected member, add an `"item"` adjustment with
-   `qtyDelta = actual weight − estimated weight` for that product. The dashboard
-   recomputes their cost automatically (`price × qtyDelta`) — don't hand-calculate it.
+   `qtyDelta = actual weight − estimated weight` for that product. In practice, don't
+   compute that by hand — type the scale reading into the "或输入实际到手重量（克）"
+   helper on the adjustment form and it derives `qtyDelta` (rounded down to the nearest
+   100g) and the dollar impact for you, and records the raw reading as `actualGrams` so
+   the buyer sees it on their payment message.
 3. Tell the user this is coming rather than promising an exact split-cost up front, if
    the message doesn't already state firm weights.
 
@@ -250,18 +253,35 @@ mapping to:
   (`price × qtyDelta`), so a later price change never retroactively alters it.
 - `type: "credit"` — a flat dollar adjustment not tied to any product (a refund or
   surcharge with just a note + `amountDelta`, no `itemKey`/`qtyDelta`).
-- `type: "weight"` — **purely informational, never affects money.** For weight-priced
-  items (`unit: "kg"`) that get portioned out by hand, the actual amount received almost
-  never lands exactly on the ordered weight. Billing stays based on what was **ordered**
-  (e.g. a member who ordered 2kg of peaches at $8/kg is charged $16 no matter what the
-  actual portion weighs) — this entry just records what they actually got, so they can be
-  told, even when it's slightly more than they paid for. Shape:
-  `{ member, type: "weight", itemKey, actualGrams, note?, ts }` — no `amountDelta`/
-  `qtyDelta` at all, so it's excluded from both the money total (`adjustmentTotal`) and the
-  stocking-list/procurement total (`effectiveItems`) automatically. Shown inline on that
-  product's own line in the copy-message (see A3) instead of the usual `x{qty}kg` quantity
-  suffix (which is suppressed for any `kg`-unit item, weighed or not — the dollar amount
-  already reflects the ordered weight), not as a separate `↳` line like the other two types.
+- **`type: "weight"` — REMOVED 2026-09-09. Do not reintroduce.** There used to be a
+  third, annotation-only type (`{ member, type: "weight", itemKey, actualGrams, note?, ts }`,
+  no `amountDelta`/`qtyDelta`) that recorded an actual portioned weight *without*
+  changing the charge — billing stayed based on what was **ordered**. That premise no
+  longer holds: the house rule is now that **actual delivered weight always determines
+  price** (weigh what's handed over, round down to the nearest 100g, charge that), so
+  there is no such thing as a weight that doesn't affect money, and a separate
+  annotation-only type had nothing left to annotate. Removed from all six places that
+  handled it: `isValidAdjustmentShape()`, `adjustmentLineHtml()`, `buildMemberMessage()`
+  (plus its `actualWeightFor()` helper), `printItemsLine()`, `handleBulkApply()`, and
+  the adjustment form's radio options. Old `"weight"` entries surviving in a past
+  round's Firestore doc now fail `isValidAdjustmentShape()` and surface in the
+  "🔧 发现 N 条调整记录格式有问题" cleanup banner rather than crashing anything — an
+  acceptable outcome for settled rounds, but worth knowing if an old round is reopened.
+- **`actualGrams` on a `type: "item"` entry (added 2026-09-09).** The replacement for
+  the above. When an item adjustment is entered via the grams helper (see below), the
+  **raw scale reading** is stored on that same entry as an optional `actualGrams` field.
+  It is display-only — `qtyDelta`/`amountDelta` remain the sole source of truth for
+  money and for the stocking list — but it means one entry now carries both "what it
+  cost" and "what was actually weighed", instead of needing two parallel records.
+  Deliberately the **raw** reading, not the rounded-down billing figure: a member
+  charged for 1200g but shown "1230g" can see the rounding going their way, which is
+  what the group already expects. Absent entirely when the qty was typed by hand.
+- **A zero `qtyDelta` is always rejected.** A sealed 2kg bag reading a clean 2000g is
+  simply the ordered state — no money changes and there's nothing to tell the buyer —
+  so there's no "weight recorded, price unchanged" entry shape. This was briefly
+  allowed during the 2026-09-09 rework and then removed again once the user pointed out
+  that a nominal-weight pack is a non-event, not something to record. Weights only ever
+  ride along with a real price change.
 - A member's final amount due = their original item total + the sum of their
   `amountDelta`s. The dashboard shows this automatically; nothing else needs updating.
 - A brand-new `member` name (someone who bought on the spot but wasn't in the original
@@ -281,8 +301,7 @@ etc.) has the same problem in miniature: the field is denominated in kg, but a
 kitchen scale reads grams, so someone will eventually type the grams reading
 straight into a kg field (an early version of this feature only covered case 1
 and a user did exactly this for case 2 the same day it shipped). Either way the
-fix is still an ordinary `type: "item"` adjustment (NOT `type: "weight"`, which
-is annotation-only and never touches money — see above); the only thing that
+fix is an ordinary `type: "item"` adjustment; the only thing that
 needed solving was converting a grams reading into the right number for
 whatever unit that product happens to use, without the admin doing the
 arithmetic (or the field silently accepting the raw gram count as if it were
@@ -326,10 +345,22 @@ instead:
   Firestore update arriving mid-edit) still shows the right values. Any future
   "live preview as you type" input on this page should follow the same pattern,
   not call `render()` on every keystroke.
-- The saved entry is a completely ordinary `type: "item"` record — this is a
-  UI shortcut for computing the right `qtyDelta`, not a new persisted shape, so
-  undo/report export/payment-message rendering all Just Work without any
-  changes.
+- The saved entry is an ordinary `type: "item"` record plus an optional
+  `actualGrams` field (the raw reading, see above) — not a new persisted shape,
+  so undo/report export/payment-message rendering all Just Work.
+- **Two staleness guards (added 2026-09-09), both there to stop a displayed
+  weight from contradicting the amount actually charged:**
+  1. Typing directly into `#adjQtyDelta` clears `adjDraft.gramsHelper` (and the
+     preview), because a hand-entered qty overrides whatever the helper
+     computed — without this, entering 1230g and then correcting the qty to
+     -0.5包 would save `actualGrams: 1230` against a charge that no longer
+     matches it. Written straight to the DOM, not via `render()`, for the same
+     cursor-position reason as `handleAdjGramsHelperInput`.
+  2. Switching the product `<select>` now clears `qtyDelta` too when it was the
+     helper that filled it in (it already cleared `gramsHelper`) — that number
+     was computed from the *previous* product's `gramsPerUnit`, so carrying it
+     over would silently charge the wrong quantity. Pre-existing bug, surfaced
+     while auditing the `actualGrams` change.
 - Not offered for walk-ins (`memberKey === "__walkin__"`) — a walk-in's name
   isn't finalized until they type it into the separate name field, so there's
   no stable key yet to look up a "current quantity" against; walk-ins still use
@@ -352,14 +383,17 @@ instead:
    [
      {"member": "Peter", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
      {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
-     {"member": "may", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
+     {"member": "may", "type": "item", "itemKey": "tangerine_seedless", "qtyDelta": -0.4, "amountDelta": -4.4, "actualGrams": 1230, "note": "到货偏轻"}
    ]
    ```
    When computing `amountDelta` for an `"item"` type entry yourself, multiply by that
    product's `price` from the round's `data-<date>.json` — don't leave it for the page
-   to infer, since the page trusts whatever `amountDelta` you send. A `"weight"` entry
-   never takes `amountDelta`/`qtyDelta` — just `itemKey` + `actualGrams` (+ an optional
-   `note`).
+   to infer, since the page trusts whatever `amountDelta` you send. `actualGrams` is
+   optional on `"item"` entries and is **display only** — send the raw scale reading,
+   and derive `qtyDelta`/`amountDelta` from the 100g-rounded-down figure (so 1230g on a
+   2kg/包 product ordered as 1包 → rounds to 1200g → 0.6包 → `qtyDelta: -0.4`, while
+   `actualGrams` stays `1230`). Never send `actualGrams` without a matching real price
+   change; `qtyDelta: 0` is rejected. `type: "weight"` no longer exists — see above.
 
 Entries can be undone individually from the dashboard (an "撤销" link next to each
 adjustment line, visible in edit mode) — this deletes just that one Firestore field.
@@ -387,47 +421,62 @@ while another marks paid, so both stay independent and both are still needed. Th
 
 **Message format**, built by `buildMemberMessage(m)` in `index.html`. Matches how WG团购群
 already writes these messages by hand (reworked from an earlier, more formal draft after the
-user shared a real example: no emoji, no "$", "@name" instead of a greeting sentence, and
+user shared a real example: no emoji, "@name" instead of a greeting sentence, and
 "一共X～" instead of "合计：$X"):
 
 ```
 @may
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$39.3～
 ```
 
-With a shortage adjustment (A2), a member whose order was short one item on delivery looks
-like:
+With delivery-day adjustments (A2), each sits **directly under the product it adjusts**:
 
 ```
-@Peter
+@may
 
-哈密瓜 x2盒  13
-土鸡蛋  9.3
-↳ 哈密瓜 -1盒（到货少一份） -6.5
+无籽蜜橘  $11
+↳ 无籽蜜橘 -0.4包（1230g · 到货偏轻） -$4.4
+普罗旺斯番茄  $6.5
+土鸡蛋  $9.3
 
-一共9.3～
+一共$22.4～
 ```
 
 - `@{name}` greeting, then a blank line.
 - One line per original ordered item — plain product name (no emoji, unlike everywhere else
   on the page), an ` x{qty}{unit}` suffix only when quantity isn't 1 *and* the item isn't
   priced by weight (so "2 boxes" shows "x2盒", but "2kg of peaches" never shows "x2kg" —
-  the amount already reflects the ordered weight, and the actual weight, if known, is
-  shown instead per below), then two spaces and the amount (trimmed of trailing zeros,
-  no "$").
-- A `（{grams}g）` suffix on an item's own line when a `"weight"` adjustment (A2) was
-  recorded for that member+item — the actual amount portioned out, purely informational.
-- One `↳`-prefixed line per non-`"weight"` delivery-day adjustment (A2) affecting that
-  member, each with its own note (e.g. "到货少一份", "退款：等太久") so the person paying
-  can see *why* the total differs from a simple add-up of the original order — this was
-  an explicit requirement, not just a nice-to-have.
+  the amount already reflects the delivered/adjusted weight), then two spaces and the
+  amount.
+- **Amounts carry a "$" (added 2026-09-09).** The earlier hand-written style omitted it;
+  the user asked for it back. The sign goes *outside* the symbol — `-$4.4`, never `$-4.4`
+  — via two helpers, `money(x)` for plain amounts and `signedAmt(x)` for deltas. The "$"
+  is added in **code, not in the template**, precisely so the sign can be placed correctly;
+  don't put a "$" into `itemLine`/`totalLine`/`adjItemLine` in `message-template.json`.
+  `unverifiedAmount` ("待确认") stays bare — it isn't a number.
+- **Adjustments are interleaved, not grouped (changed 2026-09-09).** Every `↳` line is
+  emitted immediately after its parent product's line, so the reader can see which item a
+  credit or charge belongs to. Implementation: `buildMemberMessage` builds an `adjLineFor(a)`
+  closure and an `attached` Set of adjustment ids consumed during the item loop; anything
+  left unattached is appended after the loop. Two kinds legitimately have no parent line and
+  still land at the bottom — `"credit"` entries (not tied to a product at all) and item
+  adjustments for a product absent from that member's original order (a walk-in-style
+  on-the-spot purchase). The latter reads slightly oddly as a `↳ ... +$3.25` line, since
+  `↳` implies a correction to something above it; **considered and left as-is** — rendering
+  those as ordinary item lines instead was offered and not taken up.
+- **The weight and the note share one bracket (changed 2026-09-09).** Originally two
+  separate template fields (`weightSuffix` + `adjNoteSuffix`) that rendered adjacent as
+  `（1230g）（到货偏轻）`. Now `buildMemberMessage` collects the parts into a `metaParts`
+  array, joins with `adjMetaSeparator` (` · `), and wraps once in `adjMeta` (`（{meta}）`).
+  Degrades correctly: weight only → `（1740g）`, note only → `（到货少一份）`, neither →
+  no bracket, no stray separator. **This is not a template-only change** — merging two
+  brackets into one required code, since they were independent fields.
 - A blank line, then `一共{total}～` — same number shown elsewhere in that member's card.
 - No closing line by default (the real messages this group sends don't have one) — add
   one back via `message-template.json`'s `closingPaid`/`closingUnpaid` fields if wanted
@@ -452,12 +501,23 @@ automatically (`fillTemplate()` in `index.html`); don't remove or rename them, j
 words around them.
 
 Fields in `message-template.json`: `greeting` (`@{name}`), `itemLine`
-(`{item}{qtySuffix}  {amount}{weightSuffix}`), `weightSuffix` (the `"weight"`-adjustment
-annotation, e.g. `（{grams}g）`), `unverifiedAmount`/`unverifiedSuffix` (for
-missing/unconfirmed-price items), `adjItemLine`/`adjNoteSuffix` (a quantity-type delivery-day
-adjustment), `adjOtherLine`/`adjDefaultNote` (a flat credit/refund adjustment), `totalLine`
-(`一共{total}～`), and `closingPaid`/`closingUnpaid` (empty by default — set these if you want
-a closing line back, shown depending on whether that member is already marked paid).
+(`{item}{qtySuffix}  {amount}`), `weightPart` (the bare weight, `{grams}g`), `adjMeta`
+(the single bracket wrapping an adjustment's supporting detail, `（{meta}）`),
+`adjMetaSeparator` (` · `, between weight and note when both are present),
+`unverifiedAmount`/`unverifiedSuffix` (for missing/unconfirmed-price items), `adjItemLine`
+(a quantity-type delivery-day adjustment), `adjOtherLine`/`adjDefaultNote` (a flat
+credit/refund adjustment), `totalLine` (`一共{total}～`), and `closingPaid`/`closingUnpaid`
+(empty by default — set these if you want a closing line back, shown depending on whether
+that member is already marked paid). Removed 2026-09-09: `weightSuffix` and `adjNoteSuffix`
+(folded into `adjMeta`/`weightPart`/`adjMetaSeparator`), `adjWeightOnlyLine` (added and
+removed the same day along with the zero-`qtyDelta` case), and `itemLine`'s
+`{weightSuffix}` placeholder (permanently empty once weights moved onto the `↳` line).
+
+**Keep the JS default and the JSON file in sync.** `index.html`'s built-in
+`MESSAGE_TEMPLATE` is the fallback when the fetch fails, so a key or placeholder present
+in one but not the other means a failed fetch silently renders differently (or leaves a
+literal `{placeholder}` in a WeChat message). After any template change, verify both have
+identical keys *and* identical placeholder sets per key.
 
 **To reword the message going forward:** just edit `message-template.json` and re-upload it —
 `index.html` doesn't need to change. Only touch `index.html`'s `buildMemberMessage`/
@@ -736,20 +796,22 @@ ever recurs — check the browser console's expanded stack trace to know which:
    it.** This was the actual first real-world occurrence (2026-09-08): `printItemsLine()`
    (the print-report line-summary function) assumed every non-`"item"` adjustment was
    a dollar-amount `"credit"` and called `.toFixed()` on `a.amountDelta` — which
-   `"weight"` entries never have by design (see A2). Unlike `adjustmentLineHtml()` and
+   `"weight"` entries never had by design. Unlike `adjustmentLineHtml()` and
    `buildMemberMessage()`, which both already special-cased `"weight"` correctly,
-   `printItemsLine()` had been missed when the `"weight"` type was added. Fixed by
-   giving it the same `if (a.type === "weight") { ... }` branch (shows
-   `emojiLabel(info)}实收{grams}g`, informational only, matching the pattern
-   elsewhere). **Lesson for next time a new adjustment `type` is added:** it has to be
-   handled in *all four* places that iterate `adjustmentsForMember()` —
-   `adjustmentLineHtml()`, `buildMemberMessage()`, `effectiveItems()`, and
-   `printItemsLine()` — not just the on-screen card and the WeChat message. It's easy
-   to update the two visible/obvious ones and forget the print-export path, since it's
-   hidden by `@media print` and only becomes visible when someone actually prints —
-   except it's built unconditionally on every single render (not just when printing),
-   so a bug in it crashes the *entire* page, immediately, for everyone — not just the
-   print feature.
+   `printItemsLine()` had been missed when the `"weight"` type was added. Fixed at the
+   time by giving it the same branch; the `"weight"` type has since been removed
+   entirely (2026-09-09, see A2), so this specific crash can't recur — but **the lesson
+   is the whole point and still applies:** a new adjustment `type`, or any new
+   type-dependent field, has to be handled in *all* the places that iterate
+   `adjustmentsForMember()` — `adjustmentLineHtml()`, `buildMemberMessage()`,
+   `effectiveItems()`, `printItemsLine()` — plus `isValidAdjustmentShape()`,
+   `handleBulkApply()`, and the form itself. It's easy to update the two
+   visible/obvious ones and forget the print-export path, since it's hidden by
+   `@media print` and only becomes visible when someone actually prints — except it's
+   built unconditionally on every single render (not just when printing), so a bug in
+   it crashes the *entire* page, immediately, for everyone — not just the print
+   feature. The 2026-09-09 removal was audited against that same list, which is how
+   the stale `printItemsLine()` and bulk-import paths got caught.
 
 Both fixes are defensive at the `adjustmentsForMember()`/render layer, not a promise
 that every future adjustment type will be handled — check all four call sites by hand
