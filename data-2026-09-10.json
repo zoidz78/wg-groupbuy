@@ -1,80 +1,20 @@
 {
   "groupName": "WG团购群",
-  "itemsLabel": "蔬果团购",
+  "itemsLabel": "水果蔬菜团购",
   "products": {
-    "redpomelo": {
-      "label": "红文旦柚",
-      "price": 7.8,
-      "unit": "粒"
-    },
-    "wtmelon": {
-      "label": "泰国薄皮黑籽小西瓜",
-      "price": 5.8,
-      "unit": "粒"
-    },
-    "melon_wang": {
-      "label": "86王哈密瓜",
-      "price": 6.5,
-      "unit": "粒"
-    },
-    "cabbage_bj": {
-      "label": "北京包菜",
-      "price": 2.5,
-      "unit": "粒"
-    },
-    "honey_plum": {
-      "label": "蜂糖李",
-      "price": 10,
-      "unit": "kg"
-    },
-    "tomato_provence": {
-      "label": "普罗旺斯番茄",
-      "price": 6,
-      "unit": "kg"
-    },
-    "chili_luosi": {
-      "label": "螺丝椒",
-      "price": 6,
-      "unit": "kg"
-    },
-    "yam": {
-      "label": "铁棍山药",
-      "price": 6,
-      "unit": "kg"
-    },
-    "jiaobaisun": {
-      "label": "茭白笋",
-      "price": 6,
-      "unit": "kg"
-    },
-    "garlic_sprout": {
-      "label": "青蒜苗",
-      "price": 4.5,
-      "unit": "kg"
-    },
-    "mushroom_white": {
-      "label": "白色口蘑",
-      "price": 10.8,
-      "unit": "kg"
-    },
-    "vinegar": {
-      "label": "恒顺镇江香醋(500ml)",
-      "price": 2.9,
-      "unit": "瓶"
-    },
-    "egg_my": {
-      "label": "马来西亚土鸡蛋(30粒/盘)",
-      "price": 9.3,
-      "unit": "盘"
-    },
-    "persimmon": {
-      "label": "火晶柿子(2盒/份)",
-      "price": 9,
+    "mango_pzh": {
+      "label": "攀枝花凯特大芒果(4粒/份)",
+      "price": 8,
       "unit": "份"
     },
-    "grape_xiaoguangtou": {
-      "label": "小光头辽宁巨峰",
-      "price": 19.8,
+    "watermelon_my": {
+      "label": "马来西亚少籽西瓜(3-4kg/粒)",
+      "price": 4.2,
+      "unit": "粒"
+    },
+    "grape_jufeng_ln": {
+      "label": "辽宁巨峰(3串/箱)",
+      "price": 24.8,
       "unit": "箱"
     },
     "apple_envy": {
@@ -82,13 +22,118 @@
       "price": 10.5,
       "unit": "份"
     },
+    "melon_niusan": {
+      "label": "牛三网纹瓜",
+      "price": 6.8,
+      "unit": "粒"
+    },
+    "cabbage_bj": {
+      "label": "北京包菜",
+      "price": 2.5,
+      "unit": "粒"
+    },
+    "peach_box_lqy": {
+      "label": "龙泉驿凤凰水蜜桃礼盒(2.3kg/箱)",
+      "price": 23.8,
+      "unit": "箱"
+    },
     "peach_loose_czd": {
       "label": "散装川中岛水蜜桃(2kg/包)",
       "price": 14,
       "unit": "包"
     },
-    "peach_loose_bj": {
-      "label": "散装白金水蜜桃(2kg/包)",
+    "grape_nina": {
+      "label": "妮娜皇后小盒装(450g/盒)",
+      "price": 8.5,
+      "unit": "盒"
+    },
+    "honey_plum": {
+      "label": "蜂糖李",
+      "price": 10,
+      "unit": "kg"
+    },
+    "redpomelo": {
+      "label": "红文旦柚",
+      "price": 7.8,
+      "unit": "粒"
+    },
+    "chicken_feet_lemon": {
+      "label": "柠檬无骨泡凤爪(170g/袋)",
+      "price": 8.5,
+      "unit": "袋"
+    },
+    "peach_mix_gift": {
+      "label": "缤纷桃拼装小礼盒(4粒/份)",
+      "price": 10,
+      "unit": "份"
+    },
+    "celery": {
+      "label": "长嫩芹菜",
+      "price": 3.5,
+      "unit": "份"
+    },
+    "mushroom_white": {
+      "label": "白色口蘑",
+      "price": 10.8,
+      "unit": "kg"
+    },
+    "yam": {
+      "label": "铁棍山药",
+      "price": 6,
+      "unit": "kg"
+    },
+    "lettuce_luomen": {
+      "label": "罗门生菜(500g/份)",
+      "price": 4.5,
+      "unit": "份"
+    },
+    "vinegar": {
+      "label": "恒顺镇江香醋",
+      "price": 2.9,
+      "unit": "瓶"
+    },
+    "soy_sauce_light_ht": {
+      "label": "海天生抽(1.9L/瓶)",
+      "price": 6,
+      "unit": "瓶"
+    },
+    "oyster_sauce_ht": {
+      "label": "海天上等蚝油(590g/瓶)",
+      "price": 3.7,
+      "unit": "瓶"
+    },
+    "melon_wang": {
+      "label": "86王哈密瓜",
+      "price": 6.5,
+      "unit": "粒"
+    },
+    "tomato_provence": {
+      "label": "普罗旺斯番茄",
+      "price": 6,
+      "unit": "kg"
+    },
+    "asparagus": {
+      "label": "芦笋(500g/份)",
+      "price": 7.8,
+      "unit": "份"
+    },
+    "chili_luosi": {
+      "label": "螺丝椒",
+      "price": 6,
+      "unit": "kg"
+    },
+    "pomelo_taiwan": {
+      "label": "台湾老树文旦柚",
+      "price": 5.5,
+      "unit": "粒"
+    },
+    "wtmelon": {
+      "label": "泰国薄皮黑籽小西瓜",
+      "price": 5.8,
+      "unit": "粒"
+    },
+    "nectarine_loose": {
+      "label": "散装芒果油桃(2kg/包)",
       "price": 14,
       "unit": "包"
     },
@@ -102,113 +147,8 @@
       "price": 10.8,
       "unit": "kg"
     },
-    "lettuce_youmai": {
-      "label": "油麦菜(300g*2袋/份)",
-      "price": 4,
-      "unit": "份"
-    },
-    "sweetpotato_durian": {
-      "label": "榴莲蜜薯(500g*2包/份)",
-      "price": 5.6,
-      "unit": "份"
-    },
-    "celery": {
-      "label": "长嫩芹菜(500g/份)",
-      "price": 3.5,
-      "unit": "份"
-    },
-    "mango_pzh4": {
-      "label": "攀枝花凯特大芒果(4粒/份)",
-      "price": 8,
-      "unit": "份"
-    },
-    "watermelon_my": {
-      "label": "马来西亚少籽西瓜(3-4kg/个)",
-      "price": 4.2,
-      "unit": "个"
-    },
-    "grape_liaoning": {
-      "label": "辽宁巨峰(3串/箱)",
-      "price": 24.8,
-      "unit": "箱"
-    },
-    "melon_niusan": {
-      "label": "牛三网纹瓜",
-      "price": 6.8,
-      "unit": "粒"
-    },
-    "peach_box_lqy": {
-      "label": "龙泉驿凤凰水蜜桃礼盒(2.3kg/箱)",
-      "price": 23.8,
-      "unit": "箱"
-    },
-    "grape_nina": {
-      "label": "妮娜皇后小盒装(450g/盒)",
-      "price": 8.5,
-      "unit": "盒"
-    },
-    "chicken_feet_lemon": {
-      "label": "柠檬无骨泡凤爪(170g/包)",
-      "price": 8.5,
-      "unit": "包"
-    },
-    "peach_mix4": {
-      "label": "缤纷桃拼装小礼盒(4粒)",
-      "price": 10,
-      "unit": "份"
-    },
-    "apple_danshuo": {
-      "label": "新西兰丹烁苹果(5粒/份)",
-      "price": 9,
-      "unit": "份"
-    },
-    "soda_dayao": {
-      "label": "大窑橙诺汽水(480mlx12瓶/箱)",
-      "price": 18,
-      "unit": "箱"
-    },
-    "radish_spicy": {
-      "label": "四川麻辣萝卜干(500g/份)",
-      "price": 8,
-      "unit": "份"
-    },
-    "blueberry_twotree": {
-      "label": "名牌Two Tree桶装Jumbo蓝莓(200g)",
-      "price": 7.8,
-      "unit": "桶"
-    },
-    "passionfruit": {
-      "label": "钦蜜百香果",
-      "price": 8,
-      "unit": "kg"
-    },
-    "xiqin": {
-      "label": "西芹",
-      "price": 4,
-      "unit": "kg"
-    },
-    "potato_fresh": {
-      "label": "新鲜大土豆(1.9~2kg/袋)",
-      "price": 5,
-      "unit": "袋"
-    },
-    "lettuce_luomen": {
-      "label": "罗门生菜(500g/份)",
-      "price": 4.5,
-      "unit": "份"
-    },
-    "oyster_sauce_haitian": {
-      "label": "海天上等蚝油(590g/瓶)",
-      "price": 3.7,
-      "unit": "瓶"
-    },
-    "pomelo_taiwan": {
-      "label": "台湾老树文旦柚",
-      "price": 5.5,
-      "unit": "粒"
-    },
-    "nectarine_mango": {
-      "label": "散装芒果油桃(2kg/包)",
+    "peach_loose_bj": {
+      "label": "散装白金水蜜桃(2kg/包)",
       "price": 14,
       "unit": "包"
     },
@@ -217,12 +157,22 @@
       "price": 12.8,
       "unit": "箱"
     },
-    "lemon_china": {
+    "lemon_cn": {
       "label": "中国柠檬(5粒/份)",
       "price": 3,
       "unit": "份"
     },
-    "bokchoy_shanghai": {
+    "blueberry_twotree": {
+      "label": "名牌Two Tree桶装Jumbo蓝莓(200g/桶)",
+      "price": 7.8,
+      "unit": "桶"
+    },
+    "lettuce_youmai": {
+      "label": "油麦菜(300g*2袋/份)",
+      "price": 4,
+      "unit": "份"
+    },
+    "bokchoy_sh": {
       "label": "上海青(250g*2袋/份)",
       "price": 3,
       "unit": "份"
@@ -237,19 +187,39 @@
       "price": 6,
       "unit": "kg"
     },
-    "garlic_brownsugar": {
-      "label": "红糖蒜(350g/份)",
+    "garlic_brown_sugar": {
+      "label": "红糖蒜(350g/袋)",
       "price": 5,
-      "unit": "份"
+      "unit": "袋"
     },
-    "greenbean_km": {
+    "radish_spicy": {
+      "label": "四川麻辣萝卜干(500g/袋)",
+      "price": 8,
+      "unit": "袋"
+    },
+    "jiaobaisun": {
+      "label": "茭白笋",
+      "price": 6,
+      "unit": "kg"
+    },
+    "garlic_sprout": {
+      "label": "青蒜苗",
+      "price": 4.5,
+      "unit": "kg"
+    },
+    "green_bean_km": {
       "label": "金马伦四季豆",
       "price": 4,
       "unit": "kg"
     },
-    "mushroom_ear_fresh": {
+    "fungus_black": {
       "label": "新鲜木耳(200g*2盒/份)",
       "price": 3.6,
+      "unit": "份"
+    },
+    "persimmon": {
+      "label": "火晶柿子(2盒/份)",
+      "price": 9,
       "unit": "份"
     },
     "lemon_fujian": {
@@ -257,23 +227,73 @@
       "price": 6,
       "unit": "袋"
     },
-    "luffa_thai": {
+    "luffa_th": {
       "label": "泰国丝瓜",
       "price": 5,
       "unit": "kg"
     },
-    "beansprout_mung": {
+    "beansprout_green": {
       "label": "绿豆芽",
       "price": 3.5,
       "unit": "kg"
     },
-    "taro_naixin": {
+    "taro_small": {
       "label": "奶心小芋头",
       "price": 5,
       "unit": "kg"
     },
+    "egg_my": {
+      "label": "马来西亚土鸡蛋",
+      "price": 9.3,
+      "unit": "盘"
+    },
+    "corn_47": {
+      "label": "北纬47度白糯玉米(10根/箱)",
+      "price": 23.8,
+      "unit": "箱"
+    },
+    "milk_hokkaido": {
+      "label": "北海道原味牛乳(24盒/箱)",
+      "price": 42,
+      "unit": "箱"
+    },
+    "kimchi_kr": {
+      "label": "韩国风味泡菜",
+      "price": 6.5,
+      "unit": "kg"
+    },
+    "sweetpotato_durian": {
+      "label": "榴莲蜜薯(500g*2包/份)",
+      "price": 5.6,
+      "unit": "份"
+    },
+    "apple_nz_danshuo": {
+      "label": "新西兰丹烁苹果(5粒/份)",
+      "price": 9,
+      "unit": "份"
+    },
+    "passionfruit_qinmi": {
+      "label": "钦蜜百香果",
+      "price": 8,
+      "unit": "kg"
+    },
+    "celery_western": {
+      "label": "西芹",
+      "price": 4,
+      "unit": "kg"
+    },
+    "potato_big": {
+      "label": "新鲜大土豆(约2kg/袋)",
+      "price": 5,
+      "unit": "袋"
+    },
+    "soda_dayao": {
+      "label": "大窑橙诺汽水(480ml*12瓶/箱)",
+      "price": 18,
+      "unit": "箱"
+    },
     "pear_qiuyue": {
-      "label": "散装秋月梨(约2kg/包)",
+      "label": "散装秋月梨(2kg左右/包)",
       "price": 12,
       "unit": "包"
     },
@@ -281,25 +301,15 @@
       "label": "海带苗",
       "price": 6,
       "unit": "kg"
-    },
-    "asparagus": {
-      "label": "芦笋(500g/份)",
-      "price": 7.8,
-      "unit": "份"
-    },
-    "soy_sauce_shengchou": {
-      "label": "海天生抽(1.9L大瓶)",
-      "price": 6,
-      "unit": "瓶"
     }
   },
   "orders": [
     {
       "name": "CYQ",
       "items": {
-        "mango_pzh4": 1,
+        "mango_pzh": 1,
         "watermelon_my": 1,
-        "grape_liaoning": 0.6667,
+        "grape_jufeng_ln": 0.6667,
         "apple_envy": 1
       }
     },
@@ -313,17 +323,14 @@
     {
       "name": "李梦",
       "items": {
-        "peach_box_lqy": 0.5,
-        "peach_loose_czd": 0.5,
-        "grape_nina": 2,
-        "grape_liaoning": 0.3333
+        "peach_box_lqy": 0.5
       }
     },
     {
       "name": "幸运的笑笑子",
       "items": {
         "grape_nina": 1,
-        "grape_xiaoguangtou": 0.3333,
+        "grape_jufeng_ln": 0.3333,
         "honey_plum": 1.5,
         "watermelon_my": 1
       }
@@ -346,7 +353,7 @@
       "items": {
         "peach_box_lqy": 0.5,
         "honey_plum": 0.5,
-        "peach_mix4": 1
+        "peach_mix_gift": 1
       }
     },
     {
@@ -366,14 +373,14 @@
         "mushroom_white": 0.5,
         "yam": 1,
         "peach_loose_czd": 0.5,
-        "mango_pzh4": 0.5
+        "mango_pzh": 0.5
       }
     },
     {
       "name": "Melissa Yu",
       "items": {
         "honey_plum": 0.5,
-        "mango_pzh4": 1,
+        "mango_pzh": 1,
         "grape_nina": 1,
         "egg_my": 1
       }
@@ -381,8 +388,8 @@
     {
       "name": "Kylin",
       "items": {
-        "mango_pzh4": 1,
-        "apple_danshuo": 1,
+        "mango_pzh": 1,
+        "apple_nz_danshuo": 1,
         "grape_nina": 1,
         "redpomelo": 1,
         "soda_dayao": 1,
@@ -394,15 +401,15 @@
       "items": {
         "blueberry_twotree": 1,
         "grape_nina": 1,
-        "passionfruit": 1,
-        "xiqin": 1,
+        "passionfruit_qinmi": 1,
+        "celery_western": 1,
         "yam": 1
       }
     },
     {
       "name": "Mint",
       "items": {
-        "peach_mix4": 1,
+        "peach_mix_gift": 1,
         "persimmon": 0.5
       }
     },
@@ -410,7 +417,7 @@
       "name": "北海",
       "items": {
         "grape_nina": 1,
-        "potato_fresh": 1
+        "potato_big": 1
       }
     },
     {
@@ -436,9 +443,9 @@
         "blueberry_twotree": 1,
         "lettuce_luomen": 1,
         "vinegar": 1,
-        "oyster_sauce_haitian": 1,
-        "chicken_feet_lemon": 1,
-        "soy_sauce_shengchou": 1
+        "soy_sauce_light_ht": 1,
+        "oyster_sauce_ht": 1,
+        "chicken_feet_lemon": 1
       }
     },
     {
@@ -452,7 +459,7 @@
       "name": "摇粒绒是我我我我我",
       "items": {
         "honey_plum": 0.5,
-        "mango_pzh4": 0.5
+        "mango_pzh": 0.5
       }
     },
     {
@@ -484,7 +491,7 @@
     {
       "name": "Hao Ying",
       "items": {
-        "nectarine_mango": 0.5,
+        "nectarine_loose": 0.5,
         "melon_niusan": 1
       }
     },
@@ -492,13 +499,13 @@
       "name": "银银茵茵盈盈",
       "items": {
         "redpomelo": 1,
-        "nectarine_mango": 0.5
+        "nectarine_loose": 0.5
       }
     },
     {
       "name": "Can.J",
       "items": {
-        "mango_pzh4": 1
+        "mango_pzh": 1
       }
     },
     {
@@ -512,17 +519,17 @@
       "items": {
         "prune": 1,
         "peach_loose_bj": 0.5,
-        "mango_pzh4": 0.5,
+        "mango_pzh": 0.5,
         "grape_nina": 1,
         "apple_yunnan_cherry": 1,
-        "lemon_china": 1,
+        "lemon_cn": 1,
         "blueberry_twotree": 1,
         "lettuce_youmai": 0.5,
-        "bokchoy_shanghai": 1,
+        "bokchoy_sh": 1,
         "garlic_scape": 0.5,
         "cucumber_fruit": 1,
         "chicken_feet_lemon": 1,
-        "garlic_brownsugar": 1,
+        "garlic_brown_sugar": 1,
         "radish_spicy": 1
       }
     },
@@ -538,9 +545,9 @@
       "items": {
         "jiaobaisun": 1,
         "garlic_sprout": 1,
-        "greenbean_km": 1,
+        "green_bean_km": 1,
         "chili_luosi": 1,
-        "mushroom_ear_fresh": 1,
+        "fungus_black": 1,
         "persimmon": 0.5
       }
     },
@@ -554,15 +561,18 @@
       "name": "Jiamin",
       "items": {
         "lemon_fujian": 1,
-        "luffa_thai": 1,
-        "beansprout_mung": 1,
-        "taro_naixin": 1
+        "luffa_th": 1,
+        "beansprout_green": 1,
+        "taro_small": 1
       }
     },
     {
       "name": "Caroline 琛琛",
       "items": {
-        "egg_my": 1
+        "egg_my": 1,
+        "corn_47": 1,
+        "milk_hokkaido": 1,
+        "kimchi_kr": 1
       }
     },
     {
