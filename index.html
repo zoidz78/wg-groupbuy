@@ -419,6 +419,16 @@
     let showUnitsPanel = false;
     let unitsDraft = {}; // working copy while the panel is open; committed on "保存"
     let unitsSaveMsg = "";
+    // Bulk-paste sub-panel inside 门牌管理: parses "姓名: 门牌" lines straight
+    // into unitsDraft (the same working copy the per-member inputs write to)
+    // rather than writing to Firestore itself — one entry per member is a lot
+    // of typing/tapping when there's a whole contact list to transcribe, so
+    // this just fills the existing form in bulk; the existing "保存" button
+    // still does the actual commit, same diff-against-memberUnits logic as
+    // ever, so there's no second write path to keep in sync with the first.
+    let showUnitsBulkPanel = false;
+    let unitsBulkDraft = "";
+    let unitsBulkError = "";
 
     let unsubscribePaidState = null;
     let unsubscribeAdjustments = null;
@@ -1005,6 +1015,9 @@
           showUnitsPanel = false;
           unitsDraft = {};
           unitsSaveMsg = "";
+          showUnitsBulkPanel = false;
+          unitsBulkDraft = "";
+          unitsBulkError = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToAdjustments(gb.date);
@@ -1222,6 +1235,21 @@
             平时的卡片视图上。门牌信息会一直保留给所有团购场次使用，不需要每场重填。
             序号和接龙楼层里的顺序一致，方便核对。
           </div>
+          <div class="toolBtn" id="unitsBulkToggleBtn" role="button" tabindex="0">${showUnitsBulkPanel ? "收起批量粘贴" : "📋 批量粘贴门牌"}</div>
+          ${showUnitsBulkPanel ? `
+            <div class="footNote" style="text-align:left;margin:8px 0;font-size:11px">
+              每行一条，格式"姓名: 门牌号"（半角/全角冒号都行），例如：<br>
+              Vincy: 107 04-03<br>
+              Caroline 琛琛: 107 26-10<br>
+              解析后会填入下面对应的输入框（含通讯录里有、但本场还没下单的人），
+              仍需点击最下面的"保存"才会真正写入。
+            </div>
+            <textarea id="unitsBulkText" placeholder="粘贴&quot;姓名: 门牌&quot;列表，每行一条">${escapeHtml(unitsBulkDraft)}</textarea>
+            ${unitsBulkError ? `<div class="adjError">${unitsBulkError}</div>` : ""}
+            <div class="adjFormBtns">
+              <div class="toolBtn" id="unitsBulkApplyBtn" role="button" tabindex="0">解析并填入</div>
+            </div>
+          ` : ""}
           ${names.map((name, i) => `
             <div class="unitsPanelRow">
               <span class="unitsPanelName">${i < baseCount ? `<span class="serialNum">${i + 1}.</span>` : ""}${escapeHtml(name)}</span>
@@ -1234,6 +1262,37 @@
           </div>
         </div>
       `;
+    }
+
+    // Splits pasted "姓名: 门牌" lines (one per line) into unitsDraft entries.
+    // Deliberately permissive: skips blank lines and lines with no colon
+    // rather than failing the whole paste on one bad line — this is
+    // hand-copied from a screenshot/contact list, so a stray line (a header,
+    // a name with no address yet) is expected, not exceptional. Accepts
+    // both a half-width ":" and full-width "：" colon since the source text
+    // this gets pasted from is usually Chinese contact names/notes.
+    function applyUnitsBulkPaste() {
+      let count = 0;
+      unitsBulkDraft.split("\n").forEach(raw => {
+        const line = raw.trim();
+        if (!line) return;
+        const idx = line.search(/[:：]/);
+        if (idx === -1) return; // no colon on this line -- skip, don't error out the whole paste
+        const name = line.slice(0, idx).trim();
+        const unit = line.slice(idx + 1).trim();
+        if (!name) return;
+        unitsDraft[name] = unit;
+        count++;
+      });
+      if (count === 0) {
+        unitsBulkError = "没有找到任何 \"姓名: 门牌\" 格式的行，检查一下有没有冒号";
+        render();
+        return;
+      }
+      unitsBulkError = "";
+      unitsBulkDraft = "";
+      showUnitsBulkPanel = false;
+      render();
     }
 
     function handlePinSubmit() {
@@ -1636,6 +1695,16 @@
         unitsSaveMsg = "";
         render();
       });
+      const unitsBulkToggleBtn = document.getElementById("unitsBulkToggleBtn");
+      if (unitsBulkToggleBtn) unitsBulkToggleBtn.addEventListener("click", () => {
+        showUnitsBulkPanel = !showUnitsBulkPanel;
+        unitsBulkError = "";
+        render();
+      });
+      const unitsBulkTextEl = document.getElementById("unitsBulkText");
+      if (unitsBulkTextEl) unitsBulkTextEl.addEventListener("input", () => { unitsBulkDraft = unitsBulkTextEl.value; });
+      const unitsBulkApplyBtn = document.getElementById("unitsBulkApplyBtn");
+      if (unitsBulkApplyBtn) unitsBulkApplyBtn.addEventListener("click", applyUnitsBulkPaste);
       document.querySelectorAll(".unitInput").forEach(el => {
         el.addEventListener("input", () => { unitsDraft[el.dataset.name] = el.value; });
       });
