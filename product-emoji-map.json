@@ -2,6 +2,13 @@
   "defaultEmoji": "🛒",
   "categories": [
     {
+      "emoji": "🎁",
+      "keywords": [
+        "赠品",
+        "小零食"
+      ]
+    },
+    {
       "emoji": "🥟",
       "keywords": [
         "馄饨",

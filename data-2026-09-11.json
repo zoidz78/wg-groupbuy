@@ -186,6 +186,11 @@
       "label": "马来西亚土鸡蛋(30粒/盒)",
       "price": 9.3,
       "unit": "盒"
+    },
+    "gift_snack_random": {
+      "label": "随机小零食(赠品)",
+      "price": 0,
+      "unit": "包"
     }
   },
   "orders": [
@@ -226,7 +231,8 @@
       "name": "🧂",
       "items": {
         "dumpling_corn_pork": 1,
-        "xlb_soup": 1
+        "xlb_soup": 1,
+        "gift_snack_random": 2
       }
     },
     {
@@ -303,7 +309,8 @@
         "mantou_plain": 1,
         "mantou_milk_small": 1,
         "shrimp_dumpling": 1,
-        "wonton_shanghai_qing": 1
+        "wonton_shanghai_qing": 1,
+        "gift_snack_random": 1
       }
     },
     {
@@ -318,13 +325,15 @@
         "dumpling_cabbage_pork": 1,
         "beef_patty_angus": 1,
         "jian_mian_chuan": 1,
-        "beef_slice_tender": 1
+        "beef_slice_tender": 1,
+        "gift_snack_random": 1
       }
     },
     {
       "name": "银银茵茵盈盈",
       "items": {
-        "dumpling_cabbage_pork": 1
+        "dumpling_cabbage_pork": 1,
+        "gift_snack_random": 1
       }
     },
     {
@@ -332,7 +341,8 @@
       "items": {
         "mooncake_maoshanwang": 2,
         "mantou_brownsugar": 1,
-        "dumpling_corn_pork": 1
+        "dumpling_corn_pork": 1,
+        "gift_snack_random": 1
       }
     },
     {
@@ -357,27 +367,31 @@
       "items": {
         "herb_pork_dumpling": 1,
         "shrimp_dumpling": 1,
-        "fish_dumpling_bayu": 1
+        "fish_dumpling_bayu": 1,
+        "gift_snack_random": 3
       }
     },
     {
       "name": "Can.J",
       "items": {
         "fish_dumpling_bayu": 1,
-        "beef_patty_angus": 1
+        "beef_patty_angus": 1,
+        "gift_snack_random": 1
       }
     },
     {
       "name": "崔崔",
       "items": {
-        "dumpling_cabbage_pork": 1
+        "dumpling_cabbage_pork": 1,
+        "gift_snack_random": 1
       }
     },
     {
       "name": "Peter",
       "items": {
         "beef_patty_angus": 1,
-        "dumpling_egg_chive": 1
+        "dumpling_egg_chive": 1,
+        "gift_snack_random": 1
       }
     },
     {
@@ -390,7 +404,8 @@
     {
       "name": "A🍓肉肉（肉在努力版）",
       "items": {
-        "herb_pork_dumpling": 1
+        "herb_pork_dumpling": 1,
+        "gift_snack_random": 1
       }
     },
     {
