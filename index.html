@@ -213,6 +213,20 @@
     font-family: inherit; margin-bottom: 14px;
   }
   .productSelect:focus { outline: none; border-color: var(--muted); }
+  .productSearchInput {
+    width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit; margin-bottom: 6px;
+  }
+  .productSearchInput:focus { outline: none; border-color: var(--muted); }
+  .productSearchResults { margin-bottom: 8px; }
+  .productSearchResults:empty { display: none; }
+  .productSearchResult {
+    padding: 9px 12px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink); font-size: 13.5px; cursor: pointer;
+  }
+  .productSearchResult:hover { border-color: var(--muted); }
+  .productSearchEmpty { padding: 6px 12px 8px; font-size: 13px; color: var(--muted); }
   .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
   .productDetailHeader {
     display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
@@ -307,7 +321,7 @@
      reachable (see the Enter/Space handler at the bottom of the script). */
   .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
-  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible {
+  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -416,6 +430,15 @@
     let filter = "all";
     let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
     let selectedProductOverlay = null; // product key whose who-ordered-what popup is open, from tapping a 备货清单 row
+    // Free-text filter typed into the 商品查询 search box — a faster
+    // alternative to scrolling the <select> for a long product list. Kept
+    // as module state (not just a DOM value) so a live Firestore update
+    // arriving mid-type doesn't wipe what's typed on the next render() call.
+    // productSearchRoundKeys mirrors render()'s local roundProductKeys so
+    // the input handler (which deliberately skips render(), see below) can
+    // filter without recomputing flavorTotals from scratch.
+    let productSearchQuery = "";
+    let productSearchRoundKeys = [];
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
@@ -1058,6 +1081,7 @@
           filter = "all";
           selectedProduct = null;
           selectedProductOverlay = null;
+          productSearchQuery = "";
           openAdjustFormFor = null;
           showBulkPanel = false;
           bulkError = "";
@@ -1378,6 +1402,10 @@
       // same set 备货清单 already filtered to (flavorTotals[k] > 0). Anything
       // never ordered this round never appears as an option.
       const roundProductKeys = Object.keys(DATA.products).filter(k => flavorTotals[k] > 0);
+      // Kept in sync so handleProductSearchInput() (which deliberately skips
+      // render(), see its comment) can filter against the same set without
+      // recomputing flavorTotals itself.
+      productSearchRoundKeys = roundProductKeys;
       // A previously-selected product can drop out of the round (e.g. an
       // adjustment zeroed out its only order) — fall back to the full list
       // rather than showing a detail panel for a product nobody has anymore.
@@ -1486,6 +1514,8 @@
         <div class="card">
           <div class="sectionTitle">商品查询 — 备货清单 &amp; 认购明细</div>
           <div class="footNote" style="text-align:left;margin:-6px 0 8px">已按调整记录更新（含短缺/退款/现场加购）</div>
+          <input type="text" class="productSearchInput" id="productSearchInput" placeholder="输入商品名称关键字搜索，例如：虾" autocomplete="off" value="${escapeHtml(productSearchQuery)}">
+          <div class="productSearchResults" id="productSearchResults">${renderProductSearchResults(roundProductKeys, productSearchQuery)}</div>
           <select class="productSelect" id="productSelect" aria-label="选择商品查看认购明细">
             <option value=""${selectedProduct ? "" : " selected"}>📋 全部商品（本轮备货清单）</option>
             ${roundProductKeys.map(k => {
@@ -1577,6 +1607,17 @@
         productSelect.addEventListener("change", (e) => {
           selectedProduct = e.target.value || null;
           render();
+        });
+      }
+      const productSearchInputEl = document.getElementById("productSearchInput");
+      if (productSearchInputEl) {
+        productSearchInputEl.addEventListener("input", (e) => handleProductSearchInput(e.target.value));
+      }
+      const productSearchResultsEl = document.getElementById("productSearchResults");
+      if (productSearchResultsEl) {
+        productSearchResultsEl.addEventListener("click", (e) => {
+          const el = e.target.closest("[data-key]");
+          if (el) selectProductFromSearch(el.dataset.key);
         });
       }
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
@@ -1822,6 +1863,47 @@
           </table>
         </div>
       `;
+    }
+
+    // Shown below the 商品查询 search input while the user is typing — a
+    // faster alternative to scrolling the <select> for a long product list.
+    // Matches by plain substring against the Chinese label (this dashboard's
+    // whole UI is Mandarin, so 1-2 typed characters is the expected input,
+    // no pinyin index needed). Returns "" when the query is empty, which
+    // collapses the results container via the `:empty` CSS rule.
+    function renderProductSearchResults(keys, query) {
+      const q = query.trim();
+      if (!q) return "";
+      const matches = keys.filter(k => {
+        const info = DATA.products[k];
+        return info && info.label && info.label.includes(q);
+      });
+      if (!matches.length) return `<div class="productSearchEmpty">没有找到匹配的商品</div>`;
+      return matches.map(k => {
+        const info = DATA.products[k];
+        const meta = isUnverified(k) ? "待确认" : `$${info.price.toFixed(2)}/${info.unit || "盒"}`;
+        return `<div class="productSearchResult" role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} · ${meta}</div>`;
+      }).join("");
+    }
+
+    // Live-filters the 商品查询 search results as the user types, writing
+    // straight to the results DOM node instead of calling render() — same
+    // reasoning as handleAdjGramsHelperInput above: render() rebuilds the
+    // whole page via app.innerHTML, which would tear down and recreate this
+    // very <input> on every keystroke and throw focus/cursor position away.
+    function handleProductSearchInput(value) {
+      productSearchQuery = value;
+      const resultsEl = document.getElementById("productSearchResults");
+      if (resultsEl) resultsEl.innerHTML = renderProductSearchResults(productSearchRoundKeys, value);
+    }
+
+    // Tapping a search result behaves exactly like picking that product from
+    // the <select> — jumps straight to its who-ordered-what view — then
+    // clears the search box so it doesn't sit there stale.
+    function selectProductFromSearch(key) {
+      selectedProduct = key;
+      productSearchQuery = "";
+      render();
     }
 
     // Shown in the 商品查询 detail area when no single product is selected:
