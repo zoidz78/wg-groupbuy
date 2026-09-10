@@ -1,6 +1,11 @@
 {
   "groupBuys": [
     {
+      "date": "2026-09-11",
+      "label": "9/11",
+      "file": "data-2026-09-11.json"
+    },
+    {
       "date": "2026-09-10",
       "label": "9/10",
       "file": "data-2026-09-10.json"
