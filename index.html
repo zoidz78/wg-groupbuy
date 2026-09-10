@@ -84,6 +84,11 @@
     border-radius: 20px; cursor: pointer; user-select: none;
   }
   .buyTab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  /* Status coloring only applies to unselected tabs — the active/selected
+     tab keeps its current dark highlight regardless of round status, so
+     there's never a conflict between "this is open" and "this is selected". */
+  .buyTab.completed:not(.active) { border-color: var(--green-btn); color: var(--green-btn); }
+  .buyTab.pending:not(.active) { border-color: var(--red); color: var(--red); }
 
   .ticket, .card {
     background: var(--paper);
@@ -348,7 +353,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, getDoc, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAmfejtmHiICRpYbQsnSGfzDrq7qkWendo",
@@ -418,6 +423,18 @@
     };
     let GROUP_BUYS = [];
     let activeIndex = 0;
+    // Per-round tab coloring: "future" (date >= today, left default/uncolored),
+    // "pending" (date < today, at least one base member unpaid — red), or
+    // "completed" (date < today, every base member paid — green). Populated
+    // once at boot by refreshRoundStatuses() via one-time reads (not live
+    // subscriptions — only the active round needs live updates), since
+    // determining every OTHER round's status needs data this app doesn't
+    // otherwise load for inactive tabs. Deliberately checks only DATA.orders
+    // (the base 接龙 list) and not walk-ins added via adjustments after the
+    // fact — an unpaid walk-in on an otherwise-settled past round could
+    // still show green. Cheap to compute (one file + one doc read per past
+    // round, once per page load), fine at this app's scale.
+    let roundStatus = {};
     let DATA = null;
     let paidState = {};
     // Whether each member's order has been physically packed for pickup —
@@ -509,6 +526,45 @@
     }
     function memberUnitsDocRef() {
       return doc(db, "memberInfo", "directory");
+    }
+
+    // Today's date as YYYY-MM-DD in the browser's local time zone — matches
+    // the date-string format GROUP_BUYS/manifest.json already use, so a
+    // plain string comparison (">=") works without any date parsing.
+    function todayDateStr() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    // Populates roundStatus for every round in GROUP_BUYS — see the comment
+    // on `let roundStatus` above for what each value means and its known
+    // limitation (base orders only, walk-ins not counted). One-time reads,
+    // not live subscriptions: these are for background tab coloring, not
+    // for driving the currently-open round's own UI, which already has its
+    // own live subscriptions. Runs once at boot; doesn't block the initial
+    // render, and re-renders once done so tabs pick up their colors.
+    async function refreshRoundStatuses() {
+      const today = todayDateStr();
+      await Promise.all(GROUP_BUYS.map(async (gb) => {
+        if (gb.date >= today) { roundStatus[gb.date] = "future"; return; }
+        try {
+          const [fileRes, paidSnap] = await Promise.all([
+            fetch(noCacheUrl(gb.file), NO_STORE).then(r => (r.ok ? r.json() : null)),
+            getDoc(paidDocRef(gb.date)).catch(() => null),
+          ]);
+          if (!fileRes || !Array.isArray(fileRes.orders)) { roundStatus[gb.date] = "future"; return; }
+          const paidData = paidSnap && paidSnap.exists() ? paidSnap.data() : {};
+          const hasUnpaid = fileRes.orders.some(o => !paidData[o.name]);
+          roundStatus[gb.date] = hasUnpaid ? "pending" : "completed";
+        } catch (e) {
+          // Leave this round uncolored rather than showing a debug banner
+          // over a purely cosmetic feature — the tab still works, it just
+          // won't have a status color this load.
+          delete roundStatus[gb.date];
+        }
+      }));
+      render();
     }
 
     function escapeHtml(s) {
@@ -1430,7 +1486,7 @@
         ${GROUP_BUYS.length > 1 ? `
           <div class="buyTabs" role="tablist">
             ${GROUP_BUYS.map((gb, i) => `
-              <div class="buyTab ${i === activeIndex ? "active" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
+              <div class="buyTab ${i === activeIndex ? "active" : ""} ${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
             `).join("")}
           </div>
         ` : ""}
@@ -2106,6 +2162,7 @@
         subscribeToPaidState(GROUP_BUYS[0].date);
         subscribeToPackedState(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
+        refreshRoundStatuses(); // background, non-blocking — re-renders itself once done
       })
       // Include the real error (e.g. a JSON syntax error's message and
       // position) rather than a generic string — this is the very first
