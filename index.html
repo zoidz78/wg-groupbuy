@@ -21,6 +21,7 @@
     --red: #b5482a;
     --green: #5c7a5e;
     --green-btn: #4f7f5b;
+    --pack-btn: #4f6f8f;
     --warn-bg: #fdf0d5;
     --warn-border: #e0a838;
     --warn-text: #8a5a00;
@@ -37,6 +38,7 @@
       --red: #e08064;
       --green: #8fbb96;
       --green-btn: #4f7f5b;
+      --pack-btn: #6a93bd;
       --warn-bg: #3a2f10;
       --warn-border: #caa23a;
       --warn-text: #f0c869;
@@ -148,6 +150,13 @@
   }
   .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
   .payBtn.locked { opacity: 0.55; cursor: default; }
+  .rowBtns { display: flex; gap: 6px; flex-shrink: 0; }
+  .packBtn {
+    font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
+  }
+  .packBtn.on { background: var(--pack-btn); border-color: var(--pack-btn); color: white; }
 
   .itemLine.unverified {
     color: var(--warn-text);
@@ -296,7 +305,7 @@
      see render()) needs its own visible focus ring — a <div> has none by
      default the way a real <button> would, and these are now keyboard-
      reachable (see the Enter/Space handler at the bottom of the script). */
-  .payBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
+  .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
@@ -397,6 +406,12 @@
     let activeIndex = 0;
     let DATA = null;
     let paidState = {};
+    // Whether each member's order has been physically packed for pickup —
+    // a separate concern from payment (someone can pack before they've paid,
+    // or vice versa), tracked the same live-sync way. Doc ID = group buy
+    // date, same as paidStatus. No lock/all-packed side effect like
+    // togglePaid() has — packing progress never freezes the round.
+    let packedState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
     let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
@@ -456,11 +471,15 @@
     let unitsSaveMsg = "";
 
     let unsubscribePaidState = null;
+    let unsubscribePackedState = null;
     let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
 
     function paidDocRef(dateKey) {
       return doc(db, "paidStatus", dateKey);
+    }
+    function packedDocRef(dateKey) {
+      return doc(db, "packedStatus", dateKey);
     }
     function adjustmentsDocRef(dateKey) {
       return doc(db, "adjustments", dateKey);
@@ -528,6 +547,26 @@
         (err) => {
           storageDebug = `Firestore 读取出错：${err.message}`;
           paidState = {};
+          render();
+        }
+      );
+    }
+
+    // Same live-sync pattern as paid status, for packing progress. Kept in
+    // its own collection/doc rather than piggybacking on paidStatus so the
+    // two stay independently toggleable and neither write can clobber the
+    // other's field.
+    function subscribeToPackedState(dateKey) {
+      if (unsubscribePackedState) { unsubscribePackedState(); unsubscribePackedState = null; }
+      unsubscribePackedState = onSnapshot(
+        packedDocRef(dateKey),
+        (snap) => {
+          packedState = snap.exists() ? snap.data() : {};
+          render();
+        },
+        (err) => {
+          storageDebug = `打包状态读取出错：${err.message}`;
+          packedState = {};
           render();
         }
       );
@@ -601,6 +640,18 @@
         await setDoc(paidDocRef(dateKey), patch, { merge: true });
       } catch (e) {
         storageDebug = `保存出错：${e.message}`;
+        render();
+      }
+    }
+
+    // Writes just the one member's packed field. Unlike togglePaid(), never
+    // gated on roundLocked — packing is an operational task independent of
+    // payment, so it should stay editable even after a round auto-locks.
+    async function togglePacked(dateKey, name) {
+      try {
+        await setDoc(packedDocRef(dateKey), { [name]: !packedState[name] }, { merge: true });
+      } catch (e) {
+        storageDebug = `打包状态保存出错：${e.message}`;
         render();
       }
     }
@@ -1022,6 +1073,7 @@
           unitsSaveMsg = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
+          subscribeToPackedState(gb.date);
           subscribeToAdjustments(gb.date);
         })
         .catch(e => {
@@ -1314,6 +1366,7 @@
       const grandUnitTotals = unitTotals(members.map(m => effectiveItems(m)));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
+      const packedCount = members.filter(m => packedState[m.name]).length;
 
       const flavorTotals = {};
       Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
@@ -1378,7 +1431,7 @@
           <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
           <div style="padding-bottom:14px">
             <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
-            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人</div>
+            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人 · 已打包 ${packedCount} / ${members.length} 人</div>
           </div>
         </div>
 
@@ -1393,7 +1446,10 @@
             <div class="row">
               <div class="rowHead">
                 <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${escapeHtml(m.name)}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
-                <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                <div class="rowBtns">
+                  <div class="packBtn ${packedState[m.name] ? "on" : ""}" role="button" tabindex="0" aria-pressed="${packedState[m.name] ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${packedState[m.name] ? "已打包 ✓" : "打包"}</div>
+                  <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                </div>
               </div>
               ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
               ${Object.entries(m.items).map(([k, qty]) => {
@@ -1509,6 +1565,11 @@
       document.querySelectorAll(".payBtn").forEach(el => {
         el.addEventListener("click", () => {
           togglePaid(GROUP_BUYS[activeIndex].date, el.dataset.name);
+        });
+      });
+      document.querySelectorAll(".packBtn").forEach(el => {
+        el.addEventListener("click", () => {
+          togglePacked(GROUP_BUYS[activeIndex].date, el.dataset.name);
         });
       });
       const productSelect = document.getElementById("productSelect");
@@ -1961,6 +2022,7 @@
       .then(json => {
         DATA = json;
         subscribeToPaidState(GROUP_BUYS[0].date);
+        subscribeToPackedState(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
       })
       // Include the real error (e.g. a JSON syntax error's message and
