@@ -116,10 +116,10 @@ Steps:
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
   },
   "orders": [
-    { "name": "Caroline 琛琛", "items": { "sig": 3 } },
-    { "name": "Peter", "items": { "sig": 1, "shrimp": 1 } },
-    { "name": "Amy", "items": { "pork_belly": 0.5 } },
-    { "name": "Lesley & Choies", "items": { "corn": 2 } }
+    { "name": "小美", "items": { "sig": 3 } },
+    { "name": "小明", "items": { "sig": 1, "shrimp": 1 } },
+    { "name": "小华", "items": { "pork_belly": 0.5 } },
+    { "name": "阿强 & 小华", "items": { "corn": 2 } }
   ]
 }
 ```
@@ -145,7 +145,7 @@ Don't round — enter exactly what was ordered.
 
 **Combined/shared orders:** when two+ members order together and pay as one lump sum,
 represent it as **one** `orders` entry with the names combined into one string, e.g.
-`"Lesley & Choies"`. One line item, one "mark paid" toggle. Don't model per-person
+`"阿强 & 小华"`. One line item, one "mark paid" toggle. Don't model per-person
 cost-splitting within a combined order unless asked.
 
 **Bulk items split among several individual buyers (do NOT combine these):** don't
@@ -271,7 +271,7 @@ mapping to:
 
 ```json
 {
-  "member": "Peter",
+  "member": "小明",
   "type": "item",
   "itemKey": "sig",
   "qtyDelta": -1,
@@ -386,9 +386,9 @@ instead:
    Firestore in one go. Example payload to hand the user:
    ```json
    [
-     {"member": "Peter", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
-     {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
-     {"member": "may", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
+     {"member": "小明", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
+     {"member": "小华", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
+     {"member": "阿强", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
    ]
    ```
    When computing `amountDelta` for an `"item"` type entry yourself, multiply by that
@@ -427,7 +427,7 @@ user shared a real example: no emoji, no "$", "@name" instead of a greeting sent
 "一共X～" instead of "合计：$X"):
 
 ```
-@may
+@阿强
 
 彩虹油蟠桃  16（2044g）
 蜂糖李  6.7（673g）
@@ -442,7 +442,7 @@ With a shortage adjustment (A2), a member whose order was short one item on deli
 like:
 
 ```
-@Peter
+@小明
 
 哈密瓜 x2盒  13
 土鸡蛋  9.3
@@ -510,7 +510,7 @@ group, as opposed to A3's per-member payment message.
 Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
 
 ```
-@Caroline 琛琛 @^_^Wu @W_W @Peter @Sherry Liu ... @等放假ing @木木三の柒
+@小明 @小华 @阿强 @小美 ...
 
 小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
 ```
@@ -1110,8 +1110,8 @@ None of this changed `README.md`'s feature list — nothing user-visible moved.
 
 ### Walk-in name double-@ fix (2026-09-11)
 
-**Bug:** a walk-in buyer added via "+ 新增买家" showed up as `@@大燕子🐣⛄️❄️` in the
-copied payment message instead of `@大燕子🐣⛄️❄️`. Root cause: the operator copied the
+**Bug:** a walk-in buyer added via "+ 新增买家" showed up as `@@阿强🐣⛄️❄️` in the
+copied payment message instead of `@阿强🐣⛄️❄️`. Root cause: the operator copied the
 name straight out of a WeChat message where it appeared as a mention ("@某某") and
 pasted the whole thing — including the "@" — into the walk-in name field. That stored
 name then hit the `"@{name}"` greeting template in `buildMemberMessage()`, doubling

@@ -302,10 +302,11 @@ match /memberInfo/{docId} {
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
 
-格式和这个群平时手写的收款消息一致（不带表情图标、不带"$"符号）。示例：
+格式和这个群平时手写的收款消息一致（不带表情图标、不带"$"符号——这是刻意
+的设计，不是疏漏）。示例（**未付款**状态，"@小美"为示意用的化名，不是真实成员）：
 
 ```
-@may
+@小美
 
 彩虹油蟠桃  16（2044g）
 蜂糖李  6.7（673g）
@@ -314,7 +315,13 @@ match /memberInfo/{docId} {
 土鸡蛋  9.3
 
 一共42～
+
+Paynow 93395373 /ZHAO JIE
 ```
+
+最后的收款方式那一行（`closingUnpaid`）只在这位成员**还没付款**时才会出现；
+一旦标记已付款，这段消息就不再显示收款方式（`closingPaid`，目前留空）。这两
+行都在 `message-template.json` 里，可以自由改成任何收款方式或留空。
 
 消息的**措辞**（问候语怎么说、每行怎么写、结尾语等）存放在
 `message-template.json` 里，和商品数据、价格、调整记录是分开的——想改
@@ -328,7 +335,7 @@ match /memberInfo/{docId} {
 下会复制：
 
 ```
-@Caroline 琛琛 @^_^Wu @W_W ...（本场所有成员，接龙顺序）
+@小明 @小华 @阿强 ...（本场所有成员，接龙顺序）
 
 小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
 ```
@@ -746,10 +753,11 @@ another tracks who's paid, and the PDF export for a paper trail is
 unaffected either way.
 
 The format matches how this group already writes these messages by hand
-(no emoji icons, no "$" sign). Example:
+(no emoji icons, no "$" sign — intentional, not an oversight). Example
+(**unpaid** status; "@小美" is a placeholder name, not a real member):
 
 ```
-@may
+@小美
 
 彩虹油蟠桃  16（2044g）
 蜂糖李  6.7（673g）
@@ -758,7 +766,14 @@ The format matches how this group already writes these messages by hand
 土鸡蛋  9.3
 
 一共42～
+
+Paynow 93395373 /ZHAO JIE
 ```
+
+That last payment-info line (`closingUnpaid`) only appears while this member
+is still **unpaid** — once marked paid, it's replaced by `closingPaid`
+(currently empty, so nothing shows). Both live in `message-template.json`
+and can be changed to any payment method, or left blank.
 
 The message's **wording** (how the greeting reads, how each line is
 phrased, the closing line, etc.) lives in `message-template.json`, separate
@@ -773,7 +788,7 @@ page — copies a "come collect it" message for the whole group, separate from t
 per-member payment message above:
 
 ```
-@Caroline 琛琛 @^_^Wu @W_W ... (every member in this round, in 接龙 order)
+@小明 @小华 @阿强 ... (every member in this round, in 接龙 order)
 
 小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
 ```
