@@ -223,7 +223,10 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
      记下实际重量，"复制付款消息"里会自动显示给对方看（例如
      "彩虹油蟠桃  16（2044g）"）。
 3. 工具栏的 **"+ 新增买家"** 用于记录一位原本不在接龙名单里、纯
-   粹现场临时购买的人。
+   粹现场临时购买的人。**姓名栏只填名字本身，不要带"@"**——如果
+   是直接从微信消息里把"@某某"整段复制过来的，"@"会被自动去掉，
+   但保险起见还是手动去掉比较好，避免和"复制付款消息"里自动加
+   的"@"重复变成"@@"。
 4. 每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
 5. 如果情况比较复杂（例如很多人的订单都要调整），可以把送货情况
    讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
@@ -641,7 +644,12 @@ a clean record of what was ordered vs. what was actually charged.
      the real weight, which the "copy payment message" button then
      shows automatically (e.g. "彩虹油蟠桃  16（2044g）").
 3. **"+ 新增买家"** (+ Add buyer) in the toolbar records someone who
-   bought on the spot but wasn't in the original order at all.
+   bought on the spot but wasn't in the original order at all. **Enter
+   just the name, without a leading "@"** — if you paste it straight
+   out of a WeChat message where it appeared as "@某某", the "@" is
+   stripped automatically, but it's cleaner to leave it off yourself so
+   it doesn't double up with the "@" the payment message already adds
+   (which would otherwise read "@@某某").
 4. Every adjustment line has a **"撤销"** (undo) link to remove it.
 5. For a messier delivery-day recap, describe what happened to
    Claude in chat and it can generate the adjustment entries as JSON

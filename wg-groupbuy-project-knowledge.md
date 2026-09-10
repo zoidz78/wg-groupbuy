@@ -26,6 +26,8 @@ Files in this project:
 | `message-template.json` | Wording for the "复制付款消息" copy-message button — greeting, item-line phrasing, adjustment phrasing, total line, closing lines. Edit this (not `index.html`) to change how the message reads. See "Copy WeChat payment message" below. |
 | `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` and `adjustments` collections only). |
 | `README.md` | User-facing docs (Chinese + English) for this specific deployment. |
+| `product-catalog.json` | **Claude-side only — never deployed to GitHub.** Cross-round, cross-supplier product key registry: label/unit/aka per key, plus `lastPrice`/`lastRound` for every key with known pricing. See "Product catalog & price tracking" below. |
+| `wg-groupbuy-order-instructions.md` | **Claude-side only — never deployed.** The helper's copy-paste prompt for generating a round's raw order data before it's turned into `data-<date>.json`. |
 
 There used to be a Claude-artifact version (`.jsx`, `window.storage`-based) — abandoned
 because of a platform postMessage cross-origin bug (`anthropics/claude-code#42064`).
@@ -86,8 +88,16 @@ Steps:
    if there is one; otherwise ask, don't assume. Also set `itemsLabel` to a short phrase
    for this round (e.g. "小馄饨团购") unless the raw product labels already read fine
    joined together — it's what the "📢 复制到货通知" button (A4) uses to say what arrived.
-6. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
-   Newest date goes first.
+6. **Add a new entry to `manifest.json` in the same turn — never treat `data-<date>.json`
+   alone as "done."** Without a matching `manifest.json` entry, the new round's tab
+   simply never appears (no error, nothing to debug — it just silently isn't there,
+   which is exactly what happened on 2026-09-11: the data file was built and handed
+   over, but `manifest.json` wasn't touched, and the user had to point out the missing
+   tab before it got fixed). Entry format: `{ "date": "...", "label": "M/D", "file":
+   "data-<date>.json" }`, newest date first. Treat steps 5 and 6 as one inseparable
+   step — if you're producing a `data-<date>.json`, you're always also producing an
+   updated `manifest.json` alongside it, no exceptions, even if the user doesn't
+   explicitly ask for the manifest.
 7. Get both files into the live repo (commit + push if this session has repo access;
    otherwise hand the user the full contents of both files and point them to GitHub's
    "Add file → Upload files"). `index.html` doesn't need to change. New product labels
@@ -230,6 +240,20 @@ before reaching "凤爪" (chicken feet).
    alongside `manifest.json`) — it needs to exist in the live repo for icons to show
    at all; a missing/failed fetch just falls back to 🛒 for everything, it doesn't break
    the page.
+
+**2026-09-11 expansion (first meat/dumpling-supplier round):** the map was seeded
+against a fruit/veg vendor and had no coverage for filled dumplings, buns/breads,
+lamb, squid, or several bare protein cuts with no animal word in the label. Added:
+`水饺`/`小笼包`/`灌汤包`/`青菜包` to the existing 🥟 category; new categories 🍞
+(馒头/花卷/千层饼/小饼/韭菜盒子), 🥮 (月饼), 🐑 (羊/羔羊), 🦑 (鱿鱼/墨鱼/乌贼/苏东), 🍡
+(小贝/奶卷/糍粑/面筋串) — all inserted right after 🥟 so dish-specific words win before
+generic ingredient words reached later in the list (e.g. "韭菜盒子" gets 🍞, not 🥬 from
+"韭菜"); `掌中宝` added to 🐔; `大骨`/`子弹排` added to 🍖; `三层肉`/`大肠`/`培根`/`飞机肉`/
+`梅肉`/`软骨`/`腰肉` added to 🐷; 🐮 simplified to a bare `牛` catch-all (mirroring how 🐷
+already had a bare `猪`) plus `金钱腱`/`百叶`/`毛肚`, since several beef cuts (牛肋条,
+牛蹄筋, 肥牛卷, etc.) don't contain the compound "牛肉"; `鲈` added to 🐟. Four tofu
+items (芝士豆腐, 海鲜豆腐, 千页豆腐片, 爆浆小豆腐) were left on the default 🛒 on purpose —
+no existing emoji fits without being misleading.
 
 ---
 
@@ -385,22 +409,6 @@ someone unlocks it with the edit PIN.
 > "Delivery day for [date]: [describe what happened — shortages, refunds, extra sales]"
 
 ---
-
-## A2b. Packing status (separate from payment)
-
-Each member row has a "打包" toggle button next to "标记已付款" — a second,
-independent yes/no state for whether that member's order has been physically
-packed for pickup. Lives in its own Firestore collection `packedStatus/{date}`
-(same live-sync `onSnapshot`/`setDoc merge:true` pattern as `paidStatus`), so it
-never clobbers or depends on payment status — a member can be packed-not-paid
-or paid-not-packed, tracked independently. Unlike the pay toggle, it's never
-blocked by `roundLocked` (packing is an operational task, not something the
-payment auto-lock should freeze). Visible in the stats ticket as "已打包 X / Y
-人" alongside the existing "已收 X / Y 人" line. Requires the Firestore rule for
-`packedStatus/{groupBuyDate}` (open read/write, same shape as the other two) —
-already added to `firestore.rules`; needs to be pasted into the Firebase
-console's Rules tab like any other rules change, since that's a separate
-deploy step from GitHub Pages.
 
 ## A3. Copy WeChat payment message (per-member)
 
@@ -590,44 +598,6 @@ only if it actually causes a problem in practice.
 
 ---
 
-## A5b. Round tab coloring (past-round status at a glance)
-
-Each round's tab in the `.buyTabs` bar is colored based on its date and payment status,
-computed once at page load — not part of the live per-round subscriptions.
-
-**The rule:**
-- Round date ≥ today → left uncolored (default) — treated as "hasn't happened yet," even
-  if it's today's own round still mid-collection.
-- Round date < today, at least one base member unpaid → red (`.buyTab.pending`).
-- Round date < today, every base member paid → green (`.buyTab.completed`).
-- The currently-selected tab always keeps its existing dark "active" highlight regardless
-  of status color (`.buyTab.completed:not(.active)` / `.buyTab.pending:not(.active)` — the
-  color only shows on unselected tabs, so there's never a visual conflict between "this is
-  open" and "this is selected").
-
-**Known limitation, left as-is on purpose:** the paid-check only looks at `DATA.orders`
-(the base 接龙 list) for each past round, not walk-ins added afterward via adjustments
-(A2). A past round with every base member paid but one unpaid walk-in would still show
-green. Not worth an extra adjustments-collection read per past round for how rarely that
-specific combination would happen; revisit if it actually causes confusion.
-
-**How it's computed:** `refreshRoundStatuses()` runs once at boot, after the manifest and
-first round load. For every round dated before today, it does a one-time `getDoc()` read
-of that round's `paidStatus/{date}` document (not a live `onSnapshot` — background tab
-coloring doesn't need to update in real time the way the open round's own UI does) plus a
-one-time `fetch()` of that round's own `data-<date>.json` (to get its member list), then
-compares the two. Rounds dated today or later skip both fetches entirely. Runs in the
-background without blocking the initial page render; re-renders once all statuses resolve
-so the tabs pick up their colors. If a fetch or read fails for a given round, that round
-is just left uncolored rather than showing a debug banner over a purely cosmetic feature.
-
-Because this only runs once at boot from the manifest snapshot at that moment, a brand new
-round added to `manifest.json` mid-session (rare, but possible if someone deploys while
-the page is already open) won't get a color until the next page load — acceptable for a
-decorative feature.
-
----
-
 ## A6. Member block/unit directory (for organizing deliveries)
 
 Each member can have a block/unit number on file (free text, e.g. "12栋 06-02"),
@@ -740,6 +710,53 @@ dropdown, or tap its row in the stocking list either while a specific product
 is already selected or while viewing the full list — all backed by the same
 `renderProductMembers()` function, so there's exactly one place to fix a bug
 in that breakdown, not three.
+
+---
+
+## A8. Product catalog & price tracking (`product-catalog.json`)
+
+**Claude-side only — this file is never fetched by `index.html` and never uploaded to
+GitHub.** It's a build-time aid so Claude can keep product keys consistent, and now
+prices too, across every round and every supplier (produce vendor, meat/dumpling
+vendor, etc.) — not just within one round.
+
+Each entry: `label`, `unit`, optional `aka` (alternate labels the same key has shipped
+under) and `note` (for genuine ambiguity — see `mango_pzh`/`egg_my_box` for examples),
+plus (added 2026-09-11):
+
+- **`lastPrice`** — the most recent confirmed price seen for this key, across any
+  round/supplier.
+- **`lastRound`** — the `YYYY-MM-DD` of the round that price came from.
+
+Only the latest price/round is kept — no full history array (deliberate choice, keep
+it simple). Entries with no price ever recorded in the available round files (e.g.
+`lotus_root`, `peach_rainbow_unclear` — they predate the round files in this project)
+simply omit both fields.
+
+**Workflow when building a new round:**
+1. For each vendor line item, check whether it matches an existing key (by label or
+   `aka`) before minting a new one — same rule as before.
+2. If it matches an existing key, compare the vendor's stated price this round against
+   that key's `lastPrice`.
+   - **Same price:** proceed normally.
+   - **Different price:** don't silently update it — tell the user the price changed
+     (old → new) so they can confirm it's not a typo before it goes into the new
+     round's `data-<date>.json`.
+3. After the round's `data-<date>.json` is finalized (including any
+   previously-`unverified` items the user confirms), update `lastPrice`/`lastRound`
+   for every key used that round, and add any brand-new keys with their first price.
+4. `unverified` items (price `null`) are never fed into `lastPrice` — only confirmed
+   prices count. Once the user confirms a real price for a previously-unverified item,
+   clear the `unverified` flag in that round's data file *and* add the key to the
+   catalog with its now-confirmed `lastPrice`/`lastRound`.
+
+**Example (2026-09-11 round):** two items ordered outside the vendor's posted list —
+`CP猪血` ($7.8/盒/400g) and `马来西亚土鸡蛋` ($9.3/30粒/盒) — were entered as
+`unverified`/`price: null` first. The user confirmed both prices in a follow-up
+message; both were then unflagged in `data-2026-09-11.json` and added to
+`product-catalog.json` with `lastPrice`/`lastRound: "2026-09-11"`. Note:
+`egg_my_box`'s confirmed price ($9.3) happens to match the unrelated `egg_my` key
+(different supplier, `盘`/tray unit) — coincidence, not merged, flagged via `note`.
 
 ---
 
@@ -1019,3 +1036,35 @@ to have live counterparts here. Three fixes, all invisible (no look-and-feel cha
    `.walkinTag`'s `--line`/`--muted` fill+text pairing.
 
 None of this changed `README.md`'s feature list — nothing user-visible moved.
+
+---
+
+### Walk-in name double-@ fix (2026-09-11)
+
+**Bug:** a walk-in buyer added via "+ 新增买家" showed up as `@@大燕子🐣⛄️❄️` in the
+copied payment message instead of `@大燕子🐣⛄️❄️`. Root cause: the operator copied the
+name straight out of a WeChat message where it appeared as a mention ("@某某") and
+pasted the whole thing — including the "@" — into the walk-in name field. That stored
+name then hit the `"@{name}"` greeting template in `buildMemberMessage()`, doubling
+the "@".
+
+**Fixed** in `handleAdjSave()`: a leading `@` (one or more) is now stripped from
+`adjDraft.name` before it's saved as `memberName` —
+`.trim().replace(/^@+/, "")`. This is a one-time, one-character-class strip of mention
+syntax, not a general name-normalization — it doesn't touch emoji, kana, or any other
+character the memory notes protect (see "Real member names must never appear in
+docs..." rule; that rule is about not altering/scrubbing legitimate name content, a
+leading "@" is never legitimate name content). Fixing it at save time (rather than
+only at message-build time) means the correction also applies everywhere else
+`m.name` is used — card header, print view, adjustment matching — not just the one
+button that surfaced the bug.
+
+**Not retroactive:** this only prevents it going forward. Any walk-in already saved
+with a leading "@" in a live round's Firestore `adjustments/{date}` doc still has it
+stored that way — there's no code path here that rewrites existing Firestore data, so
+those need a manual fix (undo the adjustment via the "撤销" link and re-add the
+walk-in without the "@").
+
+`README.md` updated (both language sections, "+ 新增买家" bullet) to tell the operator
+not to include "@" when entering a walk-in's name, as a belt-and-suspenders alongside
+the code fix.
