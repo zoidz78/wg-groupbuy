@@ -1,0 +1,425 @@
+{
+  "groupName": "WG团购群",
+  "itemsLabel": "永樂水饺肉类团购",
+  "products": {
+    "beef_jinqian_jian": {
+      "label": "小条金钱腱",
+      "price": 18,
+      "unit": "kg"
+    },
+    "chicken_gambang": {
+      "label": "甘榜鸡",
+      "price": 13,
+      "unit": "kg"
+    },
+    "beef_tendon_ball_cs": {
+      "label": "潮汕牛筋丸",
+      "price": 15.8,
+      "unit": "包"
+    },
+    "fish_barramundi": {
+      "label": "金目鲈(700-800g/条，已处理)",
+      "price": 9.9,
+      "unit": "条"
+    },
+    "beef_slice_tender": {
+      "label": "嫩滑牛肉片(1kg/包)",
+      "price": 19,
+      "unit": "包"
+    },
+    "beef_patty_angus": {
+      "label": "美国安格斯牛肉饼(130g*6片/包)",
+      "price": 10,
+      "unit": "包"
+    },
+    "pork_meirou_cn": {
+      "label": "湖南猪梅肉(500g/包)",
+      "price": 6.5,
+      "unit": "包"
+    },
+    "mooncake_maoshanwang": {
+      "label": "原味猫山王冰皮月饼",
+      "price": 30,
+      "unit": "盒"
+    },
+    "mantou_plain": {
+      "label": "馒头(4个/包)",
+      "price": 5,
+      "unit": "包"
+    },
+    "mantou_flower": {
+      "label": "鲜花馒头(4粒/包)",
+      "price": 5.7,
+      "unit": "包"
+    },
+    "mantou_pumpkin": {
+      "label": "南瓜馒头(4粒/包)",
+      "price": 5.2,
+      "unit": "包"
+    },
+    "mantou_brownsugar": {
+      "label": "红糖馒头(5粒/包)",
+      "price": 4,
+      "unit": "包"
+    },
+    "dumpling_corn_pork": {
+      "label": "玉米猪肉水饺(1kg/袋)",
+      "price": 13.9,
+      "unit": "袋"
+    },
+    "xlb_soup": {
+      "label": "灌汤小笼包(1kg/袋)",
+      "price": 13.8,
+      "unit": "袋"
+    },
+    "pork_bone_meat_fresh": {
+      "label": "新鲜大骨连肉(2kg/包)",
+      "price": 17,
+      "unit": "包"
+    },
+    "beef_short_rib": {
+      "label": "牛肋条",
+      "price": 22,
+      "unit": "kg"
+    },
+    "pork_blood_cp": {
+      "label": "CP猪血(400g/盒)",
+      "price": 7.8,
+      "unit": "盒"
+    },
+    "pork_slivers": {
+      "label": "猪肉丝(300g/包)",
+      "price": 3.4,
+      "unit": "包"
+    },
+    "beef_roll_fat": {
+      "label": "肥牛卷(300g/盒)",
+      "price": 9.8,
+      "unit": "盒"
+    },
+    "lamb_shoulder_roll": {
+      "label": "羊肩肉卷(300g/盒)",
+      "price": 12,
+      "unit": "盒"
+    },
+    "lamb_scorpion": {
+      "label": "羊蝎子(1kg/包)",
+      "price": 11,
+      "unit": "包"
+    },
+    "fish_black_slice": {
+      "label": "免浆黑鱼片(1kg/包)",
+      "price": 18,
+      "unit": "包"
+    },
+    "dumpling_cabbage_pork": {
+      "label": "白菜猪肉水饺(1kg/包)",
+      "price": 12.9,
+      "unit": "包"
+    },
+    "jian_mian_chuan": {
+      "label": "烤面筋串(20串/包)",
+      "price": 12,
+      "unit": "包"
+    },
+    "dumpling_egg_chive": {
+      "label": "韭菜鸡蛋水饺(1kg/袋)",
+      "price": 12,
+      "unit": "袋"
+    },
+    "pork_loin_chunk": {
+      "label": "猪里脊切大块(1kg左右/包)",
+      "price": 8,
+      "unit": "包"
+    },
+    "beef_tendon_plain": {
+      "label": "普通牛腱",
+      "price": 12,
+      "unit": "kg"
+    },
+    "herb_pork_dumpling": {
+      "label": "茴香猪肉水饺(1kg/袋)",
+      "price": 13.9,
+      "unit": "袋"
+    },
+    "shrimp_dumpling": {
+      "label": "虾仁水饺(1kg/袋)",
+      "price": 17.9,
+      "unit": "袋"
+    },
+    "fish_dumpling_bayu": {
+      "label": "鲅鱼水饺(1kg/袋)",
+      "price": 17.9,
+      "unit": "袋"
+    },
+    "wonton_shanghai_qing": {
+      "label": "上海青鲜肉馄饨(550g/包)",
+      "price": 12,
+      "unit": "包"
+    },
+    "mantou_milk_small": {
+      "label": "奶香小馒头(20粒/包)",
+      "price": 3.5,
+      "unit": "包"
+    },
+    "chicken_wing_grilled": {
+      "label": "香烤鸡中翅(1kg/包)",
+      "price": 16.5,
+      "unit": "包"
+    },
+    "chicken_popcorn": {
+      "label": "香脆鸡米花(1kg/包)",
+      "price": 12,
+      "unit": "包"
+    },
+    "mochi_brownsugar": {
+      "label": "红糖爆浆糍粑",
+      "price": 4.2,
+      "unit": "包"
+    },
+    "huajuan": {
+      "label": "花卷(4个/包)",
+      "price": 5.5,
+      "unit": "包"
+    },
+    "egg_my_box": {
+      "label": "马来西亚土鸡蛋(30粒/盒)",
+      "price": 9.3,
+      "unit": "盒"
+    }
+  },
+  "orders": [
+    {
+      "name": "ZJ",
+      "items": {
+        "beef_jinqian_jian": 1,
+        "chicken_gambang": 1,
+        "beef_tendon_ball_cs": 1,
+        "fish_barramundi": 1
+      }
+    },
+    {
+      "name": "木木三の柒",
+      "items": {
+        "beef_slice_tender": 1,
+        "beef_patty_angus": 1,
+        "pork_meirou_cn": 2
+      }
+    },
+    {
+      "name": "sinsin",
+      "items": {
+        "mooncake_maoshanwang": 1,
+        "beef_patty_angus": 1,
+        "mantou_brownsugar": 1
+      }
+    },
+    {
+      "name": "LLL",
+      "items": {
+        "mantou_plain": 1,
+        "mantou_flower": 1,
+        "mantou_pumpkin": 1
+      }
+    },
+    {
+      "name": "🧂",
+      "items": {
+        "dumpling_corn_pork": 1,
+        "xlb_soup": 1
+      }
+    },
+    {
+      "name": "Naokiii_",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "李梦",
+      "items": {
+        "pork_bone_meat_fresh": 1,
+        "beef_short_rib": 1,
+        "beef_jinqian_jian": 1,
+        "pork_blood_cp": 1
+      }
+    },
+    {
+      "name": "半江渔火",
+      "items": {
+        "mooncake_maoshanwang": 1,
+        "pork_slivers": 1,
+        "mantou_brownsugar": 1,
+        "beef_slice_tender": 1
+      }
+    },
+    {
+      "name": "Kylin",
+      "items": {
+        "beef_roll_fat": 1,
+        "lamb_shoulder_roll": 1,
+        "mantou_plain": 1
+      }
+    },
+    {
+      "name": "傀儡娃娃",
+      "items": {
+        "mantou_plain": 1,
+        "beef_short_rib": 1,
+        "beef_jinqian_jian": 1,
+        "lamb_scorpion": 1,
+        "pork_blood_cp": 2
+      }
+    },
+    {
+      "name": "士多啤梨",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "Huuuuuzz",
+      "items": {
+        "mantou_brownsugar": 1
+      }
+    },
+    {
+      "name": "wujinmei",
+      "items": {
+        "beef_short_rib": 2,
+        "beef_patty_angus": 1
+      }
+    },
+    {
+      "name": "薇",
+      "items": {
+        "beef_short_rib": 1
+      }
+    },
+    {
+      "name": "ᥫᩣ",
+      "items": {
+        "mooncake_maoshanwang": 1,
+        "mantou_plain": 1,
+        "mantou_milk_small": 1,
+        "shrimp_dumpling": 1,
+        "wonton_shanghai_qing": 1
+      }
+    },
+    {
+      "name": "Caroline 琛琛",
+      "items": {
+        "fish_black_slice": 3
+      }
+    },
+    {
+      "name": "^_^Wu",
+      "items": {
+        "dumpling_cabbage_pork": 1,
+        "beef_patty_angus": 1,
+        "jian_mian_chuan": 1,
+        "beef_slice_tender": 1
+      }
+    },
+    {
+      "name": "银银茵茵盈盈",
+      "items": {
+        "dumpling_cabbage_pork": 1
+      }
+    },
+    {
+      "name": "无虞.",
+      "items": {
+        "mooncake_maoshanwang": 2,
+        "mantou_brownsugar": 1,
+        "dumpling_corn_pork": 1
+      }
+    },
+    {
+      "name": "Lesleyᓩ",
+      "items": {
+        "mantou_brownsugar": 1,
+        "chicken_wing_grilled": 1,
+        "chicken_popcorn": 1,
+        "mochi_brownsugar": 1
+      }
+    },
+    {
+      "name": "我睡着的时候不困💤",
+      "items": {
+        "huajuan": 1,
+        "mochi_brownsugar": 1,
+        "beef_tendon_plain": 1
+      }
+    },
+    {
+      "name": "Sadddie",
+      "items": {
+        "herb_pork_dumpling": 1,
+        "shrimp_dumpling": 1,
+        "fish_dumpling_bayu": 1
+      }
+    },
+    {
+      "name": "Can.J",
+      "items": {
+        "fish_dumpling_bayu": 1,
+        "beef_patty_angus": 1
+      }
+    },
+    {
+      "name": "崔崔",
+      "items": {
+        "dumpling_cabbage_pork": 1
+      }
+    },
+    {
+      "name": "Peter",
+      "items": {
+        "beef_patty_angus": 1,
+        "dumpling_egg_chive": 1
+      }
+    },
+    {
+      "name": "张",
+      "items": {
+        "beef_tendon_plain": 1,
+        "pork_loin_chunk": 2
+      }
+    },
+    {
+      "name": "A🍓肉肉（肉在努力版）",
+      "items": {
+        "herb_pork_dumpling": 1
+      }
+    },
+    {
+      "name": "Christian Ruth",
+      "items": {
+        "beef_patty_angus": 1,
+        "beef_tendon_plain": 2,
+        "egg_my_box": 2
+      }
+    },
+    {
+      "name": "Fei",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "Jiamin",
+      "items": {
+        "beef_short_rib": 1,
+        "beef_jinqian_jian": 1,
+        "beef_tendon_ball_cs": 2
+      }
+    },
+    {
+      "name": "noture",
+      "items": {
+        "fish_black_slice": 1
+      }
+    }
+  ]
+}
