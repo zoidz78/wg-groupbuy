@@ -354,6 +354,10 @@ match /memberInfo/{docId} {
 ## 补充说明
 
 - 页面上所有文字均为中文，这是有意为之——新增的任何文字都请保持中文，与现有风格一致。
+- 页面最底部一行小字括号里的数字（例如"（1.0）"）是这个页面代码的版本号——
+  每次 Claude 改动 `index.html` 都会往上加一点，方便部署后一眼确认线上跑
+  的是不是预期的版本，不需要打开开发者工具。和这场团购的日期、订单数据
+  完全无关，纯粹是代码本身的版本标记。
 - 曾经尝试过用 Claude Artifact（`window.storage`）来实现跨设备共
   享付款状态，但受限于 Anthropic 平台当时一个已知的 postMessage
   跨域问题（已公开报告：`anthropics/claude-code#42064`），未能稳
@@ -802,6 +806,12 @@ into several pages of paper.
 
 - All text on the page is intentionally in Mandarin — keep any new
   text in Mandarin to match the existing style.
+- The small number in parentheses at the very bottom of the page
+  (e.g. "（1.0）") is the code's version number — Claude bumps it every
+  time `index.html` changes, so after deploying you can glance at the
+  live page and confirm it picked up the version you expect, no dev
+  tools needed. It has nothing to do with this round's date or order
+  data — it's purely a code build marker.
 - A Claude Artifact (`window.storage`) approach was tried first for
   shared cross-device payment status, but hit a known Anthropic
   platform postMessage cross-origin bug at the time (publicly

@@ -366,6 +366,20 @@
     const firebaseApp = initializeApp(firebaseConfig);
     const db = getFirestore(firebaseApp);
 
+    // Bump this on every index.html change handed over in chat, and log what
+    // changed at each version in wg-groupbuy-project-knowledge.md's "Version
+    // log" section (see A9). Purpose: before editing this file, Claude checks
+    // this number against the log's latest entry — a mismatch means the
+    // Project's stored copy of index.html is stale relative to what's
+    // actually deployed (see the 2026-09-11 incident where 打包 and
+    // type-to-search silently vanished from a live deploy because of exactly
+    // this drift), and Claude should ask for the current file instead of
+    // editing blind. Also shown in the page footer (see the `.footNote` at
+    // the bottom of render()) so a quick visual check after deploying
+    // confirms the live site actually picked up the expected version —
+    // no dev tools needed.
+    const APP_VERSION = "1.0";
+
     // Soft gate only — Firestore rules stay open to anyone with the link (same
     // trust model as paid-status today). This just stops accidental taps.
     // Change this before sharing the link if you want a different passcode.
@@ -1642,7 +1656,7 @@
 
         ${editMode && !roundLocked && showUnitsPanel ? renderUnitsPanel() : ""}
 
-        <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
+        <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。（${APP_VERSION}）</p>
 
         ${selectedProductOverlay && DATA.products[selectedProductOverlay] ? renderProductOverlay(selectedProductOverlay, members) : ""}
 

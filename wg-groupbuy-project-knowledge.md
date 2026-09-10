@@ -793,6 +793,40 @@ every time, not an automated safeguard — so if the reminder is ever skipped or
 this Project's copy of that file can drift out of sync with the live site again,
 exactly as it did here.
 
+### Version check protocol (added 2026-09-11, after the incident above)
+
+`index.html` carries a version constant near the top of the script:
+`const APP_VERSION = "1.0";` (bumped from here going forward — see log below). It's
+also rendered in the page footer (`.footNote`, bottom of `render()`), so the operator
+can visually confirm the live site picked up the expected version after deploying,
+with no dev tools needed.
+
+**Before making any non-trivial edit to `index.html`, Claude checks this file's
+`APP_VERSION` against the latest entry in the version log below.**
+
+- **Match:** proceed with the edit as normal.
+- **Mismatch (or the constant is missing entirely — i.e. this instruction hasn't
+  been in the file that long):** this project's stored copy is stale relative to
+  what's actually deployed. Don't edit blind — tell the user, and ask them to pull
+  the current file from GitHub (same recovery method as the 2026-09-11 incident:
+  the repo's commit history, or a fresh raw download of the deployed `index.html`)
+  before proceeding.
+
+**After every `index.html` edit Claude hands over:** bump `APP_VERSION` (patch bump —
+`1.0` → `1.1` — for a small fix, minor bump — `1.1` → `1.2` — for a new feature;
+no fixed rule beyond "match the size of the change," this doesn't need to be
+rigorous) and add a row to the version log below in the same response. The version
+constant and the log entry are two edits that always travel together — one without
+the other defeats the whole point (a mismatch that isn't in the log gives Claude
+nothing to compare against; a log entry with no matching constant bump means the
+deployed file's version can't be verified against it).
+
+**Version log** (newest first):
+
+| Version | Date | What changed |
+|---|---|---|
+| 1.0 | 2026-09-11 | Baseline reset point after the stale-Project-copy incident above. This is the recovered live file (confirmed to include 打包/`packedStatus` and the 商品查询 type-to-search input, both previously undocumented here) plus the walk-in `@`-stripping fix (`handleAdjSave`) and this version-tracking mechanism itself. Earlier version history wasn't reconstructed — this is the reset point everything increments from now. |
+
 ---
 
 ## B. Setting up a brand-new dashboard from scratch (a different group)
