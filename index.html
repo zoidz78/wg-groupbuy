@@ -21,6 +21,7 @@
     --red: #b5482a;
     --green: #5c7a5e;
     --green-btn: #4f7f5b;
+    --pack-btn: #4f6f8f;
     --warn-bg: #fdf0d5;
     --warn-border: #e0a838;
     --warn-text: #8a5a00;
@@ -37,6 +38,7 @@
       --red: #e08064;
       --green: #8fbb96;
       --green-btn: #4f7f5b;
+      --pack-btn: #6a93bd;
       --warn-bg: #3a2f10;
       --warn-border: #caa23a;
       --warn-text: #f0c869;
@@ -82,6 +84,11 @@
     border-radius: 20px; cursor: pointer; user-select: none;
   }
   .buyTab.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  /* Status coloring only applies to unselected tabs — the active/selected
+     tab keeps its current dark highlight regardless of round status, so
+     there's never a conflict between "this is open" and "this is selected". */
+  .buyTab.completed:not(.active) { border-color: var(--green-btn); color: var(--green-btn); }
+  .buyTab.pending:not(.active) { border-color: var(--red); color: var(--red); }
 
   .ticket, .card {
     background: var(--paper);
@@ -148,6 +155,13 @@
   }
   .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
   .payBtn.locked { opacity: 0.55; cursor: default; }
+  .rowBtns { display: flex; gap: 6px; flex-shrink: 0; }
+  .packBtn {
+    font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
+  }
+  .packBtn.on { background: var(--pack-btn); border-color: var(--pack-btn); color: white; }
 
   .itemLine.unverified {
     color: var(--warn-text);
@@ -204,6 +218,20 @@
     font-family: inherit; margin-bottom: 14px;
   }
   .productSelect:focus { outline: none; border-color: var(--muted); }
+  .productSearchInput {
+    width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit; margin-bottom: 6px;
+  }
+  .productSearchInput:focus { outline: none; border-color: var(--muted); }
+  .productSearchResults { margin-bottom: 8px; }
+  .productSearchResults:empty { display: none; }
+  .productSearchResult {
+    padding: 9px 12px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--paper); color: var(--ink); font-size: 13.5px; cursor: pointer;
+  }
+  .productSearchResult:hover { border-color: var(--muted); }
+  .productSearchEmpty { padding: 6px 12px 8px; font-size: 13px; color: var(--muted); }
   .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
   .productDetailHeader {
     display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
@@ -296,9 +324,9 @@
      see render()) needs its own visible focus ring — a <div> has none by
      default the way a real <button> would, and these are now keyboard-
      reachable (see the Enter/Space handler at the bottom of the script). */
-  .payBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
+  .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
-  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible {
+  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -325,7 +353,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, getDoc, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAmfejtmHiICRpYbQsnSGfzDrq7qkWendo",
@@ -395,12 +423,39 @@
     };
     let GROUP_BUYS = [];
     let activeIndex = 0;
+    // Per-round tab coloring: "future" (date >= today, left default/uncolored),
+    // "pending" (date < today, at least one base member unpaid — red), or
+    // "completed" (date < today, every base member paid — green). Populated
+    // once at boot by refreshRoundStatuses() via one-time reads (not live
+    // subscriptions — only the active round needs live updates), since
+    // determining every OTHER round's status needs data this app doesn't
+    // otherwise load for inactive tabs. Deliberately checks only DATA.orders
+    // (the base 接龙 list) and not walk-ins added via adjustments after the
+    // fact — an unpaid walk-in on an otherwise-settled past round could
+    // still show green. Cheap to compute (one file + one doc read per past
+    // round, once per page load), fine at this app's scale.
+    let roundStatus = {};
     let DATA = null;
     let paidState = {};
+    // Whether each member's order has been physically packed for pickup —
+    // a separate concern from payment (someone can pack before they've paid,
+    // or vice versa), tracked the same live-sync way. Doc ID = group buy
+    // date, same as paidStatus. No lock/all-packed side effect like
+    // togglePaid() has — packing progress never freezes the round.
+    let packedState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
     let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
     let selectedProductOverlay = null; // product key whose who-ordered-what popup is open, from tapping a 备货清单 row
+    // Free-text filter typed into the 商品查询 search box — a faster
+    // alternative to scrolling the <select> for a long product list. Kept
+    // as module state (not just a DOM value) so a live Firestore update
+    // arriving mid-type doesn't wipe what's typed on the next render() call.
+    // productSearchRoundKeys mirrors render()'s local roundProductKeys so
+    // the input handler (which deliberately skips render(), see below) can
+    // filter without recomputing flavorTotals from scratch.
+    let productSearchQuery = "";
+    let productSearchRoundKeys = [];
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
 
@@ -456,17 +511,60 @@
     let unitsSaveMsg = "";
 
     let unsubscribePaidState = null;
+    let unsubscribePackedState = null;
     let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
 
     function paidDocRef(dateKey) {
       return doc(db, "paidStatus", dateKey);
     }
+    function packedDocRef(dateKey) {
+      return doc(db, "packedStatus", dateKey);
+    }
     function adjustmentsDocRef(dateKey) {
       return doc(db, "adjustments", dateKey);
     }
     function memberUnitsDocRef() {
       return doc(db, "memberInfo", "directory");
+    }
+
+    // Today's date as YYYY-MM-DD in the browser's local time zone — matches
+    // the date-string format GROUP_BUYS/manifest.json already use, so a
+    // plain string comparison (">=") works without any date parsing.
+    function todayDateStr() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    // Populates roundStatus for every round in GROUP_BUYS — see the comment
+    // on `let roundStatus` above for what each value means and its known
+    // limitation (base orders only, walk-ins not counted). One-time reads,
+    // not live subscriptions: these are for background tab coloring, not
+    // for driving the currently-open round's own UI, which already has its
+    // own live subscriptions. Runs once at boot; doesn't block the initial
+    // render, and re-renders once done so tabs pick up their colors.
+    async function refreshRoundStatuses() {
+      const today = todayDateStr();
+      await Promise.all(GROUP_BUYS.map(async (gb) => {
+        if (gb.date >= today) { roundStatus[gb.date] = "future"; return; }
+        try {
+          const [fileRes, paidSnap] = await Promise.all([
+            fetch(noCacheUrl(gb.file), NO_STORE).then(r => (r.ok ? r.json() : null)),
+            getDoc(paidDocRef(gb.date)).catch(() => null),
+          ]);
+          if (!fileRes || !Array.isArray(fileRes.orders)) { roundStatus[gb.date] = "future"; return; }
+          const paidData = paidSnap && paidSnap.exists() ? paidSnap.data() : {};
+          const hasUnpaid = fileRes.orders.some(o => !paidData[o.name]);
+          roundStatus[gb.date] = hasUnpaid ? "pending" : "completed";
+        } catch (e) {
+          // Leave this round uncolored rather than showing a debug banner
+          // over a purely cosmetic feature — the tab still works, it just
+          // won't have a status color this load.
+          delete roundStatus[gb.date];
+        }
+      }));
+      render();
     }
 
     function escapeHtml(s) {
@@ -528,6 +626,26 @@
         (err) => {
           storageDebug = `Firestore 读取出错：${err.message}`;
           paidState = {};
+          render();
+        }
+      );
+    }
+
+    // Same live-sync pattern as paid status, for packing progress. Kept in
+    // its own collection/doc rather than piggybacking on paidStatus so the
+    // two stay independently toggleable and neither write can clobber the
+    // other's field.
+    function subscribeToPackedState(dateKey) {
+      if (unsubscribePackedState) { unsubscribePackedState(); unsubscribePackedState = null; }
+      unsubscribePackedState = onSnapshot(
+        packedDocRef(dateKey),
+        (snap) => {
+          packedState = snap.exists() ? snap.data() : {};
+          render();
+        },
+        (err) => {
+          storageDebug = `打包状态读取出错：${err.message}`;
+          packedState = {};
           render();
         }
       );
@@ -601,6 +719,18 @@
         await setDoc(paidDocRef(dateKey), patch, { merge: true });
       } catch (e) {
         storageDebug = `保存出错：${e.message}`;
+        render();
+      }
+    }
+
+    // Writes just the one member's packed field. Unlike togglePaid(), never
+    // gated on roundLocked — packing is an operational task independent of
+    // payment, so it should stay editable even after a round auto-locks.
+    async function togglePacked(dateKey, name) {
+      try {
+        await setDoc(packedDocRef(dateKey), { [name]: !packedState[name] }, { merge: true });
+      } catch (e) {
+        storageDebug = `打包状态保存出错：${e.message}`;
         render();
       }
     }
@@ -1007,6 +1137,7 @@
           filter = "all";
           selectedProduct = null;
           selectedProductOverlay = null;
+          productSearchQuery = "";
           openAdjustFormFor = null;
           showBulkPanel = false;
           bulkError = "";
@@ -1022,6 +1153,7 @@
           unitsSaveMsg = "";
           resetAdjDraft();
           subscribeToPaidState(gb.date);
+          subscribeToPackedState(gb.date);
           subscribeToAdjustments(gb.date);
         })
         .catch(e => {
@@ -1321,6 +1453,7 @@
       const grandUnitTotals = unitTotals(members.map(m => effectiveItems(m)));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
+      const packedCount = members.filter(m => packedState[m.name]).length;
 
       const flavorTotals = {};
       Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
@@ -1332,6 +1465,10 @@
       // same set 备货清单 already filtered to (flavorTotals[k] > 0). Anything
       // never ordered this round never appears as an option.
       const roundProductKeys = Object.keys(DATA.products).filter(k => flavorTotals[k] > 0);
+      // Kept in sync so handleProductSearchInput() (which deliberately skips
+      // render(), see its comment) can filter against the same set without
+      // recomputing flavorTotals itself.
+      productSearchRoundKeys = roundProductKeys;
       // A previously-selected product can drop out of the round (e.g. an
       // adjustment zeroed out its only order) — fall back to the full list
       // rather than showing a detail panel for a product nobody has anymore.
@@ -1356,7 +1493,7 @@
         ${GROUP_BUYS.length > 1 ? `
           <div class="buyTabs" role="tablist">
             ${GROUP_BUYS.map((gb, i) => `
-              <div class="buyTab ${i === activeIndex ? "active" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
+              <div class="buyTab ${i === activeIndex ? "active" : ""} ${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
             `).join("")}
           </div>
         ` : ""}
@@ -1385,7 +1522,7 @@
           <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
           <div style="padding-bottom:14px">
             <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
-            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人</div>
+            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人 · 已打包 ${packedCount} / ${members.length} 人</div>
           </div>
         </div>
 
@@ -1400,7 +1537,10 @@
             <div class="row">
               <div class="rowHead">
                 <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${escapeHtml(m.name)}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
-                <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                <div class="rowBtns">
+                  <div class="packBtn ${packedState[m.name] ? "on" : ""}" role="button" tabindex="0" aria-pressed="${packedState[m.name] ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${packedState[m.name] ? "已打包 ✓" : "打包"}</div>
+                  <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                </div>
               </div>
               ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
               ${Object.entries(m.items).map(([k, qty]) => {
@@ -1437,6 +1577,8 @@
         <div class="card">
           <div class="sectionTitle">商品查询 — 备货清单 &amp; 认购明细</div>
           <div class="footNote" style="text-align:left;margin:-6px 0 8px">已按调整记录更新（含短缺/退款/现场加购）</div>
+          <input type="text" class="productSearchInput" id="productSearchInput" placeholder="输入商品名称关键字搜索，例如：虾" autocomplete="off" value="${escapeHtml(productSearchQuery)}">
+          <div class="productSearchResults" id="productSearchResults">${renderProductSearchResults(roundProductKeys, productSearchQuery)}</div>
           <select class="productSelect" id="productSelect" aria-label="选择商品查看认购明细">
             <option value=""${selectedProduct ? "" : " selected"}>📋 全部商品（本轮备货清单）</option>
             ${roundProductKeys.map(k => {
@@ -1518,11 +1660,27 @@
           togglePaid(GROUP_BUYS[activeIndex].date, el.dataset.name);
         });
       });
+      document.querySelectorAll(".packBtn").forEach(el => {
+        el.addEventListener("click", () => {
+          togglePacked(GROUP_BUYS[activeIndex].date, el.dataset.name);
+        });
+      });
       const productSelect = document.getElementById("productSelect");
       if (productSelect) {
         productSelect.addEventListener("change", (e) => {
           selectedProduct = e.target.value || null;
           render();
+        });
+      }
+      const productSearchInputEl = document.getElementById("productSearchInput");
+      if (productSearchInputEl) {
+        productSearchInputEl.addEventListener("input", (e) => handleProductSearchInput(e.target.value));
+      }
+      const productSearchResultsEl = document.getElementById("productSearchResults");
+      if (productSearchResultsEl) {
+        productSearchResultsEl.addEventListener("click", (e) => {
+          const el = e.target.closest("[data-key]");
+          if (el) selectProductFromSearch(el.dataset.key);
         });
       }
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
@@ -1770,6 +1928,47 @@
       `;
     }
 
+    // Shown below the 商品查询 search input while the user is typing — a
+    // faster alternative to scrolling the <select> for a long product list.
+    // Matches by plain substring against the Chinese label (this dashboard's
+    // whole UI is Mandarin, so 1-2 typed characters is the expected input,
+    // no pinyin index needed). Returns "" when the query is empty, which
+    // collapses the results container via the `:empty` CSS rule.
+    function renderProductSearchResults(keys, query) {
+      const q = query.trim();
+      if (!q) return "";
+      const matches = keys.filter(k => {
+        const info = DATA.products[k];
+        return info && info.label && info.label.includes(q);
+      });
+      if (!matches.length) return `<div class="productSearchEmpty">没有找到匹配的商品</div>`;
+      return matches.map(k => {
+        const info = DATA.products[k];
+        const meta = isUnverified(k) ? "待确认" : `$${info.price.toFixed(2)}/${info.unit || "盒"}`;
+        return `<div class="productSearchResult" role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} · ${meta}</div>`;
+      }).join("");
+    }
+
+    // Live-filters the 商品查询 search results as the user types, writing
+    // straight to the results DOM node instead of calling render() — same
+    // reasoning as handleAdjGramsHelperInput above: render() rebuilds the
+    // whole page via app.innerHTML, which would tear down and recreate this
+    // very <input> on every keystroke and throw focus/cursor position away.
+    function handleProductSearchInput(value) {
+      productSearchQuery = value;
+      const resultsEl = document.getElementById("productSearchResults");
+      if (resultsEl) resultsEl.innerHTML = renderProductSearchResults(productSearchRoundKeys, value);
+    }
+
+    // Tapping a search result behaves exactly like picking that product from
+    // the <select> — jumps straight to its who-ordered-what view — then
+    // clears the search box so it doesn't sit there stale.
+    function selectProductFromSearch(key) {
+      selectedProduct = key;
+      productSearchQuery = "";
+      render();
+    }
+
     // Shown in the 商品查询 detail area when no single product is selected:
     // the full stocking list for the round (same content the old standalone
     // 备货清单 card always showed).
@@ -1968,7 +2167,9 @@
       .then(json => {
         DATA = json;
         subscribeToPaidState(GROUP_BUYS[0].date);
+        subscribeToPackedState(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
+        refreshRoundStatuses(); // background, non-blocking — re-renders itself once done
       })
       // Include the real error (e.g. a JSON syntax error's message and
       // position) rather than a generic string — this is the very first

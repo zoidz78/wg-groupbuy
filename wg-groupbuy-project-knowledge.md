@@ -760,6 +760,41 @@ message; both were then unflagged in `data-2026-09-11.json` and added to
 
 ---
 
+## A9. Keeping this Project's knowledge base in sync with what's actually deployed
+
+**Why this exists:** on 2026-09-11, this Project's stored `index.html` turned out to
+be missing two already-shipped features (打包/`packedStatus`, the 商品查询
+type-to-search input) — nobody had re-uploaded a newer version here after those were
+built in an earlier session. Claude then edited that stale copy for an unrelated fix
+(the walk-in `@` bug) and handed it back; the user deployed it, and both missing
+features silently disappeared from the live site — no error, nothing to debug, just
+gone. Recovered by asking the user to pull the actual current file back out of
+GitHub's commit history and re-diffing against that.
+
+**Standing rule going forward, for every core file** (`index.html`,
+`message-template.json`, `product-emoji-map.json`, `product-catalog.json`,
+`README.md`, this file itself): whenever Claude hands over an edited version of one of
+these, Claude also reminds the user, in the same message, to:
+
+1. Rename the outgoing (about-to-be-replaced) version already sitting in this
+   Project's knowledge base with a `_YYMMDD-HHMM` timestamp suffix (e.g.
+   `index_260911-2358.html`) — keeps a recoverable trail without cluttering the
+   filename space with anything more elaborate (no full version history needed, same
+   "just the latest, plus one fallback" philosophy as `product-catalog.json`'s
+   `lastPrice`/`lastRound`, not a growing log).
+2. Upload the new version to this Project **separately from deploying it to
+   GitHub** — those are two different destinations and neither upload substitutes
+   for the other.
+
+**Claude cannot do either step itself** — there's no tool for writing to this
+Project's file list, only for reading it (and even that read is a point-in-time copy,
+per the standard project-files disclaimer). This is a reminder Claude gives the user
+every time, not an automated safeguard — so if the reminder is ever skipped or ignored,
+this Project's copy of that file can drift out of sync with the live site again,
+exactly as it did here.
+
+---
+
 ## B. Setting up a brand-new dashboard from scratch (a different group)
 
 `index.html` is fully generic — it only knows about `manifest.json`, the
