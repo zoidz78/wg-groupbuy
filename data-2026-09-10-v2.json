@@ -159,7 +159,8 @@
     "corn_km": {
       "label": "金马伦爆汁白玉米(4根/份)",
       "price": 10,
-      "unit": "份"
+      "unit": "份",
+      "piecesPerUnit": 4
     },
     "prune": {
       "label": "新鲜甜西梅",
@@ -254,7 +255,8 @@
     "persimmon": {
       "label": "火晶柿子(2盒/份)",
       "price": 9,
-      "unit": "份"
+      "unit": "份",
+      "piecesPerUnit": 2
     },
     "lemon_fujian": {
       "label": "福建香水柠檬",
@@ -287,7 +289,8 @@
     "corn_47": {
       "label": "北纬47度白糯玉米(10根/箱)",
       "price": 23.8,
-      "unit": "箱"
+      "unit": "箱",
+      "piecesPerUnit": 10
     },
     "kimchi_kr": {
       "label": "韩国风味泡菜",
@@ -373,7 +376,8 @@
     "kiwi": {
       "label": "红心奇异果(2盒/份)",
       "price": 9,
-      "unit": "份"
+      "unit": "份",
+      "piecesPerUnit": 2
     },
     "kiwi_cuixiang": {
       "label": "翠香猕猴桃",
@@ -385,15 +389,13 @@
       "label": "福安巨峰",
       "price": 12.8,
       "unit": "箱",
-      "weighMode": "REVIEW_NEEDED",
-      "_reviewNote": "和\"辽宁巨峰(3串/箱)\"同类的箱装葡萄，标签没写克重——需要确认是否也是每箱几串、每串重量不一样，应该用比例分箱还是过秤"
+      "weighMode": "proportional"
     },
     "grape_xiaoguangtou": {
       "label": "小光头辽宁巨峰(2.8kg左右/箱)",
       "price": 19.8,
       "unit": "箱",
-      "weighMode": "weight",
-      "gramsPerUnit": 2800
+      "weighMode": "proportional"
     },
     "pear_qiuyue_box": {
       "label": "秋月梨礼盒(3.5kg左右/箱，8粒)",
@@ -451,7 +453,8 @@
     "milk_hokkaido_12": {
       "label": "北海道原味牛乳(12盒/箱)",
       "price": 22,
-      "unit": "箱"
+      "unit": "箱",
+      "piecesPerUnit": 12
     }
   },
   "orders": [
