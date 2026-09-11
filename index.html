@@ -466,7 +466,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.4.1";
+    const APP_VERSION = "1.4.2";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -2267,7 +2267,21 @@
       }
       const memberSearchInputEl = document.getElementById("memberSearchInput");
       if (memberSearchInputEl) {
-        memberSearchInputEl.addEventListener("input", (e) => handleMemberSearchInput(e.target.value));
+        // Skip while an IME composition is in progress (e.isComposing) —
+        // a Chinese/Pinyin keyboard fires intermediate "input" events for
+        // each candidate character before it's confirmed, and calling
+        // handleMemberSearchInput's render()+refocus on those intermediate
+        // events (which recreates this very <input> node mid-composition)
+        // confuses the IME into duplicating characters. Only an English
+        // keyboard's inputs, or a confirmed IME character (compositionend),
+        // should actually trigger the filter.
+        memberSearchInputEl.addEventListener("input", (e) => {
+          if (e.isComposing) return;
+          handleMemberSearchInput(e.target.value);
+        });
+        memberSearchInputEl.addEventListener("compositionend", (e) => {
+          handleMemberSearchInput(e.target.value);
+        });
       }
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
         el.addEventListener("click", () => { selectedProductOverlay = el.dataset.key; render(); });
