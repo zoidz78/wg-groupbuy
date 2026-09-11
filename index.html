@@ -138,6 +138,11 @@
   .itemLine.adjustment { font-style: italic; }
   .itemLine.adjustment .itemAmt { display: flex; align-items: center; gap: 6px; font-style: normal; }
   .sortCheck { display: inline-block; cursor: pointer; user-select: none; margin-right: 2px; padding: 2px; }
+  /* 缺货/退货明细 card — the at-a-glance refund-claim list. */
+  .shortRow { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px dashed var(--line); }
+  .shortRow:first-of-type { border-top: none; }
+  .shortRow .shortAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; color: var(--red); }
+  .shortWho { font-size: 11.5px; color: var(--muted); padding: 0 0 6px 14px; line-height: 1.6; }
   .adjUndo {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 11px; color: var(--red); cursor: pointer; text-decoration: underline;
@@ -466,7 +471,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.5.0";
+    const APP_VERSION = "1.6.1";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -2024,14 +2029,23 @@
       }));
       const baseGrandTotal = members.reduce((s, m) => s + cost(m.items), 0);
       const grandTotal = members.reduce((s, m) => s + m.total, 0);
-      const grandUnitTotals = unitTotals(members.map(m => effectiveItems(m)));
+      // 备货清单 / 商品查询 are built from the ORIGINAL orders (m.items),
+      // deliberately NOT effectiveItems(): this is the product list as
+      // published when the round opened, and it must stay untouched by
+      // delivery-day corrections. Shortages/returns are reported separately
+      // in the 缺货/退货明细 card (renderShortageCard) rather than by
+      // quietly rewriting these numbers. Walk-in members carry `items: {}`
+      // (their purchases live in adjustments), so they're naturally
+      // excluded here too — again correct, since they weren't part of the
+      // originally published list.
+      const grandUnitTotals = unitTotals(members.map(m => m.items));
       const paidCount = members.filter(m => paidState[m.name]).length;
       const collected = members.filter(m => paidState[m.name]).reduce((s, m) => s + m.total, 0);
       const packedCount = members.filter(m => packedState[m.name]).length;
 
       const flavorTotals = {};
       Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
-      members.forEach(m => Object.entries(effectiveItems(m)).forEach(([k, qty]) => {
+      members.forEach(m => Object.entries(m.items).forEach(([k, qty]) => {
         if (flavorTotals[k] != null) flavorTotals[k] += qty;
       }));
 
@@ -2179,9 +2193,11 @@
           <div class="productDetail">
             ${selectedProduct
               ? renderProductMembers(selectedProduct, members)
-              : renderAllProductsList(flavorTotals, grandUnitTotals, grandTotal)}
+              : renderAllProductsList(flavorTotals, grandUnitTotals, baseGrandTotal)}
           </div>
         </div>
+
+        ${renderShortageCard()}
 
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
 
@@ -2236,7 +2252,7 @@
 
         ${selectedProductOverlay && DATA.products[selectedProductOverlay] ? renderProductOverlay(selectedProductOverlay, members) : ""}
 
-        ${renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotals)}
+        ${renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotals, baseGrandTotal)}
       `;
 
       document.querySelectorAll(".buyTab").forEach(el => {
@@ -2499,7 +2515,7 @@
     // The only thing actually shown when printing (see the @media print rule,
     // which hides every other direct child of .page) — a dense table instead
     // of the on-screen cards, which ran to many pages for a real-size round.
-    function renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotalsArg) {
+    function renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotalsArg, baseGrandTotalArg) {
       const unverifiedCount = countUnverifiedLines(members);
       return `
         <div class="printOnly">
@@ -2543,7 +2559,7 @@
               }).join("")}
             </tbody>
             <tfoot>
-              <tr><td>合计</td><td class="printAmt">${formatUnitTotals(grandUnitTotalsArg)}</td><td class="printAmt">$${grandTotal.toFixed(2)}</td></tr>
+              <tr><td>合计</td><td class="printAmt">${formatUnitTotals(grandUnitTotalsArg)}</td><td class="printAmt">$${baseGrandTotalArg.toFixed(2)}</td></tr>
             </tfoot>
           </table>
         </div>
@@ -2653,15 +2669,20 @@
     }
 
     // Shown in the 商品查询 detail area once a single product is selected:
-    // who ordered it and how much, using effectiveItems() so it reflects
-    // adjustments (shortages/refunds/walk-ins) the same way 备货清单 does.
+    // who ordered it and how much, as originally published.
+    //
+    // Uses m.items (the original order), NOT effectiveItems() — see the
+    // flavorTotals comment in render() for why. Deliberately shows no
+    // adjustment annotations at all: this is the untouched record of what
+    // was ordered, and shortages/returns are reported in their own
+    // 缺货/退货明细 card instead of being mixed in here.
     function renderProductMembers(key, members) {
       const info = DATA.products[key];
       if (!info) return "";
       const unit = unitOf(key);
       const unverified = isUnverified(key);
       const buyers = members
-        .map(m => ({ m, qty: effectiveItems(m)[key] }))
+        .map(m => ({ m, qty: (m.items && m.items[key]) || 0 }))
         .filter(x => x.qty);
       const totalQty = buyers.reduce((s, x) => s + x.qty, 0);
       const subtotal = unverified ? null : totalQty * info.price;
@@ -2671,9 +2692,57 @@
           <span>${formatQty(totalQty)}${unit}</span>
         </div>
         ${buyers.length === 0 ? `<div class="emptyNote">暂无人认购</div>` : buyers.map(({ m, qty }) => `
-          <div class="itemLine"><span>${escapeHtml(m.name)}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</span><span class="itemAmt">x${formatQty(qty)}${unit}</span></div>
+          <div class="itemLine"><span>${escapeHtml(m.name)}</span><span class="itemAmt">x${formatQty(qty)}${unit}</span></div>
         `).join("")}
         <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">${unverified ? "待确认" : `$${subtotal.toFixed(2)}`}</span></div>
+      `;
+    }
+
+    // Aggregates every downward item correction this round into a
+    // per-product shortage summary, for claiming refunds from the supplier.
+    // Only negative qtyDelta entries count — an upward correction (someone
+    // got more than ordered, or a walk-in add) isn't a shortage and would
+    // wrongly offset a real one if netted in, so each product's figure is
+    // the sum of losses only, not a net. Returns [] when nothing is short,
+    // which hides the card entirely rather than showing an empty one.
+    function shortageSummary() {
+      const byProduct = {};
+      Object.values(adjustments).forEach(a => {
+        if (!a || a.type !== "item" || !a.itemKey) return;
+        if (!(a.qtyDelta < 0)) return;
+        const entry = byProduct[a.itemKey] || (byProduct[a.itemKey] = { qty: 0, amount: 0, who: [] });
+        entry.qty += a.qtyDelta;                 // negative
+        entry.amount += (a.amountDelta || 0);    // negative
+        entry.who.push({ name: a.member, qty: a.qtyDelta, note: a.note || "" });
+      });
+      return Object.entries(byProduct)
+        .map(([key, v]) => ({ key, ...v }))
+        .sort((a, b) => a.amount - b.amount); // biggest loss first
+    }
+
+    // The 缺货/退货明细 card. Sits below 商品查询 and only appears when
+    // there's something to claim.
+    function renderShortageCard() {
+      const rows = shortageSummary();
+      if (!rows.length) return "";
+      const totalRefund = rows.reduce((s, r) => s + r.amount, 0);
+      return `
+        <div class="card">
+          <div class="sectionTitle" style="margin-top:0">缺货/退货明细（供索赔）</div>
+          <div class="footNote" style="text-align:left;margin:-6px 0 10px">本场所有向下调整的汇总——按商品合计短缺数量与应退金额（只统计短缺，多发/加购不冲抵）。</div>
+          ${rows.map(r => {
+            const info = DATA.products[r.key];
+            const label = info ? emojiLabel(info) : `⚠️ ${escapeHtml(r.key)}`;
+            return `
+              <div class="shortRow">
+                <span>${label}<br><span style="font-size:12px;color:var(--muted)">短缺 ${formatQty(Math.abs(r.qty))}${unitOf(r.key)}</span></span>
+                <span class="shortAmt">-$${Math.abs(r.amount).toFixed(2)}</span>
+              </div>
+              <div class="shortWho">${r.who.map(w => `${escapeHtml(w.name)} ${formatQty(Math.abs(w.qty))}${unitOf(r.key)}${w.note ? `（${escapeHtml(w.note)}）` : ""}`).join(" · ")}</div>
+            `;
+          }).join("")}
+          <div class="rowTotalLine"><span>应退合计</span><span class="rowTotalAmt" style="color:var(--red)">-$${Math.abs(totalRefund).toFixed(2)}</span></div>
+        </div>
       `;
     }
 

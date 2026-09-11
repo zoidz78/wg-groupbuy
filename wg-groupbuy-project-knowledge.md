@@ -1080,7 +1080,17 @@ None of this changed `README.md`'s feature list — nothing user-visible moved.
 
 ## A8b. Open proposals (not yet built)
 
-**Proposal 1 — show original alongside adjusted amounts in 商品查询.**
+**Proposal 1 — BUILT in 1.6.0.** Resolved differently from the original sketch below:
+rather than annotating the adjusted figure with the original, the decision was that the
+originally-built list must not be silently edited at all — so 商品查询 now shows the
+**ordered** quantity as primary, striking it through and showing the actual beside it
+only where a correction exists. The first card's round total stays exactly as it was.
+A second piece was added that wasn't in the original proposal: a dedicated
+缺货/退货明细（供索赔）card aggregating shortages by product, so refund claims can be
+read off at a glance instead of reconstructed from individual member ledgers. The
+original sketch is kept below for context.
+
+
 The whole-round total on the first card already does this: it shows the current
 总额 with "（原始订单总额：$X，已含调整）" underneath, and only when the two actually
 differ (`Math.abs(grandTotal - baseGrandTotal) > 0.001`). Nothing further down the
@@ -1136,10 +1146,36 @@ Two real contributing factors were found:
    **Not yet fixed.**
 
 **Remaining proposed steps, in order of expected impact:**
-- **Step 2 — scope the re-render.** On a snapshot, patch only what actually changed
-  (the affected member row) instead of rebuilding everything. Biggest remaining win;
-  moderate work, and the inline-editor code already demonstrates the pattern
-  (`refreshInlineArea()` patches one container and rebinds just its listeners).
+- **Step 2 — scope the re-render. ON HOLD pending battery data from 1.5.0.**
+  Scoped and estimated, deliberately not built yet: measure whether the visibility
+  fix alone was enough before adding complexity.
+
+  Key finding from scoping: of the ~57 `render()` calls, only **~10 are
+  snapshot-driven** — the rest are user-action-driven, where a full rebuild happens
+  at human pace and costs nothing perceptible. So the work is *not* "refactor
+  render()"; it's "make the ~10 snapshot handlers targeted, leave the other ~47
+  alone."
+
+  | Snapshot | Genuinely affected | Frequency |
+  |---|---|---|
+  | `sortedItems` | One item line's ⬜/✅ — not even totals | Highest (every tick, everyone) |
+  | `packedStatus` | One member's pack button + packed count | High |
+  | `paidStatus` | Member's pay button, stats ticket, possibly lock state | Medium |
+  | `adjustments` | Ledger, totals, 商品查询 — genuinely broad | Low |
+
+  Recommended narrow scope if this gets built: `sortedItems` + `packedStatus` only
+  (~1-2h, low risk — tightly bounded effects, no interaction with lock state, edit
+  mode, or totals). `paidStatus` adds ~1h and moderate risk (it changes *which rows
+  exist* when a paid/unpaid filter is active, and can trigger auto-lock — needs a
+  full-render fallback in both cases). `adjustments` isn't worth optimizing.
+
+  Known risks to design against: stale closures on patched DOM (reuse
+  `refreshInlineArea()`'s rebinding pattern); filter interaction (a member marked
+  paid while 未付款 is active must *disappear*, not sit there stale); patches landing
+  mid-edit while someone's typing; and the real long-term one — two code paths that
+  must stay in agreement, where a future feature updated in only one produces stale
+  UI that appears solely after a *remote* update, which is miserable to reproduce.
+
 - **Step 3 — enable Firestore offline persistence.** Helps battery *and* makes a
   degraded-but-functional offline mode possible, addressing the offline gap above.
 
@@ -1166,5 +1202,7 @@ alongside every edit, in the same response.
 | 1.4.0 | Added per-item-line sorting checkboxes (⬜/✅) for physically pulling stock — a finer-grained cousin of the 打包 toggle, per member+item instead of just per member. New `sortedItems/{date}` Firestore collection, flat map keyed by `memberName::itemKey`, live-synced like paidStatus/packedStatus so multiple people sorting together see each other's ticks in real time. Deliberately ungated (no edit-mode check), matching 已付款/已打包. Independent of payment/packed/adjustments — purely a physical-sorting tracker, never touches money. Needs the updated `firestore-rules.md` (new `sortedItems/{groupBuyDate}` rule) pasted into the Firebase console — separate deploy step from the GitHub Pages upload, same as every other new collection this project has added. |
 | 1.4.1 | Added a member name search box above the 门牌/address dropdown, for finding one particular person in a long roster. Substring match against `m.name`, combines with (doesn't replace) the address filter and paid/unpaid tabs. Same "genuinely needs a full render() per keystroke, restore focus/cursor manually after" approach as the address filter's original free-text version (1.3.0) — this one stayed a text input rather than becoming a fixed dropdown, since member names aren't a small fixed set the way the four addresses are. |
 | 1.4.2 | Fixed a real bug found via testing: typing Chinese names into 1.4.1's member search box with a Pinyin IME duplicated characters (English keyboard was fine). Cause: the input's render()-per-keystroke recreates the `<input>` DOM node mid-keystroke, which is harmless for a complete English character but confuses an IME's in-progress composition (a Pinyin keyboard fires intermediate "input" events per candidate before the character is confirmed). Fix: skip processing while `e.isComposing` is true, and apply the filter on `compositionend` instead. Audited every other free-text input in the app (`adjNote`, `adjWalkinName`, `.unitInput`, `productSearchInput`) for the same pattern — none of them call render() per keystroke, so this was the only instance. |
+| 1.6.1 | Corrected 1.6.0's first half. The struck-through original-vs-actual display in 商品查询 was the wrong read of the requirement and is removed (along with its now-dead CSS). The requirement is simply that **the product list as published when the round opened stays untouched by delivery-day edits** — so 商品查询, 备货清单, their 合计/小计 lines, and the printed report now all build from `m.items` (original orders) instead of `effectiveItems()`, with no adjustment annotations anywhere. Walk-in members carry `items: {}`, so they're naturally excluded from these views too — correct, since they weren't in the published list. The stocking list's 合计 switched from `grandTotal` to `baseGrandTotal` to stay consistent with its now-original rows. The first card's round total is unchanged and still shows the adjusted figure with the 原始订单总额 footnote. Shortages are reported solely by the 缺货/退货明细 card from 1.6.0, which is unaffected. |
+| 1.6.0 | **Proposal 1, built (see A8b).** Two changes. (a) 商品查询 no longer silently substitutes adjusted quantities for the ordered ones — the original is the primary figure, and where a correction exists the original is struck through with the actual received amount beside it (per-buyer, header total, and 小计). The first card's round total is untouched, by explicit decision. (b) New 缺货/退货明细（供索赔）card below 商品查询, aggregating every downward item correction by product: short quantity, refund owed, and who was affected (with notes), biggest loss first, plus an 应退合计 line. Only counts negative `qtyDelta` — upward corrections and walk-in adds don't offset a real shortage. Card hides entirely when nothing is short. No Firestore or rules change — it's derived from the existing `adjustments` data. |
 | 1.5.0 | **Battery fix (step 1 of 3 — see A10).** Detach all four per-round Firestore listeners on `visibilitychange` when the page is hidden; reattach on return. Without this, a phone with the dashboard open in the background (common — it's a Home Screen app) held four live listeners open indefinitely, keeping the radio active on weak signal even with the screen off. Reattaching re-reads current state from the server, so nothing changed-while-hidden is missed. Refactored the four individual `subscribeToX(date)` calls behind `subscribeToRound(date)`/`unsubscribeFromRound()` so they can be managed as a group. The one-shot `refreshRoundStatuses()` and the single `memberUnits` listener are deliberately left running — neither is worth the extra state-juggling. |
 
