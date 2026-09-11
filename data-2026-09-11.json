@@ -5,12 +5,14 @@
     "beef_jinqian_jian": {
       "label": "小条金钱腱",
       "price": 18,
-      "unit": "kg"
+      "unit": "kg",
+      "weighMode": "weight"
     },
     "chicken_gambang": {
       "label": "甘榜鸡",
       "price": 13,
-      "unit": "kg"
+      "unit": "kg",
+      "weighMode": "weight"
     },
     "beef_tendon_ball_cs": {
       "label": "潮汕牛筋丸",
@@ -25,17 +27,24 @@
     "beef_slice_tender": {
       "label": "嫩滑牛肉片(1kg/包)",
       "price": 19,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "beef_patty_angus": {
       "label": "美国安格斯牛肉饼(130g*6片/包)",
       "price": 10,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 780,
+      "piecesPerUnit": 6
     },
     "pork_meirou_cn": {
       "label": "湖南猪梅肉(500g/包)",
       "price": 6.5,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 500.0
     },
     "mooncake_maoshanwang": {
       "label": "原味猫山王冰皮月饼",
@@ -45,132 +54,176 @@
     "mantou_plain": {
       "label": "馒头(4个/包)",
       "price": 5,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 4
     },
     "mantou_flower": {
       "label": "鲜花馒头(4粒/包)",
       "price": 5.7,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 4
     },
     "mantou_pumpkin": {
       "label": "南瓜馒头(4粒/包)",
       "price": 5.2,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 4
     },
     "mantou_brownsugar": {
       "label": "红糖馒头(5粒/包)",
       "price": 4,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 5
     },
     "dumpling_corn_pork": {
       "label": "玉米猪肉水饺(1kg/袋)",
       "price": 13.9,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "xlb_soup": {
       "label": "灌汤小笼包(1kg/袋)",
       "price": 13.8,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "pork_bone_meat_fresh": {
       "label": "新鲜大骨连肉(2kg/包)",
       "price": 17,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 2000.0
     },
     "beef_short_rib": {
       "label": "牛肋条",
       "price": 22,
-      "unit": "kg"
+      "unit": "kg",
+      "weighMode": "weight"
     },
     "pork_blood_cp": {
       "label": "CP猪血(400g/盒)",
       "price": 7.8,
-      "unit": "盒"
+      "unit": "盒",
+      "weighMode": "weight",
+      "gramsPerUnit": 400.0
     },
     "pork_slivers": {
       "label": "猪肉丝(300g/包)",
       "price": 3.4,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 300.0
     },
     "beef_roll_fat": {
       "label": "肥牛卷(300g/盒)",
       "price": 9.8,
-      "unit": "盒"
+      "unit": "盒",
+      "weighMode": "weight",
+      "gramsPerUnit": 300.0
     },
     "lamb_shoulder_roll": {
       "label": "羊肩肉卷(300g/盒)",
       "price": 12,
-      "unit": "盒"
+      "unit": "盒",
+      "weighMode": "weight",
+      "gramsPerUnit": 300.0
     },
     "lamb_scorpion": {
       "label": "羊蝎子(1kg/包)",
       "price": 11,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "fish_black_slice": {
       "label": "免浆黑鱼片(1kg/包)",
       "price": 18,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "dumpling_cabbage_pork": {
       "label": "白菜猪肉水饺(1kg/包)",
       "price": 12.9,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "jian_mian_chuan": {
       "label": "烤面筋串(20串/包)",
       "price": 12,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 20
     },
     "dumpling_egg_chive": {
       "label": "韭菜鸡蛋水饺(1kg/袋)",
       "price": 12,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "pork_loin_chunk": {
       "label": "猪里脊切大块(1kg左右/包)",
       "price": 8,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "beef_tendon_plain": {
       "label": "普通牛腱",
       "price": 12,
-      "unit": "kg"
+      "unit": "kg",
+      "weighMode": "weight"
     },
     "herb_pork_dumpling": {
       "label": "茴香猪肉水饺(1kg/袋)",
       "price": 13.9,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "shrimp_dumpling": {
       "label": "虾仁水饺(1kg/袋)",
       "price": 17.9,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "fish_dumpling_bayu": {
       "label": "鲅鱼水饺(1kg/袋)",
       "price": 17.9,
-      "unit": "袋"
+      "unit": "袋",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "wonton_shanghai_qing": {
       "label": "上海青鲜肉馄饨(550g/包)",
       "price": 12,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 550.0
     },
     "mantou_milk_small": {
       "label": "奶香小馒头(20粒/包)",
       "price": 3.5,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 20
     },
     "chicken_wing_grilled": {
       "label": "香烤鸡中翅(1kg/包)",
       "price": 16.5,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "chicken_popcorn": {
       "label": "香脆鸡米花(1kg/包)",
       "price": 12,
-      "unit": "包"
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000.0
     },
     "mochi_brownsugar": {
       "label": "红糖爆浆糍粑",
@@ -180,12 +233,14 @@
     "huajuan": {
       "label": "花卷(4个/包)",
       "price": 5.5,
-      "unit": "包"
+      "unit": "包",
+      "piecesPerUnit": 4
     },
     "egg_my_box": {
       "label": "马来西亚土鸡蛋(30粒/盒)",
       "price": 9.3,
-      "unit": "盒"
+      "unit": "盒",
+      "piecesPerUnit": 30
     },
     "gift_snack_random": {
       "label": "随机小零食(赠品)",
