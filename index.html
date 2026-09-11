@@ -466,7 +466,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.4.2";
+    const APP_VERSION = "1.5.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -719,6 +719,29 @@
     // never used for the underlying data/keys.
     function emojiLabel(info) {
       return `${productEmoji(info.label)} ${info.label}`;
+    }
+
+    // Subscribes to every per-round live listener as a group. Grouped so
+    // the visibilitychange handler at the bottom of this script can detach
+    // and reattach all of them together when the page is backgrounded —
+    // see that handler for why (battery: four persistent Firestore
+    // listeners keep a connection open, which on a weak signal keeps the
+    // radio transmitting even while the phone sits in a pocket).
+    function subscribeToRound(dateKey) {
+      subscribeToPaidState(dateKey);
+      subscribeToPackedState(dateKey);
+      subscribeToSortedItems(dateKey);
+      subscribeToAdjustments(dateKey);
+    }
+
+    // Detaches all four. Safe to call when already detached (each guard
+    // checks for null first), so it doesn't need its own "am I subscribed"
+    // flag.
+    function unsubscribeFromRound() {
+      if (unsubscribePaidState) { unsubscribePaidState(); unsubscribePaidState = null; }
+      if (unsubscribePackedState) { unsubscribePackedState(); unsubscribePackedState = null; }
+      if (unsubscribeSortedItems) { unsubscribeSortedItems(); unsubscribeSortedItems = null; }
+      if (unsubscribeAdjustments) { unsubscribeAdjustments(); unsubscribeAdjustments = null; }
     }
 
     // Subscribes to live updates for this group buy's paid status. Every
@@ -1712,10 +1735,7 @@
           unitsDraft = {};
           unitsSaveMsg = "";
           resetAdjDraft();
-          subscribeToPaidState(gb.date);
-          subscribeToPackedState(gb.date);
-          subscribeToSortedItems(gb.date);
-          subscribeToAdjustments(gb.date);
+          subscribeToRound(gb.date);
         })
         .catch(e => {
           // A bad fetch (404) or a JSON syntax error in a hand-authored
@@ -2778,6 +2798,30 @@
       if (e.key === "Escape" && selectedProductOverlay) { selectedProductOverlay = null; render(); }
     });
 
+    // Battery: detach all four per-round Firestore listeners while the page
+    // is hidden, reattach when it comes back. Without this, a phone with the
+    // dashboard open in the background (very common — it's added to the Home
+    // Screen and left running) keeps four live listeners holding a
+    // connection open indefinitely. On a weak signal that keeps the radio
+    // escalating transmit power even though nobody's looking at the screen,
+    // which is the main suspect behind the reported battery drain.
+    //
+    // Reattaching re-reads each doc's current state from the server, so
+    // anything that changed while hidden lands immediately on return — no
+    // manual refresh needed and nothing can be silently missed. The
+    // background refreshRoundStatuses() tab-coloring reads and the
+    // memberUnits listener are deliberately left alone: the former is a
+    // one-shot at boot, the latter is a single listener on a rarely-touched
+    // doc, so neither is worth the extra state-juggling.
+    document.addEventListener("visibilitychange", () => {
+      if (!GROUP_BUYS.length) return; // still booting; boot will subscribe
+      if (document.hidden) {
+        unsubscribeFromRound();
+      } else {
+        subscribeToRound(GROUP_BUYS[activeIndex].date);
+      }
+    });
+
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
     fetch(noCacheUrl(MANIFEST_URL), NO_STORE)
       .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
@@ -2790,10 +2834,7 @@
       })
       .then(json => {
         DATA = json;
-        subscribeToPaidState(GROUP_BUYS[0].date);
-        subscribeToPackedState(GROUP_BUYS[0].date);
-        subscribeToSortedItems(GROUP_BUYS[0].date);
-        subscribeToAdjustments(GROUP_BUYS[0].date);
+        subscribeToRound(GROUP_BUYS[0].date);
         refreshRoundStatuses(); // background, non-blocking — re-renders itself once done
       })
       // Include the real error (e.g. a JSON syntax error's message and

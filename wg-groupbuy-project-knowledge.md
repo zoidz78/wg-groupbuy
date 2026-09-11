@@ -1078,6 +1078,73 @@ None of this changed `README.md`'s feature list — nothing user-visible moved.
 
 ---
 
+## A8b. Open proposals (not yet built)
+
+**Proposal 1 — show original alongside adjusted amounts in 商品查询.**
+The whole-round total on the first card already does this: it shows the current
+总额 with "（原始订单总额：$X，已含调整）" underneath, and only when the two actually
+differ (`Math.abs(grandTotal - baseGrandTotal) > 0.001`). Nothing further down the
+hierarchy follows that pattern:
+
+| View | Current behavior |
+|---|---|
+| Whole-round total (first card) | Shows both — current + original in parentheses, only when they differ |
+| Individual member's card | Original frozen on the item line; correction shown only as a separate "↳" ledger line below |
+| 商品查询 buyer list + 小计 | Silently shows the *corrected* (effective) quantity and subtotal, no trace a correction happened |
+
+Note the member card and 商品查询 are actually inconsistent with each other (frozen-original
+vs silently-corrected) — that's by deliberate choice for the member card (see A2c: the item
+line stays frozen, corrections live in the ledger below), but 商品查询 was never explicitly
+decided, it just fell out of using `effectiveItems()`.
+
+The proposal: extend the first card's existing pattern down to 商品查询's 小计 — e.g.
+"$X（原$Y）", shown only when that product has actually been adjusted this round. Reuses the
+visual language already on the page rather than inventing a new one.
+
+Also worth noting if this gets built: 商品查询's subtotal is computed as `effective qty ×
+current price`, not via the "frozen at adjustment time" `amountDelta` convention money uses
+everywhere else (A2). These agree in practice unless a price changes mid-round, but they're
+architecturally different calculations.
+
+---
+
+## A10. Battery usage & offline behavior
+
+**Offline: the dashboard does not work offline, by design.** No service worker, no
+web app manifest (so "Add to Home Screen" gives a shortcut, not a true installable
+PWA), and every data fetch deliberately defeats caching via `{cache:"no-store"}` plus
+a cache-busting URL param — added on purpose to prevent stale data on GitHub Pages.
+Firestore offline persistence isn't enabled either. With no connection: blank page or
+an error banner.
+
+**Battery investigation (prompted by a real user report of high drain).** Audited and
+ruled out the usual suspects: no `setInterval`, no polling, no animation loops, no
+`document`/`window` listener accumulation (both are registered once at module scope),
+and all per-round Firestore listeners correctly unsubscribe before resubscribing.
+
+Two real contributing factors were found:
+
+1. **Four persistent Firestore listeners held a connection open even when the page was
+   backgrounded.** This is the one fixed in 1.5.0 — on a weak signal the radio escalates
+   transmit power, and a Home Screen app left open in a pocket paid that cost
+   continuously. Now detached on `visibilitychange` and reattached on return.
+
+2. **`render()` rebuilds the entire page via `app.innerHTML`, and is called from ~57
+   places — including every Firestore snapshot.** With several people sorting
+   simultaneously (the 打包/分拣 workflow), every tick by anyone triggers a full DOM
+   teardown + rebuild and ~50 event-listener reattachments on *every* open device.
+   **Not yet fixed.**
+
+**Remaining proposed steps, in order of expected impact:**
+- **Step 2 — scope the re-render.** On a snapshot, patch only what actually changed
+  (the affected member row) instead of rebuilding everything. Biggest remaining win;
+  moderate work, and the inline-editor code already demonstrates the pattern
+  (`refreshInlineArea()` patches one container and rebinds just its listeners).
+- **Step 3 — enable Firestore offline persistence.** Helps battery *and* makes a
+  degraded-but-functional offline mode possible, addressing the offline gap above.
+
+---
+
 ## A9. Version log
 
 `APP_VERSION` (near the top of `index.html`'s script, also shown in the page footer)
@@ -1099,4 +1166,5 @@ alongside every edit, in the same response.
 | 1.4.0 | Added per-item-line sorting checkboxes (⬜/✅) for physically pulling stock — a finer-grained cousin of the 打包 toggle, per member+item instead of just per member. New `sortedItems/{date}` Firestore collection, flat map keyed by `memberName::itemKey`, live-synced like paidStatus/packedStatus so multiple people sorting together see each other's ticks in real time. Deliberately ungated (no edit-mode check), matching 已付款/已打包. Independent of payment/packed/adjustments — purely a physical-sorting tracker, never touches money. Needs the updated `firestore-rules.md` (new `sortedItems/{groupBuyDate}` rule) pasted into the Firebase console — separate deploy step from the GitHub Pages upload, same as every other new collection this project has added. |
 | 1.4.1 | Added a member name search box above the 门牌/address dropdown, for finding one particular person in a long roster. Substring match against `m.name`, combines with (doesn't replace) the address filter and paid/unpaid tabs. Same "genuinely needs a full render() per keystroke, restore focus/cursor manually after" approach as the address filter's original free-text version (1.3.0) — this one stayed a text input rather than becoming a fixed dropdown, since member names aren't a small fixed set the way the four addresses are. |
 | 1.4.2 | Fixed a real bug found via testing: typing Chinese names into 1.4.1's member search box with a Pinyin IME duplicated characters (English keyboard was fine). Cause: the input's render()-per-keystroke recreates the `<input>` DOM node mid-keystroke, which is harmless for a complete English character but confuses an IME's in-progress composition (a Pinyin keyboard fires intermediate "input" events per candidate before the character is confirmed). Fix: skip processing while `e.isComposing` is true, and apply the filter on `compositionend` instead. Audited every other free-text input in the app (`adjNote`, `adjWalkinName`, `.unitInput`, `productSearchInput`) for the same pattern — none of them call render() per keystroke, so this was the only instance. |
+| 1.5.0 | **Battery fix (step 1 of 3 — see A10).** Detach all four per-round Firestore listeners on `visibilitychange` when the page is hidden; reattach on return. Without this, a phone with the dashboard open in the background (common — it's a Home Screen app) held four live listeners open indefinitely, keeping the radio active on weak signal even with the screen off. Reattaching re-reads current state from the server, so nothing changed-while-hidden is missed. Refactored the four individual `subscribeToX(date)` calls behind `subscribeToRound(date)`/`unsubscribeFromRound()` so they can be managed as a group. The one-shot `refreshRoundStatuses()` and the single `memberUnits` listener are deliberately left running — neither is worth the extra state-juggling. |
 
