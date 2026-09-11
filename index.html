@@ -137,6 +137,7 @@
   .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
   .itemLine.adjustment { font-style: italic; }
   .itemLine.adjustment .itemAmt { display: flex; align-items: center; gap: 6px; font-style: normal; }
+  .sortCheck { display: inline-block; cursor: pointer; user-select: none; margin-right: 2px; padding: 2px; }
   .adjUndo {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 11px; color: var(--red); cursor: pointer; text-decoration: underline;
@@ -359,7 +360,8 @@
   .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
-  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible {
+  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
+  .sortCheck:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -458,7 +460,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.3.1";
+    const APP_VERSION = "1.4.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -481,6 +483,15 @@
     // date, same as paidStatus. No lock/all-packed side effect like
     // togglePaid() has — packing progress never freezes the round.
     let packedState = {};
+    // Per-item-line "I've physically pulled this" checkbox, for sorting/
+    // packing — a finer-grained cousin of packedState (per member+item
+    // instead of just per member). Flat map keyed by `${memberName}::${itemKey}`
+    // -> true, same live-sync shape as paidState/packedState. Doc ID = group
+    // buy date. Independent of payment/packed status and adjustments —
+    // purely a physical-sorting tracker, never touches money. Deliberately
+    // ungated (no editMode check, matching payBtn/packBtn) so anyone
+    // helping sort can tick items without needing the edit PIN.
+    let sortedItems = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
     // Fixed 4-option dropdown (107/109/印度小店/后门 — see the
@@ -583,6 +594,7 @@
 
     let unsubscribePaidState = null;
     let unsubscribePackedState = null;
+    let unsubscribeSortedItems = null;
     let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
 
@@ -591,6 +603,12 @@
     }
     function packedDocRef(dateKey) {
       return doc(db, "packedStatus", dateKey);
+    }
+    function sortedItemsDocRef(dateKey) {
+      return doc(db, "sortedItems", dateKey);
+    }
+    function sortKey(memberName, itemKey) {
+      return `${memberName}::${itemKey}`;
     }
     function adjustmentsDocRef(dateKey) {
       return doc(db, "adjustments", dateKey);
@@ -739,6 +757,26 @@
       );
     }
 
+    // Same live-sync pattern as paid/packed status, but keyed by
+    // `${memberName}::${itemKey}` instead of just member name — the
+    // per-item-line sorting checkbox. Its own collection so it can't
+    // collide with paidStatus/packedStatus's member-name-only keys.
+    function subscribeToSortedItems(dateKey) {
+      if (unsubscribeSortedItems) { unsubscribeSortedItems(); unsubscribeSortedItems = null; }
+      unsubscribeSortedItems = onSnapshot(
+        sortedItemsDocRef(dateKey),
+        (snap) => {
+          sortedItems = snap.exists() ? snap.data() : {};
+          render();
+        },
+        (err) => {
+          storageDebug = `分拣状态读取出错：${err.message}`;
+          sortedItems = {};
+          render();
+        }
+      );
+    }
+
     // Same live-sync pattern as paid status, for delivery-day adjustments
     // (shortages, refunds, walk-in extras) — see adjustmentsForMember().
     function subscribeToAdjustments(dateKey) {
@@ -819,6 +857,19 @@
         await setDoc(packedDocRef(dateKey), { [name]: !packedState[name] }, { merge: true });
       } catch (e) {
         storageDebug = `打包状态保存出错：${e.message}`;
+        render();
+      }
+    }
+
+    // Toggles one item-line's sorting checkbox. Same reasoning as
+    // togglePacked — never gated on roundLocked, sorting is an operational
+    // task independent of payment.
+    async function toggleSortedItem(dateKey, memberName, itemKey) {
+      const key = sortKey(memberName, itemKey);
+      try {
+        await setDoc(sortedItemsDocRef(dateKey), { [key]: !sortedItems[key] }, { merge: true });
+      } catch (e) {
+        storageDebug = `分拣状态保存出错：${e.message}`;
         render();
       }
     }
@@ -1647,6 +1698,7 @@
           resetAdjDraft();
           subscribeToPaidState(gb.date);
           subscribeToPackedState(gb.date);
+          subscribeToSortedItems(gb.date);
           subscribeToAdjustments(gb.date);
         })
         .catch(e => {
@@ -2058,7 +2110,8 @@
                 }
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>
+                const isSorted = !!sortedItems[sortKey(m.name, k)];
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span><span class="sortCheck" role="button" tabindex="0" data-member="${escapeHtml(m.name)}" data-item="${escapeHtml(k)}">${isSorted ? "✅" : "⬜"}</span> ${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>
                   ${editMode && !roundLocked ? renderInlineEditorFor(m.name, k) : ""}`;
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
@@ -2162,6 +2215,11 @@
       document.querySelectorAll(".packBtn").forEach(el => {
         el.addEventListener("click", () => {
           togglePacked(GROUP_BUYS[activeIndex].date, el.dataset.name);
+        });
+      });
+      document.querySelectorAll(".sortCheck").forEach(el => {
+        el.addEventListener("click", () => {
+          toggleSortedItem(GROUP_BUYS[activeIndex].date, el.dataset.member, el.dataset.item);
         });
       });
       const productSelect = document.getElementById("productSelect");
@@ -2676,6 +2734,7 @@
         DATA = json;
         subscribeToPaidState(GROUP_BUYS[0].date);
         subscribeToPackedState(GROUP_BUYS[0].date);
+        subscribeToSortedItems(GROUP_BUYS[0].date);
         subscribeToAdjustments(GROUP_BUYS[0].date);
         refreshRoundStatuses(); // background, non-blocking — re-renders itself once done
       })
