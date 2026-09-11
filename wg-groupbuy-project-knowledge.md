@@ -422,20 +422,21 @@ while another marks paid, so both stay independent and both are still needed. Th
 (print) is unchanged and stays as the paper-trail record.
 
 **Message format**, built by `buildMemberMessage(m)` in `index.html`. Matches how WG团购群
-already writes these messages by hand (reworked from an earlier, more formal draft after the
-user shared a real example: no emoji, no "$", "@name" instead of a greeting sentence, and
-"一共X～" instead of "合计：$X"):
+already writes these messages by hand: no emoji, "@name" instead of a greeting sentence, and
+"一共$X～" instead of "合计：$X". (v1.0 and earlier omitted the "$" entirely, matching an
+even earlier hand-written example; v1.1, 2026-09-11, added "$" back onto every amount per
+user request.)
 
 ```
 @阿强
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16（2044g）
+蜂糖李  $6.7（673g）
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$42～
 ```
 
 With a shortage adjustment (A2), a member whose order was short one item on delivery looks
@@ -444,11 +445,11 @@ like:
 ```
 @小明
 
-哈密瓜 x2盒  13
-土鸡蛋  9.3
-↳ 哈密瓜 -1盒（到货少一份） -6.5
+哈密瓜 x2盒  $13
+土鸡蛋  $9.3
+↳ 哈密瓜 -1盒（到货少一份） -$6.5
 
-一共9.3～
+一共$9.3～
 ```
 
 - `@{name}` greeting, then a blank line.
@@ -457,7 +458,8 @@ like:
   priced by weight (so "2 boxes" shows "x2盒", but "2kg of peaches" never shows "x2kg" —
   the amount already reflects the ordered weight, and the actual weight, if known, is
   shown instead per below), then two spaces and the amount (trimmed of trailing zeros,
-  no "$").
+  "$" prefixed — a negative adjustment amount reads "-$6.5", minus sign before the "$",
+  not after).
 - A `（{grams}g）` suffix on an item's own line when a `"weight"` adjustment (A2) was
   recorded for that member+item — the actual amount portioned out, purely informational.
 - One `↳`-prefixed line per non-`"weight"` delivery-day adjustment (A2) affecting that
@@ -825,6 +827,7 @@ deployed file's version can't be verified against it).
 
 | Version | Date | What changed |
 |---|---|---|
+| 1.1 | 2026-09-11 | `formatAmt()` now prefixes every copied-message amount with "$" (e.g. "$16", "-$6.5"), per user request. Minus sign placed before the "$", not after. Affects item lines, adjustment lines, and the total line in `buildMemberMessage()`. |
 | 1.0 | 2026-09-11 | Baseline reset point after the stale-Project-copy incident above. This is the recovered live file (confirmed to include 打包/`packedStatus` and the 商品查询 type-to-search input, both previously undocumented here) plus the walk-in `@`-stripping fix (`handleAdjSave`) and this version-tracking mechanism itself. Earlier version history wasn't reconstructed — this is the reset point everything increments from now. |
 
 ---

@@ -378,7 +378,7 @@
     // the bottom of render()) so a quick visual check after deploying
     // confirms the live site actually picked up the expected version —
     // no dev tools needed.
-    const APP_VERSION = "1.0";
+    const APP_VERSION = "1.1";
 
     // Soft gate only — Firestore rules stay open to anyone with the link (same
     // trust model as paid-status today). This just stops accidental taps.
@@ -961,16 +961,21 @@
       return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ""));
     }
 
-    // Money for the copy-message, trimmed of trailing zeros and with no "$" —
-    // matches how this group already writes these messages by hand (e.g.
-    // "16", "6.7", not "$16.00", "$6.70").
+    // Money for the copy-message, trimmed of trailing zeros, with a "$"
+    // prefix (e.g. "$16", "$6.7"). The minus sign (for negative adjustment
+    // amounts) is placed before the "$", not after it — "-$6.5", not "$-6.5"
+    // — since callers that prepend their own "+"/"-" sign (see
+    // buildMemberMessage's adjustment loop) rely on formatAmt() itself
+    // supplying "-" only when the number is already negative.
     function formatAmt(x) {
       // Number(x) first: x is normally already a real number here, but this
       // is cheap insurance against a stray string sneaking in (`x.toFixed`
       // doesn't exist on strings and would throw) — see the matching note on
       // formatQty() below, which is at more direct risk since its input
       // often comes straight from hand-authored data-<date>.json.
-      return Number(Number(x).toFixed(2)).toString();
+      const n = Number(Number(x).toFixed(2));
+      const sign = n < 0 ? "-" : "";
+      return `${sign}$${Math.abs(n)}`;
     }
 
     // The "actual weight" note for one member's item, if one was recorded —

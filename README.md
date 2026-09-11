@@ -302,19 +302,19 @@ match /memberInfo/{docId} {
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
 
-格式和这个群平时手写的收款消息一致（不带表情图标、不带"$"符号——这是刻意
-的设计，不是疏漏）。示例（**未付款**状态，"@小美"为示意用的化名，不是真实成员）：
+格式和这个群平时手写的收款消息一致（不带表情图标；金额前带"$"符号）。示例
+（**未付款**状态，"@小美"为示意用的化名，不是真实成员）：
 
 ```
 @小美
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16（2044g）
+蜂糖李  $6.7（673g）
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$42～
 
 Paynow 93395373 /ZHAO JIE
 ```
@@ -753,19 +753,19 @@ another tracks who's paid, and the PDF export for a paper trail is
 unaffected either way.
 
 The format matches how this group already writes these messages by hand
-(no emoji icons, no "$" sign — intentional, not an oversight). Example
+(no emoji icons; amounts prefixed with "$"). Example
 (**unpaid** status; "@小美" is a placeholder name, not a real member):
 
 ```
 @小美
 
-彩虹油蟠桃  16（2044g）
-蜂糖李  6.7（673g）
-哈密瓜  6.5
-青龙菜  3.5
-土鸡蛋  9.3
+彩虹油蟠桃  $16（2044g）
+蜂糖李  $6.7（673g）
+哈密瓜  $6.5
+青龙菜  $3.5
+土鸡蛋  $9.3
 
-一共42～
+一共$42～
 
 Paynow 93395373 /ZHAO JIE
 ```
