@@ -239,6 +239,12 @@
     font-family: inherit;
   }
   .unitFilterSelect:focus { outline: none; border-color: var(--muted); }
+  .memberSearchInput {
+    width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit;
+  }
+  .memberSearchInput:focus { outline: none; border-color: var(--muted); }
   .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
   .productDetailHeader {
     display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
@@ -460,7 +466,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.4.0";
+    const APP_VERSION = "1.4.1";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -494,6 +500,15 @@
     let sortedItems = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
+    // Free-text filter on member name/characters, for quickly finding one
+    // particular person in a long roster. Substring match against m.name,
+    // combined with (not replacing) the unit filter and paid/unpaid tab
+    // filter below. Like unitFilterQuery, genuinely needs a full render()
+    // on each keystroke (not just a DOM-visibility toggle) since #rows only
+    // ever contains nodes for members that already passed every other
+    // active filter — see handleMemberSearchInput for the focus-restore
+    // workaround that makes that not feel janky to type into.
+    let memberSearchQuery = "";
     // Fixed 4-option dropdown (107/109/印度小店/后门 — see the
     // #unitFilterSelect markup below) filtering the member list shown under
     // 全部/未付款/已付款 down to just one address, for sorting/grouping
@@ -1681,6 +1696,7 @@
           selectedProductOverlay = null;
           productSearchQuery = "";
           unitFilterQuery = "";
+          memberSearchQuery = "";
           openAdjustFormFor = null;
           resetInlineEdits();
           showBulkPanel = false;
@@ -2017,6 +2033,7 @@
         if (filter === "paid" && !paidState[m.name]) return false;
         if (filter === "unpaid" && paidState[m.name]) return false;
         if (unitFilterQuery.trim() && !(memberUnits[m.name] || "").includes(unitFilterQuery.trim())) return false;
+        if (memberSearchQuery.trim() && !m.name.includes(memberSearchQuery.trim())) return false;
         return true;
       });
 
@@ -2052,6 +2069,7 @@
         ` : ""}
 
         <div class="card" style="margin-bottom:10px">
+          <input type="text" class="memberSearchInput" id="memberSearchInput" placeholder="按姓名搜索会员" autocomplete="off" value="${escapeHtml(memberSearchQuery)}" style="margin-bottom:8px">
           <select class="unitFilterSelect" id="unitFilterSelect" aria-label="按门牌/地址筛选">
             <option value="">全部地址</option>
             <option value="107" ${unitFilterQuery === "107" ? "selected" : ""}>107</option>
@@ -2062,7 +2080,7 @@
         </div>
 
         <div class="ticket">
-          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}${unitFilterQuery.trim() ? ` <span style="font-weight:400;color:var(--muted);font-size:12px">（筛选出 ${visible.length} 人）</span>` : ""}</span></div>
+          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}${(unitFilterQuery.trim() || memberSearchQuery.trim()) ? ` <span style="font-weight:400;color:var(--muted);font-size:12px">（筛选出 ${visible.length} 人）</span>` : ""}</span></div>
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
             <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
@@ -2246,6 +2264,10 @@
           unitFilterQuery = e.target.value;
           render();
         });
+      }
+      const memberSearchInputEl = document.getElementById("memberSearchInput");
+      if (memberSearchInputEl) {
+        memberSearchInputEl.addEventListener("input", (e) => handleMemberSearchInput(e.target.value));
       }
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
         el.addEventListener("click", () => { selectedProductOverlay = el.dataset.key; render(); });
@@ -2524,6 +2546,28 @@
       productSearchQuery = value;
       const resultsEl = document.getElementById("productSearchResults");
       if (resultsEl) resultsEl.innerHTML = renderProductSearchResults(productSearchRoundKeys, value);
+    }
+
+    // Live-filters the member list by name as the user types. Genuinely
+    // needs a full render() (unlike handleProductSearchInput above) since
+    // #rows only ever contains DOM nodes for members that already passed
+    // every other active filter — a member who'd newly match by name has
+    // no existing row to toggle visible. Restores this input's focus and
+    // cursor position right after, since render() replaces app.innerHTML
+    // wholesale and would otherwise throw both away on every keystroke.
+    function handleMemberSearchInput(value) {
+      memberSearchQuery = value;
+      const el = document.getElementById("memberSearchInput");
+      const selStart = el ? el.selectionStart : null;
+      const selEnd = el ? el.selectionEnd : null;
+      render();
+      const newEl = document.getElementById("memberSearchInput");
+      if (newEl) {
+        newEl.focus();
+        if (selStart != null && newEl.setSelectionRange) {
+          try { newEl.setSelectionRange(selStart, selEnd); } catch (e) { /* fine to skip */ }
+        }
+      }
     }
 
     // Tapping a search result behaves exactly like picking that product from
