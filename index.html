@@ -146,6 +146,13 @@
   }
   .itemLine .itemAmt { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; }
   .itemLine.adjustment { font-style: italic; }
+  /* A fully-shortaged item (see the ❌/⬜ comment above) — muted and struck
+     through, but the underlying qty/amount text itself is untouched, still
+     the original order figure. */
+  .itemLine.voided { opacity: 0.6; }
+  .itemLine.voided .itemAmt { text-decoration: line-through; }
+  .shortMark { display: inline-block; }
+  .partialTag { font-size: 11px; color: var(--warn-text); margin-left: 6px; }
   .itemLine.adjustment .itemAmt { display: flex; align-items: center; gap: 6px; font-style: normal; }
   .sortCheck { display: inline-block; cursor: pointer; user-select: none; margin-right: 2px; padding: 2px; }
   /* 缺货/退货明细 card — the at-a-glance refund-claim list. */
@@ -481,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.7.0";
+    const APP_VERSION = "1.7.1";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -637,6 +644,7 @@
         en: "All downward corrections this round, totaled by product (shortages only — extras/walk-ins never offset a real shortage)."
       },
       shortLabel: { zh: "短缺", en: "Short" },
+      partialShortTag: { zh: "部分到货", en: "Partial" },
       refundTotal: { zh: "应退合计", en: "Total refund owed" },
       updatedByAdjustments: { zh: "已按调整记录更新（含短缺/退款/现场加购）", en: "Updated per adjustment records (incl. shortages/refunds/walk-ins)" },
       refreshBtn: { zh: "🔄 刷新", en: "🔄 Refresh" },
@@ -2339,7 +2347,27 @@
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
                 const isSorted = !!sortedItems[sortKey(m.name, k)];
-                return `<div class="itemLine${unverified ? " unverified" : ""}"><span><span class="sortCheck" role="button" tabindex="0" data-member="${escapeHtml(m.name)}" data-item="${escapeHtml(k)}">${isSorted ? "✅" : "⬜"}</span> ${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? `<span class="unverifiedTag">${t("unverifiedTag")}</span>` : ""}</span><span class="itemAmt">${amtText}</span></div>
+                // How much of THIS item actually remains after adjustments —
+                // used only to decide which marker/control to show here,
+                // never to change the displayed qty/amount above (those stay
+                // frozen at the original order, per the earlier decision —
+                // see A2c). A fully-shortaged item (currentQty === 0) gets a
+                // ❌ badge in place of the sort checkbox instead of an empty
+                // ⬜, since there's nothing left to physically pull off the
+                // shelf for it — an unchecked sort box there previously read
+                // identically to "just haven't sorted this yet," which is
+                // exactly the ambiguity that prompted this fix. A partial
+                // shortage (some but not all arrived) still gets the normal
+                // sort checkbox — there's still something to sort — plus a
+                // small ⚠️ flag so it's not mistaken for a full, untouched
+                // order either.
+                const effectiveQty = currentQtyFor(m.name, k);
+                const isFullyShort = !unverified && Math.abs(effectiveQty) < 0.0001;
+                const isPartialShort = !unverified && !isFullyShort && effectiveQty < qty - 0.0001;
+                const checkOrMark = isFullyShort
+                  ? `<span class="shortMark" title="${t('shortageBtn')}">❌</span>`
+                  : `<span class="sortCheck" role="button" tabindex="0" data-member="${escapeHtml(m.name)}" data-item="${escapeHtml(k)}">${isSorted ? "✅" : "⬜"}</span>`;
+                return `<div class="itemLine${unverified ? " unverified" : ""}${isFullyShort ? " voided" : ""}"><span>${checkOrMark} ${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? `<span class="unverifiedTag">${t("unverifiedTag")}</span>` : ""}${isPartialShort ? `<span class="partialTag">⚠️ ${t("partialShortTag")}</span>` : ""}</span><span class="itemAmt">${amtText}</span></div>
                   ${editMode && !roundLocked ? renderInlineEditorFor(m.name, k) : ""}`;
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
