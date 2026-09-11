@@ -26,8 +26,6 @@ Files in this project:
 | `message-template.json` | Wording for the "复制付款消息" copy-message button — greeting, item-line phrasing, adjustment phrasing, total line, closing lines. Edit this (not `index.html`) to change how the message reads. See "Copy WeChat payment message" below. |
 | `firestore.rules` | Firestore security rules (open read/write, scoped to the `paidStatus` and `adjustments` collections only). |
 | `README.md` | User-facing docs (Chinese + English) for this specific deployment. |
-| `product-catalog.json` | **Claude-side only — never deployed to GitHub.** Cross-round, cross-supplier product key registry: label/unit/aka per key, plus `lastPrice`/`lastRound` for every key with known pricing. See "Product catalog & price tracking" below. |
-| `wg-groupbuy-order-instructions.md` | **Claude-side only — never deployed.** The helper's copy-paste prompt for generating a round's raw order data before it's turned into `data-<date>.json`. |
 
 There used to be a Claude-artifact version (`.jsx`, `window.storage`-based) — abandoned
 because of a platform postMessage cross-origin bug (`anthropics/claude-code#42064`).
@@ -88,16 +86,8 @@ Steps:
    if there is one; otherwise ask, don't assume. Also set `itemsLabel` to a short phrase
    for this round (e.g. "小馄饨团购") unless the raw product labels already read fine
    joined together — it's what the "📢 复制到货通知" button (A4) uses to say what arrived.
-6. **Add a new entry to `manifest.json` in the same turn — never treat `data-<date>.json`
-   alone as "done."** Without a matching `manifest.json` entry, the new round's tab
-   simply never appears (no error, nothing to debug — it just silently isn't there,
-   which is exactly what happened on 2026-09-11: the data file was built and handed
-   over, but `manifest.json` wasn't touched, and the user had to point out the missing
-   tab before it got fixed). Entry format: `{ "date": "...", "label": "M/D", "file":
-   "data-<date>.json" }`, newest date first. Treat steps 5 and 6 as one inseparable
-   step — if you're producing a `data-<date>.json`, you're always also producing an
-   updated `manifest.json` alongside it, no exceptions, even if the user doesn't
-   explicitly ask for the manifest.
+6. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
+   Newest date goes first.
 7. Get both files into the live repo (commit + push if this session has repo access;
    otherwise hand the user the full contents of both files and point them to GitHub's
    "Add file → Upload files"). `index.html` doesn't need to change. New product labels
@@ -116,10 +106,10 @@ Steps:
     "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
   },
   "orders": [
-    { "name": "小美", "items": { "sig": 3 } },
-    { "name": "小明", "items": { "sig": 1, "shrimp": 1 } },
-    { "name": "小华", "items": { "pork_belly": 0.5 } },
-    { "name": "阿强 & 小华", "items": { "corn": 2 } }
+    { "name": "Caroline 琛琛", "items": { "sig": 3 } },
+    { "name": "Peter", "items": { "sig": 1, "shrimp": 1 } },
+    { "name": "Amy", "items": { "pork_belly": 0.5 } },
+    { "name": "Lesley & Choies", "items": { "corn": 2 } }
   ]
 }
 ```
@@ -145,7 +135,7 @@ Don't round — enter exactly what was ordered.
 
 **Combined/shared orders:** when two+ members order together and pay as one lump sum,
 represent it as **one** `orders` entry with the names combined into one string, e.g.
-`"阿强 & 小华"`. One line item, one "mark paid" toggle. Don't model per-person
+`"Lesley & Choies"`. One line item, one "mark paid" toggle. Don't model per-person
 cost-splitting within a combined order unless asked.
 
 **Bulk items split among several individual buyers (do NOT combine these):** don't
@@ -241,20 +231,6 @@ before reaching "凤爪" (chicken feet).
    at all; a missing/failed fetch just falls back to 🛒 for everything, it doesn't break
    the page.
 
-**2026-09-11 expansion (first meat/dumpling-supplier round):** the map was seeded
-against a fruit/veg vendor and had no coverage for filled dumplings, buns/breads,
-lamb, squid, or several bare protein cuts with no animal word in the label. Added:
-`水饺`/`小笼包`/`灌汤包`/`青菜包` to the existing 🥟 category; new categories 🍞
-(馒头/花卷/千层饼/小饼/韭菜盒子), 🥮 (月饼), 🐑 (羊/羔羊), 🦑 (鱿鱼/墨鱼/乌贼/苏东), 🍡
-(小贝/奶卷/糍粑/面筋串) — all inserted right after 🥟 so dish-specific words win before
-generic ingredient words reached later in the list (e.g. "韭菜盒子" gets 🍞, not 🥬 from
-"韭菜"); `掌中宝` added to 🐔; `大骨`/`子弹排` added to 🍖; `三层肉`/`大肠`/`培根`/`飞机肉`/
-`梅肉`/`软骨`/`腰肉` added to 🐷; 🐮 simplified to a bare `牛` catch-all (mirroring how 🐷
-already had a bare `猪`) plus `金钱腱`/`百叶`/`毛肚`, since several beef cuts (牛肋条,
-牛蹄筋, 肥牛卷, etc.) don't contain the compound "牛肉"; `鲈` added to 🐟. Four tofu
-items (芝士豆腐, 海鲜豆腐, 千页豆腐片, 爆浆小豆腐) were left on the default 🛒 on purpose —
-no existing emoji fits without being misleading.
-
 ---
 
 ## A2. Delivery-day adjustments (shortages, refunds, walk-in extras)
@@ -271,7 +247,7 @@ mapping to:
 
 ```json
 {
-  "member": "小明",
+  "member": "Peter",
   "type": "item",
   "itemKey": "sig",
   "qtyDelta": -1,
@@ -386,9 +362,9 @@ instead:
    Firestore in one go. Example payload to hand the user:
    ```json
    [
-     {"member": "小明", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
-     {"member": "小华", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
-     {"member": "阿强", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
+     {"member": "Peter", "type": "item", "itemKey": "sig", "qtyDelta": -1, "amountDelta": -6.5, "note": "到货少一份"},
+     {"member": "Amy", "type": "credit", "amountDelta": -3, "note": "退款：等太久"},
+     {"member": "may", "type": "weight", "itemKey": "peach", "actualGrams": 2044}
    ]
    ```
    When computing `amountDelta` for an `"item"` type entry yourself, multiply by that
@@ -410,6 +386,78 @@ someone unlocks it with the edit PIN.
 
 ---
 
+## A2b. Packing status (separate from payment)
+
+Each member row has a "打包" toggle button next to "标记已付款" — a second,
+independent yes/no state for whether that member's order has been physically
+packed for pickup. Lives in its own Firestore collection `packedStatus/{date}`
+(same live-sync `onSnapshot`/`setDoc merge:true` pattern as `paidStatus`), so it
+never clobbers or depends on payment status — a member can be packed-not-paid
+or paid-not-packed, tracked independently. Unlike the pay toggle, it's never
+blocked by `roundLocked` (packing is an operational task, not something the
+payment auto-lock should freeze). Visible in the stats ticket as "已打包 X / Y
+人" alongside the existing "已收 X / Y 人" line. Requires the Firestore rule for
+`packedStatus/{groupBuyDate}` (open read/write, same shape as the other two) —
+already added to `firestore.rules`; needs to be pasted into the Firebase
+console's Rules tab like any other rules change, since that's a separate
+deploy step from GitHub Pages.
+
+## A2c. Inline per-item editors (faster alternative to the "+ 调整" form)
+
+Each item line, when in edit mode, shows a compact inline editor right below it — a much
+faster path for the common "fix this one item's quantity" case than opening the full
+"+ 调整" form. **The old form is fully intact and unchanged** — both coexist; the new
+editors are additive, not a replacement, until they've been tested live.
+
+Every inline editor ultimately calls `saveInlineItemAdjustment()`, which writes the exact
+same `type:"item"` `{qtyDelta, amountDelta, note}` shape the old form's "品项数量变化"
+option already writes — so it's invisible to everything downstream (`effectiveItems()`,
+totals, the ledger, undo). **Undo is free**: any entry an inline editor creates shows up
+as a normal "↳" ledger line with the same 撤销 button every adjustment already has —
+no separate revert mechanism was built, since one already existed.
+
+**Which editor a product's line gets** is driven entirely by explicit fields on that
+product in `DATA.products[key]` — never guessed from the label text:
+
+- **`weighMode: "weight"`** → grams-input editor. Converts entered grams via
+  `gramsPerUnit(key)` (explicit `gramsPerUnit` field first, falling back to the original
+  `unit==="kg"`/regex-on-label logic for older round files that predate these fields),
+  rounded down to the nearest 100g in the member's favor — same rule the old form's
+  grams-helper already applies. Includes a "缺货（0g）" quick action and, if the product
+  also declares `piecesPerUnit`, a "没有秤？改用数颗数" toggle to an alternate no-scale
+  entry method (e.g. splitting a box of pears evenly by counting instead of weighing).
+- **`weighMode: "proportional"`** → box-share calculator (bunch÷total), for boxes with no
+  single fixed weight (e.g. a grape box whose bunches each weigh differently). Validates
+  that a portion can't outweigh the box it came from — rejects the entry with an inline
+  error instead of silently computing a nonsense price. Once one member sharing a box
+  enters its total weight, the next member's edit for the same product key pre-fills it
+  (session-only `boxTotalCache`, not persisted). Falls back to "改用直接输入比例" (manual
+  fraction entry) for anything without a scale involved.
+- **No `weighMode` (the default) + a declared `piecesPerUnit`** → piece-count partial
+  editor, for damage/shortfall on a product that comes in known discrete pieces (e.g.
+  "4粒/份" — 1 of 4 peaches arrived bad). Same underlying math as the proportional
+  calculator's alternate mode: pieces received ÷ pieces expected = fraction of the price,
+  no rounding needed since pieces are always whole numbers.
+- **No `weighMode`, no `piecesPerUnit`** (the vast majority of products, and every product
+  in a round file that predates these fields entirely) → the plain +/− stepper, one tap
+  per whole unit, with a "缺货" quick action.
+
+**A round with no `weighMode`/`piecesPerUnit` fields at all** (true of every round file as
+of this writing) sees every single item default cleanly to the plain stepper — nothing
+breaks, nothing silently misbehaves; the richer editors just aren't available until a
+round's `products` entries carry the explicit fields. See `product-catalog-proposed.json`
+(Claude-side reference, mirrors `product-catalog.json`'s "never deployed" status) for the
+resolved classification of ~106 of ~115 real products, worked out interactively against
+real 9/10 order data before any of this was built — including two label-parsing traps a
+naive regex-based approach would have hit (a sealed single-serving package whose label
+happens to state a weight, and a "约/左右" approximate-weight label that doesn't match a
+strict numeric pattern) and one genuine three-way distinction (plain per-piece items vs.
+weighed-by-scale items vs. box-shared-by-weight items with no single fixed total).
+
+**Known state as of this writing:** implemented and syntax-checked, but not yet tested in
+a live browser or deployed. `APP_VERSION` was introduced with this change (see A9) —
+this file had no version tracking before it.
+
 ## A3. Copy WeChat payment message (per-member)
 
 Each member row has a "💬 复制付款消息" button next to the total (visible always, not just in
@@ -422,34 +470,33 @@ while another marks paid, so both stay independent and both are still needed. Th
 (print) is unchanged and stays as the paper-trail record.
 
 **Message format**, built by `buildMemberMessage(m)` in `index.html`. Matches how WG团购群
-already writes these messages by hand: no emoji, "@name" instead of a greeting sentence, and
-"一共$X～" instead of "合计：$X". (v1.0 and earlier omitted the "$" entirely, matching an
-even earlier hand-written example; v1.1, 2026-09-11, added "$" back onto every amount per
-user request.)
+already writes these messages by hand (reworked from an earlier, more formal draft after the
+user shared a real example: no emoji, no "$", "@name" instead of a greeting sentence, and
+"一共X～" instead of "合计：$X"):
 
 ```
-@阿强
+@may
 
-彩虹油蟠桃  $16（2044g）
-蜂糖李  $6.7（673g）
-哈密瓜  $6.5
-青龙菜  $3.5
-土鸡蛋  $9.3
+彩虹油蟠桃  16（2044g）
+蜂糖李  6.7（673g）
+哈密瓜  6.5
+青龙菜  3.5
+土鸡蛋  9.3
 
-一共$42～
+一共42～
 ```
 
 With a shortage adjustment (A2), a member whose order was short one item on delivery looks
 like:
 
 ```
-@小明
+@Peter
 
-哈密瓜 x2盒  $13
-土鸡蛋  $9.3
-↳ 哈密瓜 -1盒（到货少一份） -$6.5
+哈密瓜 x2盒  13
+土鸡蛋  9.3
+↳ 哈密瓜 -1盒（到货少一份） -6.5
 
-一共$9.3～
+一共9.3～
 ```
 
 - `@{name}` greeting, then a blank line.
@@ -458,8 +505,7 @@ like:
   priced by weight (so "2 boxes" shows "x2盒", but "2kg of peaches" never shows "x2kg" —
   the amount already reflects the ordered weight, and the actual weight, if known, is
   shown instead per below), then two spaces and the amount (trimmed of trailing zeros,
-  "$" prefixed — a negative adjustment amount reads "-$6.5", minus sign before the "$",
-  not after).
+  no "$").
 - A `（{grams}g）` suffix on an item's own line when a `"weight"` adjustment (A2) was
   recorded for that member+item — the actual amount portioned out, purely informational.
 - One `↳`-prefixed line per non-`"weight"` delivery-day adjustment (A2) affecting that
@@ -512,7 +558,7 @@ group, as opposed to A3's per-member payment message.
 Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
 
 ```
-@小明 @小华 @阿强 @小美 ...
+@Caroline 琛琛 @^_^Wu @W_W @Peter @Sherry Liu ... @等放假ing @木木三の柒
 
 小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
 ```
@@ -597,6 +643,44 @@ recheck because that would also make the manual unlock re-lock itself instantly 
 right after unlocking, everyone typically still shows as paid) — defeating the point of
 being able to unlock at all. Not worth the added complexity for a small group; revisit
 only if it actually causes a problem in practice.
+
+---
+
+## A5b. Round tab coloring (past-round status at a glance)
+
+Each round's tab in the `.buyTabs` bar is colored based on its date and payment status,
+computed once at page load — not part of the live per-round subscriptions.
+
+**The rule:**
+- Round date ≥ today → left uncolored (default) — treated as "hasn't happened yet," even
+  if it's today's own round still mid-collection.
+- Round date < today, at least one base member unpaid → red (`.buyTab.pending`).
+- Round date < today, every base member paid → green (`.buyTab.completed`).
+- The currently-selected tab always keeps its existing dark "active" highlight regardless
+  of status color (`.buyTab.completed:not(.active)` / `.buyTab.pending:not(.active)` — the
+  color only shows on unselected tabs, so there's never a visual conflict between "this is
+  open" and "this is selected").
+
+**Known limitation, left as-is on purpose:** the paid-check only looks at `DATA.orders`
+(the base 接龙 list) for each past round, not walk-ins added afterward via adjustments
+(A2). A past round with every base member paid but one unpaid walk-in would still show
+green. Not worth an extra adjustments-collection read per past round for how rarely that
+specific combination would happen; revisit if it actually causes confusion.
+
+**How it's computed:** `refreshRoundStatuses()` runs once at boot, after the manifest and
+first round load. For every round dated before today, it does a one-time `getDoc()` read
+of that round's `paidStatus/{date}` document (not a live `onSnapshot` — background tab
+coloring doesn't need to update in real time the way the open round's own UI does) plus a
+one-time `fetch()` of that round's own `data-<date>.json` (to get its member list), then
+compares the two. Rounds dated today or later skip both fetches entirely. Runs in the
+background without blocking the initial page render; re-renders once all statuses resolve
+so the tabs pick up their colors. If a fetch or read fails for a given round, that round
+is just left uncolored rather than showing a debug banner over a purely cosmetic feature.
+
+Because this only runs once at boot from the manifest snapshot at that moment, a brand new
+round added to `manifest.json` mid-session (rare, but possible if someone deploys while
+the page is already open) won't get a color until the next page load — acceptable for a
+decorative feature.
 
 ---
 
@@ -712,123 +796,6 @@ dropdown, or tap its row in the stocking list either while a specific product
 is already selected or while viewing the full list — all backed by the same
 `renderProductMembers()` function, so there's exactly one place to fix a bug
 in that breakdown, not three.
-
----
-
-## A8. Product catalog & price tracking (`product-catalog.json`)
-
-**Claude-side only — this file is never fetched by `index.html` and never uploaded to
-GitHub.** It's a build-time aid so Claude can keep product keys consistent, and now
-prices too, across every round and every supplier (produce vendor, meat/dumpling
-vendor, etc.) — not just within one round.
-
-Each entry: `label`, `unit`, optional `aka` (alternate labels the same key has shipped
-under) and `note` (for genuine ambiguity — see `mango_pzh`/`egg_my_box` for examples),
-plus (added 2026-09-11):
-
-- **`lastPrice`** — the most recent confirmed price seen for this key, across any
-  round/supplier.
-- **`lastRound`** — the `YYYY-MM-DD` of the round that price came from.
-
-Only the latest price/round is kept — no full history array (deliberate choice, keep
-it simple). Entries with no price ever recorded in the available round files (e.g.
-`lotus_root`, `peach_rainbow_unclear` — they predate the round files in this project)
-simply omit both fields.
-
-**Workflow when building a new round:**
-1. For each vendor line item, check whether it matches an existing key (by label or
-   `aka`) before minting a new one — same rule as before.
-2. If it matches an existing key, compare the vendor's stated price this round against
-   that key's `lastPrice`.
-   - **Same price:** proceed normally.
-   - **Different price:** don't silently update it — tell the user the price changed
-     (old → new) so they can confirm it's not a typo before it goes into the new
-     round's `data-<date>.json`.
-3. After the round's `data-<date>.json` is finalized (including any
-   previously-`unverified` items the user confirms), update `lastPrice`/`lastRound`
-   for every key used that round, and add any brand-new keys with their first price.
-4. `unverified` items (price `null`) are never fed into `lastPrice` — only confirmed
-   prices count. Once the user confirms a real price for a previously-unverified item,
-   clear the `unverified` flag in that round's data file *and* add the key to the
-   catalog with its now-confirmed `lastPrice`/`lastRound`.
-
-**Example (2026-09-11 round):** two items ordered outside the vendor's posted list —
-`CP猪血` ($7.8/盒/400g) and `马来西亚土鸡蛋` ($9.3/30粒/盒) — were entered as
-`unverified`/`price: null` first. The user confirmed both prices in a follow-up
-message; both were then unflagged in `data-2026-09-11.json` and added to
-`product-catalog.json` with `lastPrice`/`lastRound: "2026-09-11"`. Note:
-`egg_my_box`'s confirmed price ($9.3) happens to match the unrelated `egg_my` key
-(different supplier, `盘`/tray unit) — coincidence, not merged, flagged via `note`.
-
----
-
-## A9. Keeping this Project's knowledge base in sync with what's actually deployed
-
-**Why this exists:** on 2026-09-11, this Project's stored `index.html` turned out to
-be missing two already-shipped features (打包/`packedStatus`, the 商品查询
-type-to-search input) — nobody had re-uploaded a newer version here after those were
-built in an earlier session. Claude then edited that stale copy for an unrelated fix
-(the walk-in `@` bug) and handed it back; the user deployed it, and both missing
-features silently disappeared from the live site — no error, nothing to debug, just
-gone. Recovered by asking the user to pull the actual current file back out of
-GitHub's commit history and re-diffing against that.
-
-**Standing rule going forward, for every core file** (`index.html`,
-`message-template.json`, `product-emoji-map.json`, `product-catalog.json`,
-`README.md`, this file itself): whenever Claude hands over an edited version of one of
-these, Claude also reminds the user, in the same message, to:
-
-1. Rename the outgoing (about-to-be-replaced) version already sitting in this
-   Project's knowledge base with a `_YYMMDD-HHMM` timestamp suffix (e.g.
-   `index_260911-2358.html`) — keeps a recoverable trail without cluttering the
-   filename space with anything more elaborate (no full version history needed, same
-   "just the latest, plus one fallback" philosophy as `product-catalog.json`'s
-   `lastPrice`/`lastRound`, not a growing log).
-2. Upload the new version to this Project **separately from deploying it to
-   GitHub** — those are two different destinations and neither upload substitutes
-   for the other.
-
-**Claude cannot do either step itself** — there's no tool for writing to this
-Project's file list, only for reading it (and even that read is a point-in-time copy,
-per the standard project-files disclaimer). This is a reminder Claude gives the user
-every time, not an automated safeguard — so if the reminder is ever skipped or ignored,
-this Project's copy of that file can drift out of sync with the live site again,
-exactly as it did here.
-
-### Version check protocol (added 2026-09-11, after the incident above)
-
-`index.html` carries a version constant near the top of the script:
-`const APP_VERSION = "1.0";` (bumped from here going forward — see log below). It's
-also rendered in the page footer (`.footNote`, bottom of `render()`), so the operator
-can visually confirm the live site picked up the expected version after deploying,
-with no dev tools needed.
-
-**Before making any non-trivial edit to `index.html`, Claude checks this file's
-`APP_VERSION` against the latest entry in the version log below.**
-
-- **Match:** proceed with the edit as normal.
-- **Mismatch (or the constant is missing entirely — i.e. this instruction hasn't
-  been in the file that long):** this project's stored copy is stale relative to
-  what's actually deployed. Don't edit blind — tell the user, and ask them to pull
-  the current file from GitHub (same recovery method as the 2026-09-11 incident:
-  the repo's commit history, or a fresh raw download of the deployed `index.html`)
-  before proceeding.
-
-**After every `index.html` edit Claude hands over:** bump `APP_VERSION` (patch bump —
-`1.0` → `1.1` — for a small fix, minor bump — `1.1` → `1.2` — for a new feature;
-no fixed rule beyond "match the size of the change," this doesn't need to be
-rigorous) and add a row to the version log below in the same response. The version
-constant and the log entry are two edits that always travel together — one without
-the other defeats the whole point (a mismatch that isn't in the log gives Claude
-nothing to compare against; a log entry with no matching constant bump means the
-deployed file's version can't be verified against it).
-
-**Version log** (newest first):
-
-| Version | Date | What changed |
-|---|---|---|
-| 1.1 | 2026-09-11 | `formatAmt()` now prefixes every copied-message amount with "$" (e.g. "$16", "-$6.5"), per user request. Minus sign placed before the "$", not after. Affects item lines, adjustment lines, and the total line in `buildMemberMessage()`. |
-| 1.0 | 2026-09-11 | Baseline reset point after the stale-Project-copy incident above. This is the recovered live file (confirmed to include 打包/`packedStatus` and the 商品查询 type-to-search input, both previously undocumented here) plus the walk-in `@`-stripping fix (`handleAdjSave`) and this version-tracking mechanism itself. Earlier version history wasn't reconstructed — this is the reset point everything increments from now. |
 
 ---
 
@@ -1111,32 +1078,17 @@ None of this changed `README.md`'s feature list — nothing user-visible moved.
 
 ---
 
-### Walk-in name double-@ fix (2026-09-11)
+## A9. Version log
 
-**Bug:** a walk-in buyer added via "+ 新增买家" showed up as `@@阿强🐣⛄️❄️` in the
-copied payment message instead of `@阿强🐣⛄️❄️`. Root cause: the operator copied the
-name straight out of a WeChat message where it appeared as a mention ("@某某") and
-pasted the whole thing — including the "@" — into the walk-in name field. That stored
-name then hit the `"@{name}"` greeting template in `buildMemberMessage()`, doubling
-the "@".
+`APP_VERSION` (near the top of `index.html`'s script, also shown in the page footer)
+tracks what's actually deployed. Before any non-trivial `index.html` edit in a fresh
+chat, check the file's `APP_VERSION` against the table below — a mismatch (or the
+constant being missing) means this Project's stored copy is stale relative to what's
+live, and the current file should be requested rather than edited blind. Bump this
+alongside every edit, in the same response.
 
-**Fixed** in `handleAdjSave()`: a leading `@` (one or more) is now stripped from
-`adjDraft.name` before it's saved as `memberName` —
-`.trim().replace(/^@+/, "")`. This is a one-time, one-character-class strip of mention
-syntax, not a general name-normalization — it doesn't touch emoji, kana, or any other
-character the memory notes protect (see "Real member names must never appear in
-docs..." rule; that rule is about not altering/scrubbing legitimate name content, a
-leading "@" is never legitimate name content). Fixing it at save time (rather than
-only at message-build time) means the correction also applies everywhere else
-`m.name` is used — card header, print view, adjustment matching — not just the one
-button that surfaced the bug.
+| Version | What changed |
+|---|---|
+| 1.0.0 | Baseline — represents everything before version tracking existed (packed-status toggle, product search-as-you-type, round-tab coloring, and everything prior). |
+| 1.1.0 | Introduced `APP_VERSION`/this log. Added inline per-item editors (stepper/grams/pieces/box-share) as a faster alternative to the "+ 调整" form — see A2c. Old form left fully intact. Not yet tested live or deployed. |
 
-**Not retroactive:** this only prevents it going forward. Any walk-in already saved
-with a leading "@" in a live round's Firestore `adjustments/{date}` doc still has it
-stored that way — there's no code path here that rewrites existing Firestore data, so
-those need a manual fix (undo the adjustment via the "撤销" link and re-add the
-walk-in without the "@").
-
-`README.md` updated (both language sections, "+ 新增买家" bullet) to tell the operator
-not to include "@" when entering a walk-in's name, as a belt-and-suspenders alongside
-the code fix.

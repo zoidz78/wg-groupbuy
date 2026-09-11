@@ -306,6 +306,32 @@
   .adjFormBtns { display: flex; gap: 8px; }
   .adjError { color: var(--red); font-size: 12px; margin: 2px 0 8px; }
   .adjGramsPreview { color: var(--muted); font-size: 12px; margin: -4px 0 8px; line-height: 1.5; }
+  /* Inline per-item editors (stepper/grams/pieces/box-share) — a faster
+     alternative to the "+ 调整" form above, styled distinctly (rounded
+     pill buttons vs the form's boxier inputs) so it reads as its own,
+     lighter-weight interaction rather than a variant of the form. */
+  .inlineEditor { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepBtn {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+  }
+  .stepBtn:active { background: var(--line); }
+  .stepQty { min-width: 26px; text-align: center; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13.5px; }
+  .voidBtn, .saveBtn, .cancelBtn {
+    font-size: 11.5px; padding: 4px 8px; border-radius: 10px; cursor: pointer; user-select: none;
+    flex-shrink: 0; white-space: nowrap; display: inline-block;
+  }
+  .voidBtn { border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
+  .saveBtn { background: var(--green-btn); color: white; border: 1px solid var(--green-btn); }
+  .cancelBtn { border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
+  .numInput {
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper);
+    color: var(--ink); font-family: inherit; font-size: 13px; width: 130px; flex: 1; min-width: 130px;
+  }
+  .inlinePreview { font-size: 12px; color: var(--muted); margin: -2px 0 6px; line-height: 1.5; }
+  .inlineError { font-size: 12px; color: var(--red); margin: -2px 0 6px; line-height: 1.5; }
   .pinRow { display: flex; gap: 8px; justify-content: center; margin: 4px 0 6px; }
   .pinRow input { width: 140px; }
 
@@ -326,7 +352,8 @@
      reachable (see the Enter/Space handler at the bottom of the script). */
   .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
-  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible {
+  .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
+  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -365,20 +392,6 @@
     };
     const firebaseApp = initializeApp(firebaseConfig);
     const db = getFirestore(firebaseApp);
-
-    // Bump this on every index.html change handed over in chat, and log what
-    // changed at each version in wg-groupbuy-project-knowledge.md's "Version
-    // log" section (see A9). Purpose: before editing this file, Claude checks
-    // this number against the log's latest entry — a mismatch means the
-    // Project's stored copy of index.html is stale relative to what's
-    // actually deployed (see the 2026-09-11 incident where 打包 and
-    // type-to-search silently vanished from a live deploy because of exactly
-    // this drift), and Claude should ask for the current file instead of
-    // editing blind. Also shown in the page footer (see the `.footNote` at
-    // the bottom of render()) so a quick visual check after deploying
-    // confirms the live site actually picked up the expected version —
-    // no dev tools needed.
-    const APP_VERSION = "1.1";
 
     // Soft gate only — Firestore rules stay open to anyone with the link (same
     // trust model as paid-status today). This just stops accidental taps.
@@ -435,6 +448,11 @@
       pickupLocation: "06-02",
       groupAnnouncementText: "{arrived}到啦，欢迎来{location}自取，需要送货小群联系～"
     };
+    // Tracked in a "Version log" table in wg-groupbuy-project-knowledge.md
+    // (section A9) — bumped alongside every non-trivial index.html edit, in
+    // the same commit/response, so the Project's stored copy can always be
+    // checked against what's actually deployed before editing blind.
+    const APP_VERSION = "1.1.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -507,6 +525,31 @@
     let adjGramsPreview = "";
     let showBulkPanel = false;
     let bulkError = "";
+    // --- Inline per-item editing (stepper / grams / pieces / box-share) ---
+    // A faster path than the "+ 调整" form (kept fully intact below) for the
+    // common case of correcting one item's quantity. Every one of these
+    // still ultimately calls saveAdjustment() with the exact same
+    // type:"item" {qtyDelta, amountDelta} shape the old form writes, so
+    // it's invisible to everything downstream (effectiveItems, totals,
+    // the ledger, undo) which entry came from which UI. State is keyed by
+    // `${memberName}::${itemKey}` so multiple items can have independent
+    // in-progress edits open at once, unlike the old form's single
+    // openAdjustFormFor slot.
+    let stepDrafts = {};        // key -> draft qty for the plain +/- stepper, before saving
+    let weightEditing = {};     // key -> is the grams/piece editor panel expanded
+    let weightDraftGrams = {};  // key -> current grams input text
+    let weightUsePieces = {};   // key -> true if using the piece-count entry instead of grams
+    let weightDraftPieces = {}; // key -> current piece-count input text (shared by weight-mode's
+                                 // piece alternative and plain count-mode's piece-partial editor)
+    let fracEditing = {};       // key -> is the box-share calculator expanded
+    let fracCalcMode = {};      // key -> "weight" (bunch÷total) or "manual" (type the fraction directly)
+    let fracDraftBunch = {};    // key -> bunch weight input text
+    let fracDraftTotal = {};    // key -> box total weight input text
+    let fracDraftManual = {};   // key -> manual fraction input text
+    // Once one member's box-share edit records a box's total weight, the
+    // next member sharing that same box gets it pre-filled — session-only
+    // (module state, not persisted), purely a convenience default.
+    let boxTotalCache = {};
     let bulkDraft = "";
 
     // Each member's block/unit number, for organizing deliveries — never read
@@ -596,6 +639,23 @@
       adjFormType = "item";
       adjFormError = "";
       adjGramsPreview = "";
+    }
+
+    // Wipes all in-progress inline-editor state — called on round switch so
+    // a half-typed correction on one round's item never leaks into another
+    // round's (unrelated) item that happens to share the same member+key.
+    function resetInlineEdits() {
+      stepDrafts = {};
+      weightEditing = {};
+      weightDraftGrams = {};
+      weightUsePieces = {};
+      weightDraftPieces = {};
+      fracEditing = {};
+      fracCalcMode = {};
+      fracDraftBunch = {};
+      fracDraftTotal = {};
+      fracDraftManual = {};
+      boxTotalCache = {};
     }
 
     // Looks up the best-matching emoji for a product's Chinese label by
@@ -839,9 +899,16 @@
     // neither applies (count-based items like 盒/份/粒/只/瓶/袋 aren't sold
     // by weight at all and just use the plain qty field) — see the "或输入
     // 实际到手重量（克）" helper in renderAdjForm/handleAdjGramsHelperInput.
+    // Returns grams-per-unit for a weight-priced product. Checks an
+    // explicit `gramsPerUnit` field on the product first (set deliberately
+    // per-product, e.g. in a round's data file's `products` entry — no
+    // label-parsing ambiguity possible) before falling back to the
+    // original unit==="kg"/regex-on-label logic below, so older round
+    // files without the explicit field keep working exactly as before.
     function gramsPerUnit(key) {
       const info = DATA.products[key];
       if (!info) return null;
+      if (info.gramsPerUnit != null) return info.gramsPerUnit;
       if (info.unit === "kg") return 1000;
       if (!info.label) return null;
       const m = info.label.match(/\((\d+(?:\.\d+)?)\s*(kg|g)\s*\/[^)]*\)/i);
@@ -849,6 +916,31 @@
       const value = parseFloat(m[1]);
       if (isNaN(value) || value <= 0) return null;
       return m[2].toLowerCase() === "kg" ? value * 1000 : value;
+    }
+
+    // How many discrete pieces make up one ordered unit (e.g. 4 for
+    // "4粒/份") — an explicit catalog field, never guessed from the label,
+    // since "N粒" appearing in a label doesn't by itself say whether a
+    // partial/piece-count correction should ever apply to that product.
+    function piecesPerUnitFor(key) {
+      const info = DATA.products[key];
+      return info && info.piecesPerUnit != null ? info.piecesPerUnit : null;
+    }
+
+    // Which inline editor a product's line should offer, driven entirely by
+    // an explicit `weighMode` field on the product — never inferred from
+    // the label. Undefined/missing (the vast majority of products, and
+    // every product in a round file that predates this field) defaults
+    // cleanly to "count", so older round data just gets the plain stepper
+    // with no behavior change. "REVIEW_NEEDED" (a product whose correct
+    // classification hasn't been decided yet) also falls through to
+    // "count" — safe default until someone resolves it.
+    function classify(key) {
+      const info = DATA.products[key];
+      if (!info) return "count";
+      if (info.weighMode === "proportional") return "fraction";
+      if (info.weighMode === "weight") return "weight";
+      return "count";
     }
 
     // Business rule for reweighed bulk items: always round the actual weight
@@ -954,6 +1046,377 @@
       return baseQty + adjQty;
     }
 
+    // ============================================================
+    // Inline per-item editors (stepper / grams / pieces / box-share)
+    // ============================================================
+    // All four ultimately call this one function, which is the exact same
+    // computation handleAdjGramsHelperInput/handleAdjSave already do for the
+    // old form: delta relative to currentQtyFor (so a second correction
+    // composes with the first rather than double-counting), amountDelta at
+    // this item's current price, saved as one type:"item" entry. Undo is
+    // free — it's just the normal per-adjustment 撤销 on the resulting
+    // ledger line, same as any other entry.
+    function saveInlineItemAdjustment(memberKey, itemKey, newQty, note) {
+      const info = DATA.products[itemKey];
+      const current = currentQtyFor(memberKey, itemKey);
+      const qtyDelta = Math.round((newQty - current) * 10000) / 10000;
+      if (qtyDelta === 0) return;
+      const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
+      saveAdjustment(GROUP_BUYS[activeIndex].date, {
+        member: memberKey, type: "item", itemKey, qtyDelta, amountDelta, note: note || "", ts: Date.now()
+      });
+    }
+
+    function inlineKey(memberKey, itemKey) {
+      return `${memberKey}::${itemKey}`;
+    }
+
+    // Plain count item, no piece count declared — the simple +/- stepper.
+    function renderInlineCountStepper(memberKey, itemKey) {
+      const key = inlineKey(memberKey, itemKey);
+      const current = currentQtyFor(memberKey, itemKey);
+      const draft = stepDrafts[key] != null ? stepDrafts[key] : current;
+      const dirty = draft !== current;
+      return `
+        <div class="inlineEditor">
+          <div class="stepper">
+            <div class="stepBtn" role="button" tabindex="0" data-action="stepDec" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">−</div>
+            <div class="stepQty">${formatQty(draft)}</div>
+            <div class="stepBtn" role="button" tabindex="0" data-action="stepInc" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">+</div>
+          </div>
+          ${dirty ? `
+            <div class="saveBtn" role="button" tabindex="0" data-action="stepSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓</div>
+            <div class="cancelBtn" role="button" tabindex="0" data-action="stepCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕</div>
+          ` : `<div class="voidBtn" role="button" tabindex="0" data-action="stepShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">缺货</div>`}
+        </div>
+      `;
+    }
+
+    // Plain count item WITH a declared piece count — same shape as the
+    // weight editor below (one entry button, panel with a quick-缺货
+    // action inside), for a damaged/partial order (e.g. 1 of 4 pieces bad).
+    function renderInlineCountWithPieces(memberKey, itemKey) {
+      const key = inlineKey(memberKey, itemKey);
+      const info = DATA.products[itemKey];
+      const piecesPerUnit = piecesPerUnitFor(itemKey);
+      const current = currentQtyFor(memberKey, itemKey);
+      const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
+      if (!weightEditing[key]) {
+        return `
+          <div class="inlineEditor">
+            ${renderInlineCountStepper(memberKey, itemKey)}
+            <div class="voidBtn" role="button" tabindex="0" data-action="pieceOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">实际到货颗数</div>
+          </div>
+        `;
+      }
+      const draft = weightDraftPieces[key] || "";
+      const pieces = parseFloat(draft);
+      let preview = "", error = "", ready = false;
+      if (!isNaN(pieces) && pieces >= 0) {
+        if (pieces > totalPieces) {
+          error = `⚠️ 实收颗数（${formatQty(pieces)}）比订购的总颗数（${formatQty(totalPieces)}）还多，检查一下是不是填错了`;
+        } else {
+          const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
+          const delta = Math.round((newQty - current) * 10000) / 10000;
+          const amt = info && info.price != null ? delta * info.price : null;
+          preview = `${formatQty(pieces)}/${formatQty(totalPieces)}粒 → ${formatQty(newQty)}${unitOf(itemKey)}（${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta)) + unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+          ready = true;
+        }
+      }
+      return `
+        <div class="inlineEditor">
+          <input type="number" class="numInput" id="pieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="pieceInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="pieceShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}" style="border-color:var(--red);color:var(--red)">缺货（0颗）</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="pieceCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="pieceSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+        </div>
+        ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
+        ${error ? `<div class="inlineError">${error}</div>` : ""}
+      `;
+    }
+
+    // Weight-priced item — grams input converted via gramsPerUnit, rounded
+    // down to the nearest 100g in the member's favor (same rule the old
+    // form's gramsHelper already applies). If the product also declares a
+    // piece count, offers "没有秤？改用数颗数" as an alternate no-scale
+    // entry method (e.g. splitting a box of pears evenly by counting).
+    function renderInlineWeight(memberKey, itemKey) {
+      const key = inlineKey(memberKey, itemKey);
+      const info = DATA.products[itemKey];
+      const perUnit = gramsPerUnit(itemKey);
+      const piecesPerUnit = piecesPerUnitFor(itemKey);
+      const current = currentQtyFor(memberKey, itemKey);
+      if (!weightEditing[key]) {
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">实际到货克数</div></div>`;
+      }
+      if (weightUsePieces[key] && piecesPerUnit) {
+        const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
+        const draft = weightDraftPieces[key] || "";
+        const pieces = parseFloat(draft);
+        let preview = "", error = "", ready = false;
+        if (!isNaN(pieces) && pieces >= 0) {
+          if (pieces > totalPieces) {
+            error = `⚠️ 实收颗数（${formatQty(pieces)}）比订购的总颗数（${formatQty(totalPieces)}）还多，检查一下是不是填错了`;
+          } else {
+            const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
+            const delta = Math.round((newQty - current) * 10000) / 10000;
+            const amt = info && info.price != null ? delta * info.price : null;
+            preview = `${formatQty(pieces)}/${formatQty(totalPieces)}粒 → ${formatQty(newQty)}${unitOf(itemKey)}（${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta)) + unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+            ready = true;
+          }
+        }
+        return `
+          <div class="inlineEditor">
+            <input type="number" class="numInput" id="wPieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="weightPieceInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+            <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightPieceSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+          </div>
+          <div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToGrams" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">← 改用填克数</div></div>
+          ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
+          ${error ? `<div class="inlineError">${error}</div>` : ""}
+        `;
+      }
+      const draft = weightDraftGrams[key] || "";
+      const grams = parseFloat(draft);
+      let preview = "", ready = false;
+      if (perUnit && !isNaN(grams) && grams > 0) {
+        const rounded = roundGramsDown(grams);
+        const newQty = rounded / perUnit;
+        const delta = Math.round((newQty - current) * 10000) / 10000;
+        const amt = info && info.price != null ? delta * info.price : null;
+        preview = `实收${formatQty(grams)}g → 按100g向下取整为${formatQty(rounded)}g = ${formatQty(newQty)}${unitOf(itemKey)}（原${formatQty(current)}${unitOf(itemKey)}，差${delta >= 0 ? "+" : ""}${formatQty(delta)}${unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+        ready = true;
+      }
+      return `
+        <div class="inlineEditor">
+          <input type="number" class="numInput" id="gramsInput-${escapeHtml(key)}" placeholder="实际到手重量（克）" value="${escapeHtml(draft)}" data-action="weightInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="weightShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}" style="border-color:var(--red);color:var(--red)">缺货（0g）</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+        </div>
+        ${piecesPerUnit ? `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToPieces" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">没有秤？改用数颗数（共${formatQty(Math.round(current * piecesPerUnit * 10000) / 10000)}粒）→</div></div>` : ""}
+        ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
+      `;
+    }
+
+    // Box shared by weight with no single fixed total (e.g. a grape box
+    // whose bunches each weigh differently) — bunch÷total calculator, with
+    // a manual-fraction fallback for anything without a scale involved.
+    // Validates that a portion can't outweigh the box it came from — the
+    // exact mistake ($84 from an over-entered portion) that prompted this.
+    function renderInlineFraction(memberKey, itemKey) {
+      const key = inlineKey(memberKey, itemKey);
+      const info = DATA.products[itemKey];
+      const current = currentQtyFor(memberKey, itemKey);
+      if (!fracEditing[key]) {
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="fracOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改比例</div></div>`;
+      }
+      if (fracCalcMode[key] === "manual") {
+        const draft = fracDraftManual[key] || "";
+        const ready = draft !== "" && !isNaN(parseFloat(draft));
+        return `
+          <div class="inlineEditor">
+            <input type="number" step="any" class="numInput" id="fracManual-${escapeHtml(key)}" placeholder="新比例，例如 0.5" value="${escapeHtml(draft)}" data-action="fracManualInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+            <div class="voidBtn" role="button" tabindex="0" data-action="fracToWeight" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改用净重计算 →</div>
+            <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracManualSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+          </div>
+        `;
+      }
+      const cachedTotal = boxTotalCache[itemKey];
+      if (fracDraftTotal[key] == null && cachedTotal) fracDraftTotal[key] = String(cachedTotal);
+      const bunchDraft = fracDraftBunch[key] || "";
+      const totalDraft = fracDraftTotal[key] || "";
+      const bunch = parseFloat(bunchDraft);
+      const total = parseFloat(totalDraft);
+      let preview = "", error = "", ready = false;
+      if (!isNaN(bunch) && !isNaN(total) && total > 0 && bunch >= 0) {
+        if (bunch > total) {
+          error = `⚠️ 这份净重（${formatQty(bunch)}g）比全箱总重（${formatQty(total)}g）还重，检查一下是不是填反了，或者总重量错了`;
+        } else {
+          const frac = Math.round((bunch / total) * 10000) / 10000;
+          const delta = Math.round((frac - current) * 10000) / 10000;
+          const amt = info && info.price != null ? delta * info.price : null;
+          preview = `${formatQty(bunch)}g ÷ ${formatQty(total)}g = ${(frac * 100).toFixed(1)}% → ${formatQty(frac)}（原比例${formatQty(current)}，${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta))}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+          ready = true;
+        }
+      }
+      return `
+        <div class="inlineEditor">
+          <input type="number" step="any" class="numInput" id="fracBunch-${escapeHtml(key)}" placeholder="这份净重（克）" value="${escapeHtml(bunchDraft)}" data-action="fracBunchInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+          <input type="number" step="any" class="numInput" id="fracTotal-${escapeHtml(key)}" placeholder="全箱总重（克）" value="${escapeHtml(totalDraft)}" data-action="fracTotalInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+        </div>
+        <div class="inlineEditor">
+          <div class="voidBtn" role="button" tabindex="0" data-action="fracToManual" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改用直接输入比例 →</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracCalcSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+        </div>
+        ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
+        ${error ? `<div class="inlineError">${error}</div>` : ""}
+      `;
+    }
+
+    // Dispatches to the right editor for one item line, based on the
+    // product's declared weighMode/piecesPerUnit. Returns just the inner
+    // markup (no wrapper) — renderInlineEditorFor above wraps this in the
+    // stable id'd container; refreshInlineArea below writes straight back
+    // into that same container's innerHTML on a keystroke, without it.
+    function renderInlineEditorInner(memberKey, itemKey) {
+      const mode = classify(itemKey);
+      if (mode === "fraction") return renderInlineFraction(memberKey, itemKey);
+      if (mode === "weight") return renderInlineWeight(memberKey, itemKey);
+      if (piecesPerUnitFor(itemKey)) return renderInlineCountWithPieces(memberKey, itemKey);
+      return renderInlineCountStepper(memberKey, itemKey);
+    }
+
+    // Wraps the above in a stable container (id derived from member+item)
+    // so a keystroke in one of this editor's live-preview inputs can
+    // refresh just this one small area instead of the whole page — see
+    // refreshInlineArea below for why that matters (same reason the old
+    // form's grams-helper avoids render() on every keystroke: a full
+    // render() rebuilds the entire page and would tear down whichever
+    // input the person is mid-keystroke in).
+    function renderInlineEditorFor(memberKey, itemKey) {
+      return `<div class="inlineEditorArea" id="ie-${escapeHtml(inlineKey(memberKey, itemKey))}">${renderInlineEditorInner(memberKey, itemKey)}</div>`;
+    }
+
+    // Attaches every inline-editor click/input listener found under `root`
+    // — called once for the whole page after a normal render(), and again
+    // for just one small container after refreshInlineArea() patches it
+    // (since replacing innerHTML wipes any listeners the old nodes had).
+    function bindInlineEditorArea(root) {
+      const inlineClickActions = new Set([
+        "stepDec", "stepInc", "stepSave", "stepCancel", "stepShortage",
+        "pieceOpen", "pieceCancel", "pieceSave", "pieceShortage",
+        "weightOpen", "weightCancel", "weightSave", "weightShortage",
+        "weightToPieces", "weightToGrams", "weightPieceSave",
+        "fracOpen", "fracCancel", "fracToManual", "fracToWeight",
+        "fracManualSave", "fracCalcSave",
+      ]);
+      root.querySelectorAll("[data-action]").forEach(el => {
+        const action = el.dataset.action;
+        if (inlineClickActions.has(action)) {
+          el.addEventListener("click", () => {
+            const memberKey = el.dataset.member;
+            const itemKey = el.dataset.item;
+            const key = inlineKey(memberKey, itemKey);
+            const current = currentQtyFor(memberKey, itemKey);
+            if (action === "stepDec") stepDrafts[key] = Math.max(0, (stepDrafts[key] != null ? stepDrafts[key] : current) - 1);
+            if (action === "stepInc") stepDrafts[key] = (stepDrafts[key] != null ? stepDrafts[key] : current) + 1;
+            if (action === "stepCancel") delete stepDrafts[key];
+            if (action === "stepSave") {
+              saveInlineItemAdjustment(memberKey, itemKey, stepDrafts[key], "");
+              delete stepDrafts[key];
+            }
+            if (action === "stepShortage") saveInlineItemAdjustment(memberKey, itemKey, 0, "缺货");
+            if (action === "pieceOpen") { weightEditing[key] = true; weightDraftPieces[key] = ""; }
+            if (action === "pieceCancel") { weightEditing[key] = false; delete weightDraftPieces[key]; }
+            if (action === "pieceShortage") {
+              saveInlineItemAdjustment(memberKey, itemKey, 0, "缺货");
+              weightEditing[key] = false; delete weightDraftPieces[key];
+            }
+            if (action === "pieceSave") {
+              const piecesPerUnit = piecesPerUnitFor(itemKey);
+              const pieces = parseFloat(weightDraftPieces[key]);
+              const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
+              if (!isNaN(pieces) && pieces >= 0 && pieces <= totalPieces) {
+                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`);
+              }
+              weightEditing[key] = false; delete weightDraftPieces[key];
+            }
+            if (action === "weightOpen") { weightEditing[key] = true; weightUsePieces[key] = false; weightDraftGrams[key] = ""; }
+            if (action === "weightCancel") { weightEditing[key] = false; delete weightDraftGrams[key]; delete weightDraftPieces[key]; }
+            if (action === "weightShortage") {
+              saveInlineItemAdjustment(memberKey, itemKey, 0, "缺货");
+              weightEditing[key] = false; delete weightDraftGrams[key];
+            }
+            if (action === "weightSave") {
+              const perUnit = gramsPerUnit(itemKey);
+              const grams = parseFloat(weightDraftGrams[key]);
+              if (perUnit && !isNaN(grams) && grams > 0) {
+                const rounded = roundGramsDown(grams);
+                saveInlineItemAdjustment(memberKey, itemKey, rounded / perUnit, `实收${formatQty(rounded)}g`);
+              }
+              weightEditing[key] = false; delete weightDraftGrams[key];
+            }
+            if (action === "weightToPieces") { weightUsePieces[key] = true; weightDraftPieces[key] = ""; }
+            if (action === "weightToGrams") { weightUsePieces[key] = false; weightDraftGrams[key] = ""; }
+            if (action === "weightPieceSave") {
+              const piecesPerUnit = piecesPerUnitFor(itemKey);
+              const pieces = parseFloat(weightDraftPieces[key]);
+              const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
+              if (!isNaN(pieces) && pieces >= 0 && pieces <= totalPieces) {
+                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`);
+              }
+              weightEditing[key] = false; delete weightDraftPieces[key];
+            }
+            if (action === "fracOpen") { fracEditing[key] = true; fracCalcMode[key] = "weight"; fracDraftBunch[key] = ""; fracDraftTotal[key] = boxTotalCache[itemKey] ? String(boxTotalCache[itemKey]) : ""; }
+            if (action === "fracCancel") { fracEditing[key] = false; delete fracDraftBunch[key]; delete fracDraftTotal[key]; delete fracDraftManual[key]; }
+            if (action === "fracToManual") { fracCalcMode[key] = "manual"; fracDraftManual[key] = ""; }
+            if (action === "fracToWeight") { fracCalcMode[key] = "weight"; fracDraftBunch[key] = ""; fracDraftTotal[key] = boxTotalCache[itemKey] ? String(boxTotalCache[itemKey]) : ""; }
+            if (action === "fracManualSave") {
+              const v = parseFloat(fracDraftManual[key]);
+              if (!isNaN(v) && v >= 0) saveInlineItemAdjustment(memberKey, itemKey, v, "");
+              fracEditing[key] = false; delete fracDraftManual[key];
+            }
+            if (action === "fracCalcSave") {
+              const bunch = parseFloat(fracDraftBunch[key]);
+              const total = parseFloat(fracDraftTotal[key]);
+              if (!isNaN(bunch) && !isNaN(total) && total > 0 && bunch <= total) {
+                boxTotalCache[itemKey] = total;
+                saveInlineItemAdjustment(memberKey, itemKey, bunch / total, `净重${formatQty(bunch)}g/总重${formatQty(total)}g`);
+              }
+              fracEditing[key] = false; delete fracDraftBunch[key]; delete fracDraftTotal[key];
+            }
+            render();
+          });
+          return;
+        }
+        if (el.tagName === "INPUT") {
+          el.addEventListener("input", () => {
+            const memberKey = el.dataset.member;
+            const itemKey = el.dataset.item;
+            const key = inlineKey(memberKey, itemKey);
+            if (action === "pieceInput") weightDraftPieces[key] = el.value;
+            else if (action === "weightPieceInput") weightDraftPieces[key] = el.value;
+            else if (action === "weightInput") weightDraftGrams[key] = el.value;
+            else if (action === "fracManualInput") fracDraftManual[key] = el.value;
+            else if (action === "fracBunchInput") fracDraftBunch[key] = el.value;
+            else if (action === "fracTotalInput") fracDraftTotal[key] = el.value;
+            else return;
+            refreshInlineArea(memberKey, itemKey, el);
+          });
+        }
+      });
+    }
+
+    // Patches just one item's inline-editor container after a keystroke —
+    // deliberately not a full render(), which would tear down and recreate
+    // every input on the page (including whichever one the person is
+    // actively typing in) and throw focus/cursor position away. Restores
+    // focus and cursor position to the same input afterward, and rebinds
+    // listeners on the freshly-created nodes (innerHTML replacement wipes
+    // whatever listeners the old ones had).
+    function refreshInlineArea(memberKey, itemKey, focusedEl) {
+      const container = document.getElementById(`ie-${inlineKey(memberKey, itemKey)}`);
+      if (!container) return;
+      const focusedAction = focusedEl ? focusedEl.dataset.action : null;
+      const selStart = focusedEl ? focusedEl.selectionStart : null;
+      const selEnd = focusedEl ? focusedEl.selectionEnd : null;
+      container.innerHTML = renderInlineEditorInner(memberKey, itemKey);
+      bindInlineEditorArea(container);
+      if (focusedAction) {
+        const toFocus = container.querySelector(`[data-action="${focusedAction}"]`);
+        if (toFocus) {
+          toFocus.focus();
+          if (selStart != null && toFocus.setSelectionRange) {
+            try { toFocus.setSelectionRange(selStart, selEnd); } catch (e) { /* input type doesn't support it — fine to skip */ }
+          }
+        }
+      }
+    }
+
+
     // Fills {placeholders} in a MESSAGE_TEMPLATE string with values. Missing
     // keys become "" rather than throwing, so a template file that's missing
     // a field degrades gracefully instead of breaking the whole message.
@@ -961,21 +1424,16 @@
       return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ""));
     }
 
-    // Money for the copy-message, trimmed of trailing zeros, with a "$"
-    // prefix (e.g. "$16", "$6.7"). The minus sign (for negative adjustment
-    // amounts) is placed before the "$", not after it — "-$6.5", not "$-6.5"
-    // — since callers that prepend their own "+"/"-" sign (see
-    // buildMemberMessage's adjustment loop) rely on formatAmt() itself
-    // supplying "-" only when the number is already negative.
+    // Money for the copy-message, trimmed of trailing zeros and with no "$" —
+    // matches how this group already writes these messages by hand (e.g.
+    // "16", "6.7", not "$16.00", "$6.70").
     function formatAmt(x) {
       // Number(x) first: x is normally already a real number here, but this
       // is cheap insurance against a stray string sneaking in (`x.toFixed`
       // doesn't exist on strings and would throw) — see the matching note on
       // formatQty() below, which is at more direct risk since its input
       // often comes straight from hand-authored data-<date>.json.
-      const n = Number(Number(x).toFixed(2));
-      const sign = n < 0 ? "-" : "";
-      return `${sign}$${Math.abs(n)}`;
+      return Number(Number(x).toFixed(2)).toString();
     }
 
     // The "actual weight" note for one member's item, if one was recorded —
@@ -1158,6 +1616,7 @@
           selectedProductOverlay = null;
           productSearchQuery = "";
           openAdjustFormFor = null;
+          resetInlineEdits();
           showBulkPanel = false;
           bulkError = "";
           bulkDraft = "";
@@ -1316,14 +1775,7 @@
       const note = (adjDraft.note || "").trim();
       let memberName = memberKey;
       if (isWalkin) {
-        // People often copy the buyer's name straight out of a WeChat message
-        // where it was written as "@某某" (a mention), and paste that whole
-        // thing into this field. A leading "@" is mention syntax, never part
-        // of an actual display name, so strip it here — otherwise it doubles
-        // up with the "@{name}" greeting template later and the payment
-        // message reads "@@某某". This is not the same as trimming/normalizing
-        // real names (emoji, kana, etc. in the name are left untouched).
-        memberName = (adjDraft.name || "").trim().replace(/^@+/, "");
+        memberName = (adjDraft.name || "").trim();
         if (!memberName) { adjFormError = "请填写买家姓名"; render(); return; }
       }
       let entry;
@@ -1580,7 +2032,8 @@
                 }
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
-                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>`;
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span>${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>
+                  ${editMode && !roundLocked ? renderInlineEditorFor(m.name, k) : ""}`;
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
               <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
@@ -1661,7 +2114,8 @@
 
         ${editMode && !roundLocked && showUnitsPanel ? renderUnitsPanel() : ""}
 
-        <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。（${APP_VERSION}）</p>
+        <p class="footNote">付款状态与调整记录均实时同步给所有打开此链接的人。新增团购请在 manifest.json 中添加条目。</p>
+        <p class="footNote" style="margin-top:-4px">v${APP_VERSION}</p>
 
         ${selectedProductOverlay && DATA.products[selectedProductOverlay] ? renderProductOverlay(selectedProductOverlay, members) : ""}
 
@@ -1759,6 +2213,8 @@
           deleteAdjustment(GROUP_BUYS[activeIndex].date, el.dataset.id);
         });
       });
+      bindInlineEditorArea(document);
+
       document.querySelectorAll('input[name="adjType"]').forEach(el => {
         el.addEventListener("change", () => { adjFormType = el.value; render(); });
       });
