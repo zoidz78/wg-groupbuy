@@ -64,6 +64,16 @@
     .flavorGrid { max-width: 460px; }
   }
 
+  .langPillWrap { display: flex; justify-content: center; margin-bottom: 10px; }
+  .langPill {
+    display: inline-flex; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--paper); padding: 2px; gap: 2px;
+  }
+  .langOption {
+    font-size: 12px; padding: 5px 14px; border-radius: 999px; color: var(--muted);
+    cursor: pointer; user-select: none;
+  }
+  .langOption.active { background: var(--ink); color: var(--paper); }
   .shopHead { text-align: center; margin-bottom: 18px; }
   .debugBanner {
     background: #222; color: #f88; font-family: "SF Mono", Menlo, Consolas, monospace;
@@ -372,7 +382,7 @@
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
   .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
-  .sortCheck:focus-visible {
+  .sortCheck:focus-visible, .langOption:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -471,7 +481,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.6.1";
+    const APP_VERSION = "1.7.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -556,6 +566,165 @@
     let showPinInput = false;
     let pinError = "";
     let pinDraft = "";
+
+    // UI chrome language — controls, buttons, labels, section titles. Never
+    // affects data: member names, product names/labels, and the WeChat
+    // message templates (message-template.json) always stay Mandarin
+    // regardless of this setting, since those are read by buyers, not the
+    // admin using this dashboard. Persisted per-device, same pattern as
+    // editUnlocked above — this is a personal display preference, not
+    // something that needs to sync across everyone with the link.
+    let uiLang = "zh";
+    try { uiLang = localStorage.getItem("wg_ui_lang") || "zh"; } catch (e) {}
+
+    // UI-chrome string table. Only covers controls/buttons/labels/section
+    // titles/status text — never member names, product labels, or anything
+    // from message-template.json. Look up with t("key"); an unknown key
+    // falls back to itself so a typo'd key is visibly wrong rather than
+    // silently blank.
+    const UI_TEXT = {
+      langToggleZh: { zh: "中文", en: "中文" },
+      langToggleEn: { zh: "English", en: "English" },
+      tabAll: { zh: "全部", en: "All" },
+      tabUnpaid: { zh: "未付款", en: "Unpaid" },
+      tabPaid: { zh: "已付款", en: "Paid" },
+      memberSearchPlaceholder: { zh: "按姓名搜索会员", en: "Search by name" },
+      unitFilterAll: { zh: "全部地址", en: "All addresses" },
+      statParticipants: { zh: "参团人数", en: "Participants" },
+      statFiltered: { zh: "筛选出", en: "filtered" },
+      statPeopleUnit: { zh: "人", en: "" },
+      statOrderTotal: { zh: "订单总额", en: "Order total" },
+      statCollected: { zh: "已收款", en: "Collected" },
+      statOutstanding: { zh: "未收款", en: "Outstanding" },
+      statPacked: { zh: "已打包", en: "Packed" },
+      progressCollectedWord: { zh: "已收", en: "Paid" },
+      progressPeopleUnit: { zh: "人", en: "" },
+      originalTotalNote: { zh: "原始订单总额", en: "Original order total" },
+      includesAdjustments: { zh: "已含调整", en: "incl. adjustments" },
+      payBtnOn: { zh: "已付款 ✓", en: "Paid ✓" },
+      payBtnOff: { zh: "标记已付款", en: "Mark paid" },
+      packBtnOn: { zh: "已打包 ✓", en: "Packed ✓" },
+      packBtnOff: { zh: "打包", en: "Pack" },
+      walkinTag: { zh: "现场加购", en: "Walk-in" },
+      unverifiedTag: { zh: "缺失/待确认", en: "Missing/unverified" },
+      undoBtn: { zh: "撤销", en: "Undo" },
+      saveBtn: { zh: "保存", en: "Save" },
+      cancelBtn: { zh: "取消", en: "Cancel" },
+      shortageBtn: { zh: "缺货", en: "Shortage" },
+      shortageZeroGrams: { zh: "缺货（0g）", en: "Shortage (0g)" },
+      shortageZeroPieces: { zh: "缺货（0颗）", en: "Shortage (0 pcs)" },
+      actualGramsBtn: { zh: "实际到货克数", en: "Enter actual weight" },
+      actualPiecesBtn: { zh: "实际到货颗数", en: "Enter actual pieces" },
+      gramsInputPlaceholder: { zh: "实际到手重量（克）", en: "Actual weight received (g)" },
+      piecesInputPlaceholder: { zh: "实收颗数", en: "Pieces received" },
+      changeRatioBtn: { zh: "改比例", en: "Change ratio" },
+      bunchWeightPlaceholder: { zh: "这份净重（克）", en: "This portion's weight (g)" },
+      boxWeightPlaceholder: { zh: "全箱总重（克）", en: "Total box weight (g)" },
+      newRatioPlaceholder: { zh: "新比例，例如 0.5", en: "New ratio, e.g. 0.5" },
+      switchToWeightCalc: { zh: "改用净重计算 →", en: "Switch to weight calc →" },
+      switchToManualRatio: { zh: "改用直接输入比例 →", en: "Switch to manual ratio →" },
+      switchToPieceCount: { zh: "没有秤？改用数颗数", en: "No scale? Count pieces instead" },
+      switchToGrams: { zh: "← 改用填克数", en: "← Switch to weight entry" },
+      productLookupTitle: { zh: "商品查询 — 备货清单 & 认购明细", en: "Product lookup — stocking list & orders" },
+      productSearchPlaceholder: { zh: "输入商品名称关键字搜索，例如：虾", en: "Type a product name, e.g. shrimp" },
+      noOrdersYet: { zh: "暂无人认购", en: "No orders yet" },
+      subtotal: { zh: "小计", en: "Subtotal" },
+      grandTotalLabel: { zh: "合计", en: "Total" },
+      unconfirmedPrice: { zh: "待确认", en: "Unconfirmed" },
+      shortageCardTitle: { zh: "缺货/退货明细（供索赔）", en: "Shortage/return summary (for refund claims)" },
+      shortageCardNote: {
+        zh: "本场所有向下调整的汇总——按商品合计短缺数量与应退金额（只统计短缺，多发/加购不冲抵）。",
+        en: "All downward corrections this round, totaled by product (shortages only — extras/walk-ins never offset a real shortage)."
+      },
+      shortLabel: { zh: "短缺", en: "Short" },
+      refundTotal: { zh: "应退合计", en: "Total refund owed" },
+      updatedByAdjustments: { zh: "已按调整记录更新（含短缺/退款/现场加购）", en: "Updated per adjustment records (incl. shortages/refunds/walk-ins)" },
+      refreshBtn: { zh: "🔄 刷新", en: "🔄 Refresh" },
+      exportReportBtn: { zh: "🖨️ 导出报告（PDF/打印）", en: "🖨️ Export report (PDF/print)" },
+      unlockBtn: { zh: "🔓 解锁", en: "🔓 Unlock" },
+      cancelUnlockBtn: { zh: "取消解锁", en: "Cancel unlock" },
+      unitsPanelBtn: { zh: "🏠 门牌管理", en: "🏠 Address directory" },
+      collapseUnitsBtn: { zh: "收起门牌管理", en: "Collapse address directory" },
+      unitsPanelTitle: { zh: "门牌管理（楼栋/门牌号）", en: "Address directory (block/unit)" },
+      adjustBtn: { zh: "+ 调整", en: "+ Adjustment" },
+      cancelAdjustBtn: { zh: "取消调整", en: "Cancel adjustment" },
+      adjTypeItem: { zh: "品项数量变化", en: "Item quantity change" },
+      adjTypeCredit: { zh: "退款/补款（固定金额）", en: "Refund/charge (fixed amount)" },
+      adjTypeWeight: { zh: "实际到手重量（仅备注，不影响金额）", en: "Actual weight received (note only, doesn't affect money)" },
+      walkinNamePlaceholder: { zh: "买家姓名（现场加购、原本不在名单里的人）", en: "Buyer name (walk-in, not on the original list)" },
+      adjNotePlaceholder: { zh: "备注，例如：到货少一份 / 现场加购", en: "Note, e.g. one short / walk-in add" },
+      copiedCheck: { zh: "已复制 ✓", en: "Copied ✓" },
+      copyAnnounceBtn: { zh: "📢 复制到货通知（@全员）", en: "📢 Copy arrival announcement (@everyone)" },
+      copyPaymentMsgBtn: { zh: "💬 复制付款消息", en: "💬 Copy payment message" },
+      editModeOn: { zh: "✅ 完成编辑", en: "✅ Done editing" },
+      editModeOff: { zh: "✏️ 编辑调整", en: "✏️ Edit adjustments" },
+      passwordError: { zh: "密码错误", en: "Incorrect password" },
+      cleanupBtn: { zh: "点击清理", en: "Click to clean up" },
+      unlockToClean: { zh: "解锁编辑模式后可以清理。", en: "Unlock edit mode to clean these up." },
+      bulkImportOn: { zh: "收起批量导入", en: "Collapse bulk import" },
+      bulkImportOff: { zh: "📋 批量导入调整", en: "📋 Bulk import adjustments" },
+      bulkImportTitle: { zh: "批量导入调整（JSON）", en: "Bulk import adjustments (JSON)" },
+      // Fragments used to compose the weight/piece/ratio calculators' live
+      // preview and error text (see previewPieceCalc/previewGramsCalc/
+      // previewFracCalc/errorPiecesExceed/errorBunchExceed below) — kept as
+      // small pieces rather than whole sentences since they're assembled
+      // around computed numbers, but each language's word order is close
+      // enough that swapping these fragments in place reads naturally in
+      // both.
+      noChangeWord: { zh: "无变化", en: "no change" },
+      lessWord: { zh: "少", en: "−" },
+      moreWord: { zh: "多", en: "+" },
+      receivedPrefix: { zh: "实收", en: "Received " },
+      roundedDownTo: { zh: "按100g向下取整为", en: "rounded down to " },
+      originalPrefix: { zh: "原", en: "orig. " },
+      diffPrefix: { zh: "差", en: "diff " },
+      originalRatioPrefix: { zh: "原比例", en: "orig. ratio " },
+      piecesUnit: { zh: "粒", en: " pcs" },
+      piecesExceedError: {
+        zh: "⚠️ 实收颗数（{pieces}）比订购的总颗数（{total}）还多，检查一下是不是填错了",
+        en: "⚠️ Pieces received ({pieces}) exceeds the total ordered ({total}) — check for a typo"
+      },
+      bunchExceedError: {
+        zh: "⚠️ 这份净重（{bunch}g）比全箱总重（{total}g）还重，检查一下是不是填反了，或者总重量错了",
+        en: "⚠️ This portion's weight ({bunch}g) exceeds the box total ({total}g) — check if these are swapped, or the total is wrong"
+      },
+    };
+    function t(key) {
+      const entry = UI_TEXT[key];
+      if (!entry) return key;
+      return entry[uiLang] || entry.zh;
+    }
+    // Fills {placeholders} in a UI_TEXT template string with values —
+    // used for the two validation errors above, which need the same
+    // numbers embedded regardless of language.
+    function tFmt(key, values) {
+      let s = t(key);
+      Object.entries(values).forEach(([k, v]) => { s = s.replace(`{${k}}`, v); });
+      return s;
+    }
+    // "X/Y粒 → Zkg（少0.3kg ≈ -$3.00）" style preview, shared by the plain
+    // count-with-pieces editor and the weight-editor's piece-count
+    // alternative — same formula, same wording, just called from two
+    // places (see renderInlineCountWithPieces / renderInlineWeight).
+    function previewPieceCalc(pieces, totalPieces, newQty, unit, delta, amt) {
+      const deltaPart = delta === 0 ? t("noChangeWord") : `${t(delta < 0 ? "lessWord" : "moreWord")}${formatQty(Math.abs(delta))}${unit}`;
+      const amtPart = amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`;
+      return `${formatQty(pieces)}/${formatQty(totalPieces)}${t("piecesUnit")} → ${formatQty(newQty)}${unit}（${deltaPart}${amtPart}）`;
+    }
+    // "实收1230g → 按100g向下取整为1200g = 1.2kg（原1kg，差+0.2kg ≈ +$2.00）"
+    // style preview — shared by the old form's gramsHelper and the new
+    // inline weight editor, so both stay wired to the same string.
+    function previewGramsCalc(grams, rounded, newQty, unit, current, delta, amtText) {
+      const diffSign = delta >= 0 ? "+" : "";
+      return `${t("receivedPrefix")}${formatQty(grams)}g → ${t("roundedDownTo")}${formatQty(rounded)}g = ${formatQty(newQty)}${unit}（${t("originalPrefix")}${formatQty(current)}${unit}，${t("diffPrefix")}${diffSign}${formatQty(delta)}${unit}${amtText}）`;
+    }
+    // "800g ÷ 2400g = 33.3% → 0.3333（原比例0.5，少0.1667 ≈ -$4.13）" style
+    // preview for the box-share proportional calculator.
+    function previewFracCalc(bunch, total, frac, current, delta, amt) {
+      const deltaPart = delta === 0 ? t("noChangeWord") : `${t(delta < 0 ? "lessWord" : "moreWord")}${formatQty(Math.abs(delta))}`;
+      const amtPart = amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`;
+      return `${formatQty(bunch)}g ÷ ${formatQty(total)}g = ${(frac * 100).toFixed(1)}% → ${formatQty(frac)}（${t("originalRatioPrefix")}${formatQty(current)}，${deltaPart}${amtPart}）`;
+    }
     let openAdjustFormFor = null; // a member name, "__walkin__", or null
     let adjFormType = "item";
     let adjFormError = "";
@@ -933,7 +1102,7 @@
         showUnlockPrompt = false;
         unlockPinDraft = "";
       } else {
-        unlockPinError = "密码错误";
+        unlockPinError = t("passwordError");
       }
       render();
     }
@@ -1195,7 +1364,7 @@
           ${dirty ? `
             <div class="saveBtn" role="button" tabindex="0" data-action="stepSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓</div>
             <div class="cancelBtn" role="button" tabindex="0" data-action="stepCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕</div>
-          ` : `<div class="voidBtn" role="button" tabindex="0" data-action="stepShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">缺货</div>`}
+          ` : `<div class="voidBtn" role="button" tabindex="0" data-action="stepShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("shortageBtn")}</div>`}
         </div>
       `;
     }
@@ -1213,7 +1382,7 @@
         return `
           <div class="inlineEditor">
             ${renderInlineCountStepper(memberKey, itemKey)}
-            <div class="voidBtn" role="button" tabindex="0" data-action="pieceOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">实际到货颗数</div>
+            <div class="voidBtn" role="button" tabindex="0" data-action="pieceOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("actualPiecesBtn")}</div>
           </div>
         `;
       }
@@ -1222,21 +1391,21 @@
       let preview = "", error = "", ready = false;
       if (!isNaN(pieces) && pieces >= 0) {
         if (pieces > totalPieces) {
-          error = `⚠️ 实收颗数（${formatQty(pieces)}）比订购的总颗数（${formatQty(totalPieces)}）还多，检查一下是不是填错了`;
+          error = tFmt("piecesExceedError", { pieces: formatQty(pieces), total: formatQty(totalPieces) });
         } else {
           const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
           const delta = Math.round((newQty - current) * 10000) / 10000;
           const amt = info && info.price != null ? delta * info.price : null;
-          preview = `${formatQty(pieces)}/${formatQty(totalPieces)}粒 → ${formatQty(newQty)}${unitOf(itemKey)}（${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta)) + unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+          preview = previewPieceCalc(pieces, totalPieces, newQty, unitOf(itemKey), delta, amt);
           ready = true;
         }
       }
       return `
         <div class="inlineEditor">
-          <input type="number" class="numInput" id="pieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="pieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
-          <div class="voidBtn" role="button" tabindex="0" data-action="pieceShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">缺货（0颗）</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="pieceCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="pieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
+          <input type="number" class="numInput" id="pieceInput-${escapeHtml(key)}" placeholder="${t('piecesInputPlaceholder')}（共${formatQty(totalPieces)}）" value="${escapeHtml(draft)}" data-action="pieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="pieceShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">${t("shortageZeroPieces")}</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="pieceCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ ${t("cancelBtn")}</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="pieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ ${t("saveBtn")}</div>` : ""}
         </div>
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
         ${error ? `<div class="inlineError">${error}</div>` : ""}
@@ -1255,7 +1424,7 @@
       const piecesPerUnit = piecesPerUnitFor(itemKey);
       const current = currentQtyFor(memberKey, itemKey);
       if (!weightEditing[key]) {
-        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">实际到货克数</div></div>`;
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("actualGramsBtn")}</div></div>`;
       }
       if (weightUsePieces[key] && piecesPerUnit) {
         const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
@@ -1264,22 +1433,22 @@
         let preview = "", error = "", ready = false;
         if (!isNaN(pieces) && pieces >= 0) {
           if (pieces > totalPieces) {
-            error = `⚠️ 实收颗数（${formatQty(pieces)}）比订购的总颗数（${formatQty(totalPieces)}）还多，检查一下是不是填错了`;
+            error = tFmt("piecesExceedError", { pieces: formatQty(pieces), total: formatQty(totalPieces) });
           } else {
             const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
             const delta = Math.round((newQty - current) * 10000) / 10000;
             const amt = info && info.price != null ? delta * info.price : null;
-            preview = `${formatQty(pieces)}/${formatQty(totalPieces)}粒 → ${formatQty(newQty)}${unitOf(itemKey)}（${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta)) + unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+            preview = previewPieceCalc(pieces, totalPieces, newQty, unitOf(itemKey), delta, amt);
             ready = true;
           }
         }
         return `
           <div class="inlineEditor">
-            <input type="number" class="numInput" id="wPieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="weightPieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
-            <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
-            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightPieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
+            <input type="number" class="numInput" id="wPieceInput-${escapeHtml(key)}" placeholder="${t('piecesInputPlaceholder')}（共${formatQty(totalPieces)}）" value="${escapeHtml(draft)}" data-action="weightPieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+            <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ ${t("cancelBtn")}</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightPieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ ${t("saveBtn")}</div>` : ""}
           </div>
-          <div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToGrams" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">← 改用填克数</div></div>
+          <div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToGrams" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("switchToGrams")}</div></div>
           ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
           ${error ? `<div class="inlineError">${error}</div>` : ""}
         `;
@@ -1292,17 +1461,18 @@
         const newQty = rounded / perUnit;
         const delta = Math.round((newQty - current) * 10000) / 10000;
         const amt = info && info.price != null ? delta * info.price : null;
-        preview = `实收${formatQty(grams)}g → 按100g向下取整为${formatQty(rounded)}g = ${formatQty(newQty)}${unitOf(itemKey)}（原${formatQty(current)}${unitOf(itemKey)}，差${delta >= 0 ? "+" : ""}${formatQty(delta)}${unitOf(itemKey)}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+        const amtText = amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`;
+        preview = previewGramsCalc(grams, rounded, newQty, unitOf(itemKey), current, delta, amtText);
         ready = true;
       }
       return `
         <div class="inlineEditor">
-          <input type="number" class="numInput" id="gramsInput-${escapeHtml(key)}" placeholder="实际到手重量（克）" value="${escapeHtml(draft)}" data-action="weightInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
-          <div class="voidBtn" role="button" tabindex="0" data-action="weightShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">缺货（0g）</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
+          <input type="number" class="numInput" id="gramsInput-${escapeHtml(key)}" placeholder="${t('gramsInputPlaceholder')}" value="${escapeHtml(draft)}" data-action="weightInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="weightShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">${t("shortageZeroGrams")}</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ ${t("cancelBtn")}</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ ${t("saveBtn")}</div>` : ""}
         </div>
-        ${piecesPerUnit ? `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToPieces" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">没有秤？改用数颗数（共${formatQty(Math.round(current * piecesPerUnit * 10000) / 10000)}粒）→</div></div>` : ""}
+        ${piecesPerUnit ? `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToPieces" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("switchToPieceCount")}（${formatQty(Math.round(current * piecesPerUnit * 10000) / 10000)}）→</div></div>` : ""}
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
       `;
     }
@@ -1317,17 +1487,17 @@
       const info = DATA.products[itemKey];
       const current = currentQtyFor(memberKey, itemKey);
       if (!fracEditing[key]) {
-        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="fracOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改比例</div></div>`;
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="fracOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("changeRatioBtn")}</div></div>`;
       }
       if (fracCalcMode[key] === "manual") {
         const draft = fracDraftManual[key] || "";
         const ready = draft !== "" && !isNaN(parseFloat(draft));
         return `
           <div class="inlineEditor">
-            <input type="number" step="any" class="numInput" id="fracManual-${escapeHtml(key)}" placeholder="新比例，例如 0.5" value="${escapeHtml(draft)}" data-action="fracManualInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
-            <div class="voidBtn" role="button" tabindex="0" data-action="fracToWeight" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改用净重计算 →</div>
-            <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
-            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracManualSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
+            <input type="number" step="any" class="numInput" id="fracManual-${escapeHtml(key)}" placeholder="${t('newRatioPlaceholder')}" value="${escapeHtml(draft)}" data-action="fracManualInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+            <div class="voidBtn" role="button" tabindex="0" data-action="fracToWeight" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("switchToWeightCalc")}</div>
+            <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ ${t("cancelBtn")}</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracManualSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ ${t("saveBtn")}</div>` : ""}
           </div>
         `;
       }
@@ -1340,24 +1510,24 @@
       let preview = "", error = "", ready = false;
       if (!isNaN(bunch) && !isNaN(total) && total > 0 && bunch >= 0) {
         if (bunch > total) {
-          error = `⚠️ 这份净重（${formatQty(bunch)}g）比全箱总重（${formatQty(total)}g）还重，检查一下是不是填反了，或者总重量错了`;
+          error = tFmt("bunchExceedError", { bunch: formatQty(bunch), total: formatQty(total) });
         } else {
           const frac = Math.round((bunch / total) * 10000) / 10000;
           const delta = Math.round((frac - current) * 10000) / 10000;
           const amt = info && info.price != null ? delta * info.price : null;
-          preview = `${formatQty(bunch)}g ÷ ${formatQty(total)}g = ${(frac * 100).toFixed(1)}% → ${formatQty(frac)}（原比例${formatQty(current)}，${delta === 0 ? "无变化" : (delta < 0 ? "少" : "多") + formatQty(Math.abs(delta))}${amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`}）`;
+          preview = previewFracCalc(bunch, total, frac, current, delta, amt);
           ready = true;
         }
       }
       return `
         <div class="inlineEditor">
-          <input type="number" step="any" class="numInput" id="fracBunch-${escapeHtml(key)}" placeholder="这份净重（克）" value="${escapeHtml(bunchDraft)}" data-action="fracBunchInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
-          <input type="number" step="any" class="numInput" id="fracTotal-${escapeHtml(key)}" placeholder="全箱总重（克）" value="${escapeHtml(totalDraft)}" data-action="fracTotalInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <input type="number" step="any" class="numInput" id="fracBunch-${escapeHtml(key)}" placeholder="${t('bunchWeightPlaceholder')}" value="${escapeHtml(bunchDraft)}" data-action="fracBunchInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <input type="number" step="any" class="numInput" id="fracTotal-${escapeHtml(key)}" placeholder="${t('boxWeightPlaceholder')}" value="${escapeHtml(totalDraft)}" data-action="fracTotalInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
         </div>
         <div class="inlineEditor">
-          <div class="voidBtn" role="button" tabindex="0" data-action="fracToManual" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改用直接输入比例 →</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracCalcSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
+          <div class="voidBtn" role="button" tabindex="0" data-action="fracToManual" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">${t("switchToManualRatio")}</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ ${t("cancelBtn")}</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracCalcSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ ${t("saveBtn")}</div>` : ""}
         </div>
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
         ${error ? `<div class="inlineError">${error}</div>` : ""}
@@ -1769,7 +1939,7 @@
         return `
           <div class="itemLine adjustment">
             <span>${label}</span>
-            <span class="itemAmt">${editMode ? `<span class="adjUndo" role="button" tabindex="0" data-id="${a.id}">撤销</span>` : ""}</span>
+            <span class="itemAmt">${editMode ? `<span class="adjUndo" role="button" tabindex="0" data-id="${a.id}">${t("undoBtn")}</span>` : ""}</span>
           </div>
         `;
       }
@@ -1785,7 +1955,7 @@
       return `
         <div class="itemLine adjustment">
           <span>${label}</span>
-          <span class="itemAmt">${sign}$${a.amountDelta.toFixed(2)}${editMode ? ` <span class="adjUndo" role="button" tabindex="0" data-id="${a.id}">撤销</span>` : ""}</span>
+          <span class="itemAmt">${sign}$${a.amountDelta.toFixed(2)}${editMode ? ` <span class="adjUndo" role="button" tabindex="0" data-id="${a.id}">${t("undoBtn")}</span>` : ""}</span>
         </div>
       `;
     }
@@ -1797,11 +1967,11 @@
       const selectedItemKey = adjDraft.itemKey || productKeys[0] || "";
       return `
         <div class="adjForm">
-          ${isWalkin ? `<input type="text" id="adjWalkinName" placeholder="买家姓名（现场加购、原本不在名单里的人）" value="${escapeHtml(adjDraft.name)}">` : ""}
+          ${isWalkin ? `<input type="text" id="adjWalkinName" placeholder="${t('walkinNamePlaceholder')}" value="${escapeHtml(adjDraft.name)}">` : ""}
           <div class="adjFormRow">
-            <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> 品项数量变化</label>
-            <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> 退款/补款（固定金额）</label>
-            <label><input type="radio" name="adjType" value="weight" ${adjFormType === "weight" ? "checked" : ""}> 实际到手重量（仅备注，不影响金额）</label>
+            <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> ${t("adjTypeItem")}</label>
+            <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> ${t("adjTypeCredit")}</label>
+            <label><input type="radio" name="adjType" value="weight" ${adjFormType === "weight" ? "checked" : ""}> ${t("adjTypeWeight")}</label>
           </div>
           ${adjFormType === "item" ? `
             <select id="adjItemKey">
@@ -1826,7 +1996,7 @@
           ` : `
             <input type="number" id="adjAmount" placeholder="金额变化，例如 -6.5（退款）或 3（补款）" step="any" value="${escapeHtml(adjDraft.amount)}">
           `}
-          <input type="text" id="adjNote" placeholder="备注，例如：到货少一份 / 现场加购" value="${escapeHtml(adjDraft.note)}">
+          <input type="text" id="adjNote" placeholder="${t('adjNotePlaceholder')}" value="${escapeHtml(adjDraft.note)}">
           ${adjFormError ? `<div class="adjError">${adjFormError}</div>` : ""}
           <div class="adjFormBtns">
             <div class="toolBtn" id="adjSaveBtn" role="button" tabindex="0" data-member="${safeKey}">保存</div>
@@ -1873,7 +2043,7 @@
       const amount = info && info.price != null ? info.price * delta : null;
       const deltaSign = delta >= 0 ? "+" : "";
       const amtText = amount == null ? "" : ` ≈ ${amount >= 0 ? "+" : "-"}$${Math.abs(amount).toFixed(2)}`;
-      adjGramsPreview = `实收${formatQty(grams)}g → 按100g向下取整为${formatQty(rounded)}g = ${formatQty(correctQty)}${unit}（原${formatQty(currentQty)}${unit}，差${deltaSign}${formatQty(delta)}${unit}${amtText}）`;
+      adjGramsPreview = previewGramsCalc(grams, rounded, correctQty, unit, currentQty, delta, amtText);
       if (previewEl) { previewEl.textContent = adjGramsPreview; previewEl.hidden = false; }
     }
 
@@ -1949,7 +2119,7 @@
       const baseCount = DATA.orders.length; // names before this index had a 接龙 position; see allMemberNamesInOrder
       return `
         <div class="card bulkPanel">
-          <div class="sectionTitle" style="margin-top:0">门牌管理（楼栋/门牌号）</div>
+          <div class="sectionTitle" style="margin-top:0">${t("unitsPanelTitle")}</div>
           <div class="footNote" style="text-align:left;margin-bottom:10px;font-size:11px">
             仅用于组织配送——不会出现在"复制付款消息"或"复制到货通知"里，也不会显示在
             平时的卡片视图上。门牌信息会一直保留给所有团购场次使用，不需要每场重填。
@@ -1978,7 +2148,7 @@
         pinDraft = "";
         try { localStorage.setItem("wg_edit_unlocked", "1"); } catch (e) {}
       } else {
-        pinError = "密码错误";
+        pinError = t("passwordError");
       }
       render();
     }
@@ -2074,11 +2244,17 @@
       const badAdjustments = invalidAdjustmentEntries();
 
       app.innerHTML = `
+        <div class="langPillWrap">
+          <div class="langPill">
+            <span class="langOption${uiLang === "zh" ? " active" : ""}" role="button" tabindex="0" data-lang="zh">${t("langToggleZh")}</span>
+            <span class="langOption${uiLang === "en" ? " active" : ""}" role="button" tabindex="0" data-lang="en">${t("langToggleEn")}</span>
+          </div>
+        </div>
         <div class="shopHead">
           <h1 class="shopName">${DATA.groupName || "团购"}</h1>
         </div>
 
-        <div class="announceBtn${announceCopied ? " copied" : ""}" id="announceBtn" role="button" tabindex="0">${announceCopied ? "已复制 ✓" : "📢 复制到货通知（@全员）"}</div>
+        <div class="announceBtn${announceCopied ? " copied" : ""}" id="announceBtn" role="button" tabindex="0">${announceCopied ? t("copiedCheck") : t("copyAnnounceBtn")}</div>
 
         ${GROUP_BUYS.length > 1 ? `
           <div class="buyTabs" role="tablist">
@@ -2094,18 +2270,18 @@
 
         ${badAdjustments.length > 0 ? `
           <div class="warnBanner">🔧 发现 ${badAdjustments.length} 条调整记录格式有问题，已自动忽略（不影响其他数据显示）。
-            ${editMode ? `<span class="adjUndo" id="cleanupInvalidBtn" role="button" tabindex="0">点击清理</span>` : "解锁编辑模式后可以清理。"}
+            ${editMode ? `<span class="adjUndo" id="cleanupInvalidBtn" role="button" tabindex="0">${t("cleanupBtn")}</span>` : t("unlockToClean")}
           </div>
         ` : ""}
 
         ${roundLocked ? `
-          <div class="warnBanner">🔒 本场已全部付款并锁定——不能标记付款、添加调整或新增买家。如需修改，请点击下方"🔓 解锁"。</div>
+          <div class="warnBanner">🔒 本场已全部付款并锁定——不能标记付款、添加调整或新增买家。如需修改，请点击下方"${t("unlockBtn")}"。</div>
         ` : ""}
 
         <div class="card" style="margin-bottom:10px">
-          <input type="text" class="memberSearchInput" id="memberSearchInput" placeholder="按姓名搜索会员" autocomplete="off" value="${escapeHtml(memberSearchQuery)}" style="margin-bottom:8px">
+          <input type="text" class="memberSearchInput" id="memberSearchInput" placeholder="${t('memberSearchPlaceholder')}" autocomplete="off" value="${escapeHtml(memberSearchQuery)}" style="margin-bottom:8px">
           <select class="unitFilterSelect" id="unitFilterSelect" aria-label="按门牌/地址筛选">
-            <option value="">全部地址</option>
+            <option value="">${t("unitFilterAll")}</option>
             <option value="107" ${unitFilterQuery === "107" ? "selected" : ""}>107</option>
             <option value="109" ${unitFilterQuery === "109" ? "selected" : ""}>109</option>
             <option value="印度小店" ${unitFilterQuery === "印度小店" ? "selected" : ""}>印度小店</option>
@@ -2114,33 +2290,33 @@
         </div>
 
         <div class="ticket">
-          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}${(unitFilterQuery.trim() || memberSearchQuery.trim()) ? ` <span style="font-weight:400;color:var(--muted);font-size:12px">（筛选出 ${visible.length} 人）</span>` : ""}</span></div>
-          <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">${t("statParticipants")}</span><span class="statValue">${members.length}${(unitFilterQuery.trim() || memberSearchQuery.trim()) ? ` <span style="font-weight:400;color:var(--muted);font-size:12px">（${t("statFiltered")} ${visible.length} ${t("statPeopleUnit")}）</span>` : ""}</span></div>
+          <div class="statRow"><span class="statLabel">${t("statOrderTotal")}</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
-            <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
+            <div class="footNote" style="text-align:right;margin-top:-6px">（${t("originalTotalNote")}：$${baseGrandTotal.toFixed(2)}，${t("includesAdjustments")}）</div>
           ` : ""}
-          <div class="statRow"><span class="statLabel">已收款</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
-          <div class="statRow"><span class="statLabel">未收款</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">${t("statCollected")}</span><span class="statValue big green">$${collected.toFixed(2)}</span></div>
+          <div class="statRow"><span class="statLabel">${t("statOutstanding")}</span><span class="statValue red">$${(grandTotal - collected).toFixed(2)}</span></div>
           <div style="padding-bottom:14px">
             <div class="progressTrack"><div class="progressFill" style="width:${grandTotal ? (collected/grandTotal*100) : 0}%"></div></div>
-            <div class="progressLabel">已收 ${paidCount} / ${members.length} 人 · 已打包 ${packedCount} / ${members.length} 人</div>
+            <div class="progressLabel">${t("progressCollectedWord")} ${paidCount} / ${members.length} ${t("progressPeopleUnit")} · ${t("statPacked")} ${packedCount} / ${members.length} ${t("progressPeopleUnit")}</div>
           </div>
         </div>
 
         <div class="tabs" role="tablist">
-          <div class="tab ${filter === "all" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "all" ? "true" : "false"}" data-filter="all">全部</div>
-          <div class="tab ${filter === "unpaid" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "unpaid" ? "true" : "false"}" data-filter="unpaid">未付款</div>
-          <div class="tab ${filter === "paid" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "paid" ? "true" : "false"}" data-filter="paid">已付款</div>
+          <div class="tab ${filter === "all" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "all" ? "true" : "false"}" data-filter="all">${t("tabAll")}</div>
+          <div class="tab ${filter === "unpaid" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "unpaid" ? "true" : "false"}" data-filter="unpaid">${t("tabUnpaid")}</div>
+          <div class="tab ${filter === "paid" ? "active" : ""}" role="tab" tabindex="0" aria-selected="${filter === "paid" ? "true" : "false"}" data-filter="paid">${t("tabPaid")}</div>
         </div>
 
         <div id="rows">
           ${visible.map(m => `
             <div class="row">
               <div class="rowHead">
-                <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${escapeHtml(m.name)}${m.isWalkin ? '<span class="walkinTag">现场加购</span>' : ""}</div>
+                <div class="rowName">${typeof m.id === "number" ? `<span class="serialNum">${m.id + 1}.</span>` : ""}${escapeHtml(m.name)}${m.isWalkin ? `<span class="walkinTag">${t("walkinTag")}</span>` : ""}</div>
                 <div class="rowBtns">
-                  <div class="packBtn ${packedState[m.name] ? "on" : ""}" role="button" tabindex="0" aria-pressed="${packedState[m.name] ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${packedState[m.name] ? "已打包 ✓" : "打包"}</div>
-                  <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? "已付款 ✓" : "标记已付款"}</div>
+                  <div class="packBtn ${packedState[m.name] ? "on" : ""}" role="button" tabindex="0" aria-pressed="${packedState[m.name] ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${packedState[m.name] ? t("packBtnOn") : t("packBtnOff")}</div>
+                  <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? t("payBtnOn") : t("payBtnOff")}</div>
                 </div>
               </div>
               ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
@@ -2163,13 +2339,13 @@
                 const unverified = isUnverified(k);
                 const amtText = unverified ? "待确认" : `$${(info.price * qty).toFixed(2)}`;
                 const isSorted = !!sortedItems[sortKey(m.name, k)];
-                return `<div class="itemLine${unverified ? " unverified" : ""}"><span><span class="sortCheck" role="button" tabindex="0" data-member="${escapeHtml(m.name)}" data-item="${escapeHtml(k)}">${isSorted ? "✅" : "⬜"}</span> ${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span><span class="itemAmt">${amtText}</span></div>
+                return `<div class="itemLine${unverified ? " unverified" : ""}"><span><span class="sortCheck" role="button" tabindex="0" data-member="${escapeHtml(m.name)}" data-item="${escapeHtml(k)}">${isSorted ? "✅" : "⬜"}</span> ${emojiLabel(info)} x${formatQty(qty)}${unitOf(k)}${unverified ? `<span class="unverifiedTag">${t("unverifiedTag")}</span>` : ""}</span><span class="itemAmt">${amtText}</span></div>
                   ${editMode && !roundLocked ? renderInlineEditorFor(m.name, k) : ""}`;
               }).join("")}
               ${adjustmentsForMember(m.name).map(a => adjustmentLineHtml(a)).join("")}
-              <div class="rowTotalLine"><span>合计</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
-              <div class="copyMsgBtn${copiedFor === m.name ? " copied" : ""}" role="button" tabindex="0" data-name="${escapeHtml(m.name)}">${copiedFor === m.name ? "已复制 ✓" : "💬 复制付款消息"}</div>
-              ${editMode && !roundLocked ? `<div class="adjAddBtn" role="button" tabindex="0" aria-expanded="${openAdjustFormFor === m.name ? "true" : "false"}" data-member="${escapeHtml(m.name)}">${openAdjustFormFor === m.name ? "取消调整" : "+ 调整"}</div>` : ""}
+              <div class="rowTotalLine"><span>${t("grandTotalLabel")}</span><span class="rowTotalAmt">$${m.total.toFixed(2)}</span></div>
+              <div class="copyMsgBtn${copiedFor === m.name ? " copied" : ""}" role="button" tabindex="0" data-name="${escapeHtml(m.name)}">${copiedFor === m.name ? t("copiedCheck") : t("copyPaymentMsgBtn")}</div>
+              ${editMode && !roundLocked ? `<div class="adjAddBtn" role="button" tabindex="0" aria-expanded="${openAdjustFormFor === m.name ? "true" : "false"}" data-member="${escapeHtml(m.name)}">${openAdjustFormFor === m.name ? t("cancelAdjustBtn") : t("adjustBtn")}</div>` : ""}
               ${editMode && !roundLocked && openAdjustFormFor === m.name ? renderAdjForm(m.name) : ""}
             </div>
           `).join("")}
@@ -2178,9 +2354,9 @@
         ${editMode && !roundLocked && openAdjustFormFor === "__walkin__" ? `<div class="row">${renderAdjForm("__walkin__")}</div>` : ""}
 
         <div class="card">
-          <div class="sectionTitle">商品查询 — 备货清单 &amp; 认购明细</div>
-          <div class="footNote" style="text-align:left;margin:-6px 0 8px">已按调整记录更新（含短缺/退款/现场加购）</div>
-          <input type="text" class="productSearchInput" id="productSearchInput" placeholder="输入商品名称关键字搜索，例如：虾" autocomplete="off" value="${escapeHtml(productSearchQuery)}">
+          <div class="sectionTitle">${t("productLookupTitle")}</div>
+          <div class="footNote" style="text-align:left;margin:-6px 0 8px">${t("updatedByAdjustments")}</div>
+          <input type="text" class="productSearchInput" id="productSearchInput" placeholder="${t('productSearchPlaceholder')}" autocomplete="off" value="${escapeHtml(productSearchQuery)}">
           <div class="productSearchResults" id="productSearchResults">${renderProductSearchResults(roundProductKeys, productSearchQuery)}</div>
           <select class="productSelect" id="productSelect" aria-label="选择商品查看认购明细">
             <option value=""${selectedProduct ? "" : " selected"}>📋 全部商品（本轮备货清单）</option>
@@ -2202,15 +2378,15 @@
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
 
         <div class="toolbar">
-          <div class="toolBtn" id="refreshBtn" role="button" tabindex="0">🔄 刷新</div>
-          <div class="toolBtn" id="exportReportBtn" role="button" tabindex="0">🖨️ 导出报告（PDF/打印）</div>
+          <div class="toolBtn" id="refreshBtn" role="button" tabindex="0">${t("refreshBtn")}</div>
+          <div class="toolBtn" id="exportReportBtn" role="button" tabindex="0">${t("exportReportBtn")}</div>
           ${roundLocked
-            ? `<div class="toolBtn" id="unlockToggleBtn" role="button" tabindex="0">${showUnlockPrompt ? "取消解锁" : "🔓 解锁"}</div>`
-            : `<div class="toolBtn" id="editToggleBtn" role="button" tabindex="0">${editMode ? "✅ 完成编辑" : "✏️ 编辑调整"}</div>`
+            ? `<div class="toolBtn" id="unlockToggleBtn" role="button" tabindex="0">${showUnlockPrompt ? t("cancelUnlockBtn") : t("unlockBtn")}</div>`
+            : `<div class="toolBtn" id="editToggleBtn" role="button" tabindex="0">${editMode ? t("editModeOn") : t("editModeOff")}</div>`
           }
           ${!roundLocked && editMode ? `<div class="toolBtn" id="addWalkinBtn" role="button" tabindex="0">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
-          ${!roundLocked && editMode ? `<div class="toolBtn" id="bulkToggleBtn" role="button" tabindex="0">${showBulkPanel ? "收起批量导入" : "📋 批量导入调整"}</div>` : ""}
-          ${!roundLocked && editMode ? `<div class="toolBtn" id="unitsToggleBtn" role="button" tabindex="0">${showUnitsPanel ? "收起门牌管理" : "🏠 门牌管理"}</div>` : ""}
+          ${!roundLocked && editMode ? `<div class="toolBtn" id="bulkToggleBtn" role="button" tabindex="0">${showBulkPanel ? t("bulkImportOn") : t("bulkImportOff")}</div>` : ""}
+          ${!roundLocked && editMode ? `<div class="toolBtn" id="unitsToggleBtn" role="button" tabindex="0">${showUnitsPanel ? t("collapseUnitsBtn") : t("unitsPanelBtn")}</div>` : ""}
         </div>
 
         ${showPinInput && !editUnlocked ? `
@@ -2231,7 +2407,7 @@
 
         ${editMode && !roundLocked && showBulkPanel ? `
           <div class="card bulkPanel">
-            <div class="sectionTitle" style="margin-top:0">批量导入调整（JSON）</div>
+            <div class="sectionTitle" style="margin-top:0">${t("bulkImportTitle")}</div>
             <div class="footNote" style="text-align:left;margin-bottom:8px;font-size:11px">
               粘贴一个调整条目数组，例如（把这段发给 Claude，让它根据送货情况帮你生成）：<br>
               [{"member":"Peter","type":"item","itemKey":"sig","qtyDelta":-1,"amountDelta":-6.5,"note":"到货少一份"},<br>
@@ -2274,6 +2450,13 @@
       document.querySelectorAll(".sortCheck").forEach(el => {
         el.addEventListener("click", () => {
           toggleSortedItem(GROUP_BUYS[activeIndex].date, el.dataset.member, el.dataset.item);
+        });
+      });
+      document.querySelectorAll(".langOption").forEach(el => {
+        el.addEventListener("click", () => {
+          uiLang = el.dataset.lang;
+          try { localStorage.setItem("wg_ui_lang", uiLang); } catch (e) { /* fine to skip */ }
+          render();
         });
       });
       const productSelect = document.getElementById("productSelect");
@@ -2649,9 +2832,9 @@
             // product, not three.
             if (isUnverified(k)) {
               return `
-                <div role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} <span class="unverifiedTag">缺失/待确认</span></div>
+                <div role="button" tabindex="0" data-key="${k}">${emojiLabel(info)} <span class="unverifiedTag">${t("unverifiedTag")}</span></div>
                 <div class="flavorQty" style="color:var(--warn-text)" data-key="${k}">${formatQty(flavorTotals[k])}${unitOf(k)}</div>
-                <div class="flavorAmt" style="color:var(--warn-text)" data-key="${k}">待确认</div>
+                <div class="flavorAmt" style="color:var(--warn-text)" data-key="${k}">${t("unconfirmedPrice")}</div>
               `;
             }
             return `
@@ -2662,7 +2845,7 @@
           }).join("")}
         </div>
         <div class="grandTotalBlock">
-          <div class="grandTotalRow"><span>合计</span><span class="grandTotalAmt">$${grandTotal.toFixed(2)}</span></div>
+          <div class="grandTotalRow"><span>${t("grandTotalLabel")}</span><span class="grandTotalAmt">$${grandTotal.toFixed(2)}</span></div>
           <div class="grandTotalQty">${formatUnitTotals(grandUnitTotals)}</div>
         </div>
       `;
@@ -2688,13 +2871,13 @@
       const subtotal = unverified ? null : totalQty * info.price;
       return `
         <div class="productDetailHeader">
-          <span>${emojiLabel(info)}${unverified ? '<span class="unverifiedTag">缺失/待确认</span>' : ""}</span>
+          <span>${emojiLabel(info)}${unverified ? `<span class="unverifiedTag">${t("unverifiedTag")}</span>` : ""}</span>
           <span>${formatQty(totalQty)}${unit}</span>
         </div>
-        ${buyers.length === 0 ? `<div class="emptyNote">暂无人认购</div>` : buyers.map(({ m, qty }) => `
+        ${buyers.length === 0 ? `<div class="emptyNote">${t("noOrdersYet")}</div>` : buyers.map(({ m, qty }) => `
           <div class="itemLine"><span>${escapeHtml(m.name)}</span><span class="itemAmt">x${formatQty(qty)}${unit}</span></div>
         `).join("")}
-        <div class="rowTotalLine"><span>小计</span><span class="rowTotalAmt">${unverified ? "待确认" : `$${subtotal.toFixed(2)}`}</span></div>
+        <div class="rowTotalLine"><span>${t("subtotal")}</span><span class="rowTotalAmt">${unverified ? t("unconfirmedPrice") : `$${subtotal.toFixed(2)}`}</span></div>
       `;
     }
 
@@ -2728,20 +2911,20 @@
       const totalRefund = rows.reduce((s, r) => s + r.amount, 0);
       return `
         <div class="card">
-          <div class="sectionTitle" style="margin-top:0">缺货/退货明细（供索赔）</div>
-          <div class="footNote" style="text-align:left;margin:-6px 0 10px">本场所有向下调整的汇总——按商品合计短缺数量与应退金额（只统计短缺，多发/加购不冲抵）。</div>
+          <div class="sectionTitle" style="margin-top:0">${t("shortageCardTitle")}</div>
+          <div class="footNote" style="text-align:left;margin:-6px 0 10px">${t("shortageCardNote")}</div>
           ${rows.map(r => {
             const info = DATA.products[r.key];
             const label = info ? emojiLabel(info) : `⚠️ ${escapeHtml(r.key)}`;
             return `
               <div class="shortRow">
-                <span>${label}<br><span style="font-size:12px;color:var(--muted)">短缺 ${formatQty(Math.abs(r.qty))}${unitOf(r.key)}</span></span>
+                <span>${label}<br><span style="font-size:12px;color:var(--muted)">${t("shortLabel")} ${formatQty(Math.abs(r.qty))}${unitOf(r.key)}</span></span>
                 <span class="shortAmt">-$${Math.abs(r.amount).toFixed(2)}</span>
               </div>
               <div class="shortWho">${r.who.map(w => `${escapeHtml(w.name)} ${formatQty(Math.abs(w.qty))}${unitOf(r.key)}${w.note ? `（${escapeHtml(w.note)}）` : ""}`).join(" · ")}</div>
             `;
           }).join("")}
-          <div class="rowTotalLine"><span>应退合计</span><span class="rowTotalAmt" style="color:var(--red)">-$${Math.abs(totalRefund).toFixed(2)}</span></div>
+          <div class="rowTotalLine"><span>${t("refundTotal")}</span><span class="rowTotalAmt" style="color:var(--red)">-$${Math.abs(totalRefund).toFixed(2)}</span></div>
         </div>
       `;
     }
