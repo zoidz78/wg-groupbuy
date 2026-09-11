@@ -106,10 +106,6 @@
   .statValue.big { font-size: 19px; }
   .statValue.green { color: var(--green); }
   .statValue.red { color: var(--red); }
-  .statSubRows { padding: 0 0 6px 14px; margin-top: -4px; }
-  .statSubRow { display: flex; padding: 3px 0; font-size: 12px; color: var(--muted); }
-  .statSubRow .statSubLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
-  .statSubRow .statSubValue { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; min-width: 20px; text-align: right; }
 
   .progressTrack { height: 6px; background: var(--line); border-radius: 3px; margin: 2px 0 6px; overflow: hidden; }
   .progressFill { height: 100%; background: var(--green); transition: width 0.3s ease; }
@@ -236,6 +232,19 @@
   }
   .productSearchResult:hover { border-color: var(--muted); }
   .productSearchEmpty { padding: 6px 12px 8px; font-size: 13px; color: var(--muted); }
+  .unitFilterInput {
+    width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+    font-family: inherit;
+  }
+  .unitFilterInput:focus { outline: none; border-color: var(--muted); }
+  .unitFilterChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .unitChip {
+    font-size: 12.5px; padding: 5px 11px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .unitChip.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .unitChip.clear { border-color: var(--red); color: var(--red); }
   .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
   .productDetailHeader {
     display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
@@ -357,7 +366,8 @@
   .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
-  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible {
+  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
+  .unitChip:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -456,7 +466,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.2.1";
+    const APP_VERSION = "1.3.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -481,6 +491,14 @@
     let packedState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
+    // Free-text filter on each member's assigned 门牌/block (memberUnits,
+    // e.g. "107", "109", "印度小店+后门") — narrows the member list shown
+    // under 全部/未付款/已付款 down to just one address, for sorting/
+    // grouping deliveries by location. Substring match against whatever's
+    // in memberUnits for that member (so searching "后门" also matches a
+    // combined entry like "印度小店+后门"), combined with (not replacing)
+    // the paid/unpaid tab filter above.
+    let unitFilterQuery = "";
     let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
     let selectedProductOverlay = null; // product key whose who-ordered-what popup is open, from tapping a 备货清单 row
     // Free-text filter typed into the 商品查询 search box — a faster
@@ -588,23 +606,13 @@
     function memberUnitsDocRef() {
       return doc(db, "memberInfo", "directory");
     }
-
-    // Groups this round's members by their assigned 门牌/block (memberUnits
-    // is free-text per member, e.g. "107", "109", "印度小店+后门" — grouped
-    // by exact text match, not parsed/normalized). Anyone with nothing
-    // entered groups under "未填写", always shown last regardless of count
-    // so it doesn't compete for attention with the real groupings above it.
-    function memberUnitBreakdown(members) {
-      const counts = {};
-      members.forEach(m => {
-        const label = (memberUnits[m.name] || "").trim() || "未填写";
-        counts[label] = (counts[label] || 0) + 1;
-      });
-      return Object.entries(counts).sort((a, b) => {
-        if (a[0] === "未填写") return 1;
-        if (b[0] === "未填写") return -1;
-        return b[1] - a[1] || a[0].localeCompare(b[0]);
-      });
+    // Distinct 门牌/block values actually assigned to this round's members
+    // (not the whole all-time directory — someone in the directory but not
+    // in this round shouldn't produce a stray chip nobody here matches).
+    function distinctMemberUnits(members) {
+      const set = new Set();
+      members.forEach(m => { const u = (memberUnits[m.name] || "").trim(); if (u) set.add(u); });
+      return Array.from(set).sort();
     }
 
     // Today's date as YYYY-MM-DD in the browser's local time zone — matches
@@ -1637,6 +1645,7 @@
           selectedProduct = null;
           selectedProductOverlay = null;
           productSearchQuery = "";
+          unitFilterQuery = "";
           openAdjustFormFor = null;
           resetInlineEdits();
           showBulkPanel = false;
@@ -1969,8 +1978,9 @@
       if (selectedProductOverlay && !roundProductKeys.includes(selectedProductOverlay)) selectedProductOverlay = null;
 
       const visible = members.filter(m => {
-        if (filter === "paid") return paidState[m.name];
-        if (filter === "unpaid") return !paidState[m.name];
+        if (filter === "paid" && !paidState[m.name]) return false;
+        if (filter === "unpaid" && paidState[m.name]) return false;
+        if (unitFilterQuery.trim() && !(memberUnits[m.name] || "").includes(unitFilterQuery.trim())) return false;
         return true;
       });
 
@@ -2005,13 +2015,20 @@
           <div class="warnBanner">🔒 本场已全部付款并锁定——不能标记付款、添加调整或新增买家。如需修改，请点击下方"🔓 解锁"。</div>
         ` : ""}
 
+        <div class="card" style="margin-bottom:10px">
+          <input type="text" class="unitFilterInput" id="unitFilterInput" placeholder="按门牌/地址搜索，例如 107" autocomplete="off" value="${escapeHtml(unitFilterQuery)}">
+          ${distinctMemberUnits(members).length ? `
+            <div class="unitFilterChips">
+              ${distinctMemberUnits(members).map(u => `
+                <div class="unitChip${unitFilterQuery.trim() === u ? " active" : ""}" role="button" tabindex="0" data-unit="${escapeHtml(u)}">${escapeHtml(u)}</div>
+              `).join("")}
+              ${unitFilterQuery.trim() ? `<div class="unitChip clear" role="button" tabindex="0" data-unit="">✕ 清除</div>` : ""}
+            </div>
+          ` : ""}
+        </div>
+
         <div class="ticket">
-          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
-          <div class="statSubRows">
-            ${memberUnitBreakdown(members).map(([label, count]) => `
-              <div class="statSubRow"><span class="statSubLabel">↳ ${escapeHtml(label)}</span><span class="statSubValue">${count}</span></div>
-            `).join("")}
-          </div>
+          <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}${unitFilterQuery.trim() ? ` <span style="font-weight:400;color:var(--muted);font-size:12px">（筛选出 ${visible.length} 人）</span>` : ""}</span></div>
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
             <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
@@ -2183,6 +2200,16 @@
           if (el) selectProductFromSearch(el.dataset.key);
         });
       }
+      const unitFilterInputEl = document.getElementById("unitFilterInput");
+      if (unitFilterInputEl) {
+        unitFilterInputEl.addEventListener("input", (e) => handleUnitFilterInput(e.target.value));
+      }
+      document.querySelectorAll(".unitChip").forEach(el => {
+        el.addEventListener("click", () => {
+          unitFilterQuery = el.dataset.unit === unitFilterQuery.trim() ? "" : el.dataset.unit;
+          render();
+        });
+      });
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
         el.addEventListener("click", () => { selectedProductOverlay = el.dataset.key; render(); });
       });
@@ -2460,6 +2487,30 @@
       productSearchQuery = value;
       const resultsEl = document.getElementById("productSearchResults");
       if (resultsEl) resultsEl.innerHTML = renderProductSearchResults(productSearchRoundKeys, value);
+    }
+
+    // Live-filters the member list by 门牌/block as the user types. Unlike
+    // handleProductSearchInput above, this genuinely needs a full render():
+    // #rows only ever contains DOM nodes for members that already passed
+    // the paid/unpaid tab filter (visible.map(...) — non-matching members'
+    // rows don't exist at all, so there's nothing to toggle visibility on
+    // for a member who'd newly match). So instead of avoiding render(), we
+    // call it and manually restore this input's focus/cursor position
+    // right after — render() replaces app.innerHTML wholesale and would
+    // otherwise throw focus away on every keystroke.
+    function handleUnitFilterInput(value) {
+      unitFilterQuery = value;
+      const el = document.getElementById("unitFilterInput");
+      const selStart = el ? el.selectionStart : null;
+      const selEnd = el ? el.selectionEnd : null;
+      render();
+      const newEl = document.getElementById("unitFilterInput");
+      if (newEl) {
+        newEl.focus();
+        if (selStart != null && newEl.setSelectionRange) {
+          try { newEl.setSelectionRange(selStart, selEnd); } catch (e) { /* fine to skip */ }
+        }
+      }
     }
 
     // Tapping a search result behaves exactly like picking that product from
