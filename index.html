@@ -232,19 +232,12 @@
   }
   .productSearchResult:hover { border-color: var(--muted); }
   .productSearchEmpty { padding: 6px 12px 8px; font-size: 13px; color: var(--muted); }
-  .unitFilterInput {
+  .unitFilterSelect {
     width: 100%; box-sizing: border-box; font-size: 14px; padding: 10px 12px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
     font-family: inherit;
   }
-  .unitFilterInput:focus { outline: none; border-color: var(--muted); }
-  .unitFilterChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .unitChip {
-    font-size: 12.5px; padding: 5px 11px; border-radius: 14px; border: 1px solid var(--line);
-    background: var(--paper); color: var(--muted); cursor: pointer; user-select: none;
-  }
-  .unitChip.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-  .unitChip.clear { border-color: var(--red); color: var(--red); }
+  .unitFilterSelect:focus { outline: none; border-color: var(--muted); }
   .emptyNote { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
   .productDetailHeader {
     display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;
@@ -366,8 +359,7 @@
   .payBtn:focus-visible, .packBtn:focus-visible, .copyMsgBtn:focus-visible, .flavorGrid [data-key]:focus-visible,
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
-  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
-  .unitChip:focus-visible {
+  .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -466,7 +458,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.3.0";
+    const APP_VERSION = "1.3.1";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -491,13 +483,13 @@
     let packedState = {};
     let adjustments = {}; // { entryId: { member, type, itemKey?, qtyDelta?, amountDelta, note, ts } }
     let filter = "all";
-    // Free-text filter on each member's assigned 门牌/block (memberUnits,
-    // e.g. "107", "109", "印度小店+后门") — narrows the member list shown
-    // under 全部/未付款/已付款 down to just one address, for sorting/
-    // grouping deliveries by location. Substring match against whatever's
-    // in memberUnits for that member (so searching "后门" also matches a
-    // combined entry like "印度小店+后门"), combined with (not replacing)
-    // the paid/unpaid tab filter above.
+    // Fixed 4-option dropdown (107/109/印度小店/后门 — see the
+    // #unitFilterSelect markup below) filtering the member list shown under
+    // 全部/未付款/已付款 down to just one address, for sorting/grouping
+    // deliveries by location. Substring match against each member's
+    // memberUnits entry (so selecting "后门" also matches a combined entry
+    // like "印度小店+后门", regardless of what other unit numbers are in
+    // it), combined with (not replacing) the paid/unpaid tab filter above.
     let unitFilterQuery = "";
     let selectedProduct = null; // product key currently selected in the 商品查询 dropdown, or null for the full list
     let selectedProductOverlay = null; // product key whose who-ordered-what popup is open, from tapping a 备货清单 row
@@ -605,14 +597,6 @@
     }
     function memberUnitsDocRef() {
       return doc(db, "memberInfo", "directory");
-    }
-    // Distinct 门牌/block values actually assigned to this round's members
-    // (not the whole all-time directory — someone in the directory but not
-    // in this round shouldn't produce a stray chip nobody here matches).
-    function distinctMemberUnits(members) {
-      const set = new Set();
-      members.forEach(m => { const u = (memberUnits[m.name] || "").trim(); if (u) set.add(u); });
-      return Array.from(set).sort();
     }
 
     // Today's date as YYYY-MM-DD in the browser's local time zone — matches
@@ -2016,15 +2000,13 @@
         ` : ""}
 
         <div class="card" style="margin-bottom:10px">
-          <input type="text" class="unitFilterInput" id="unitFilterInput" placeholder="按门牌/地址搜索，例如 107" autocomplete="off" value="${escapeHtml(unitFilterQuery)}">
-          ${distinctMemberUnits(members).length ? `
-            <div class="unitFilterChips">
-              ${distinctMemberUnits(members).map(u => `
-                <div class="unitChip${unitFilterQuery.trim() === u ? " active" : ""}" role="button" tabindex="0" data-unit="${escapeHtml(u)}">${escapeHtml(u)}</div>
-              `).join("")}
-              ${unitFilterQuery.trim() ? `<div class="unitChip clear" role="button" tabindex="0" data-unit="">✕ 清除</div>` : ""}
-            </div>
-          ` : ""}
+          <select class="unitFilterSelect" id="unitFilterSelect" aria-label="按门牌/地址筛选">
+            <option value="">全部地址</option>
+            <option value="107" ${unitFilterQuery === "107" ? "selected" : ""}>107</option>
+            <option value="109" ${unitFilterQuery === "109" ? "selected" : ""}>109</option>
+            <option value="印度小店" ${unitFilterQuery === "印度小店" ? "selected" : ""}>印度小店</option>
+            <option value="后门" ${unitFilterQuery === "后门" ? "selected" : ""}>后门</option>
+          </select>
         </div>
 
         <div class="ticket">
@@ -2200,16 +2182,13 @@
           if (el) selectProductFromSearch(el.dataset.key);
         });
       }
-      const unitFilterInputEl = document.getElementById("unitFilterInput");
-      if (unitFilterInputEl) {
-        unitFilterInputEl.addEventListener("input", (e) => handleUnitFilterInput(e.target.value));
-      }
-      document.querySelectorAll(".unitChip").forEach(el => {
-        el.addEventListener("click", () => {
-          unitFilterQuery = el.dataset.unit === unitFilterQuery.trim() ? "" : el.dataset.unit;
+      const unitFilterSelectEl = document.getElementById("unitFilterSelect");
+      if (unitFilterSelectEl) {
+        unitFilterSelectEl.addEventListener("change", (e) => {
+          unitFilterQuery = e.target.value;
           render();
         });
-      });
+      }
       document.querySelectorAll(".flavorGrid [data-key]").forEach(el => {
         el.addEventListener("click", () => { selectedProductOverlay = el.dataset.key; render(); });
       });
@@ -2487,30 +2466,6 @@
       productSearchQuery = value;
       const resultsEl = document.getElementById("productSearchResults");
       if (resultsEl) resultsEl.innerHTML = renderProductSearchResults(productSearchRoundKeys, value);
-    }
-
-    // Live-filters the member list by 门牌/block as the user types. Unlike
-    // handleProductSearchInput above, this genuinely needs a full render():
-    // #rows only ever contains DOM nodes for members that already passed
-    // the paid/unpaid tab filter (visible.map(...) — non-matching members'
-    // rows don't exist at all, so there's nothing to toggle visibility on
-    // for a member who'd newly match). So instead of avoiding render(), we
-    // call it and manually restore this input's focus/cursor position
-    // right after — render() replaces app.innerHTML wholesale and would
-    // otherwise throw focus away on every keystroke.
-    function handleUnitFilterInput(value) {
-      unitFilterQuery = value;
-      const el = document.getElementById("unitFilterInput");
-      const selStart = el ? el.selectionStart : null;
-      const selEnd = el ? el.selectionEnd : null;
-      render();
-      const newEl = document.getElementById("unitFilterInput");
-      if (newEl) {
-        newEl.focus();
-        if (selStart != null && newEl.setSelectionRange) {
-          try { newEl.setSelectionRange(selStart, selEnd); } catch (e) { /* fine to skip */ }
-        }
-      }
     }
 
     // Tapping a search result behaves exactly like picking that product from
