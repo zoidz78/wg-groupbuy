@@ -106,6 +106,10 @@
   .statValue.big { font-size: 19px; }
   .statValue.green { color: var(--green); }
   .statValue.red { color: var(--red); }
+  .statSubRows { padding: 0 0 6px 14px; margin-top: -4px; }
+  .statSubRow { display: flex; padding: 3px 0; font-size: 12px; color: var(--muted); }
+  .statSubRow .statSubLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+  .statSubRow .statSubValue { font-family: "SF Mono", Menlo, Consolas, monospace; flex-shrink: 0; min-width: 20px; text-align: right; }
 
   .progressTrack { height: 6px; background: var(--line); border-radius: 3px; margin: 2px 0 6px; overflow: hidden; }
   .progressFill { height: 100%; background: var(--green); transition: width 0.3s ease; }
@@ -452,7 +456,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.1.0";
+    const APP_VERSION = "1.2.1";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -583,6 +587,24 @@
     }
     function memberUnitsDocRef() {
       return doc(db, "memberInfo", "directory");
+    }
+
+    // Groups this round's members by their assigned 门牌/block (memberUnits
+    // is free-text per member, e.g. "107", "109", "印度小店+后门" — grouped
+    // by exact text match, not parsed/normalized). Anyone with nothing
+    // entered groups under "未填写", always shown last regardless of count
+    // so it doesn't compete for attention with the real groupings above it.
+    function memberUnitBreakdown(members) {
+      const counts = {};
+      members.forEach(m => {
+        const label = (memberUnits[m.name] || "").trim() || "未填写";
+        counts[label] = (counts[label] || 0) + 1;
+      });
+      return Object.entries(counts).sort((a, b) => {
+        if (a[0] === "未填写") return 1;
+        if (b[0] === "未填写") return -1;
+        return b[1] - a[1] || a[0].localeCompare(b[0]);
+      });
     }
 
     // Today's date as YYYY-MM-DD in the browser's local time zone — matches
@@ -1080,14 +1102,14 @@
       return `
         <div class="inlineEditor">
           <div class="stepper">
-            <div class="stepBtn" role="button" tabindex="0" data-action="stepDec" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">−</div>
+            <div class="stepBtn" role="button" tabindex="0" data-action="stepDec" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">−</div>
             <div class="stepQty">${formatQty(draft)}</div>
-            <div class="stepBtn" role="button" tabindex="0" data-action="stepInc" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">+</div>
+            <div class="stepBtn" role="button" tabindex="0" data-action="stepInc" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">+</div>
           </div>
           ${dirty ? `
-            <div class="saveBtn" role="button" tabindex="0" data-action="stepSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓</div>
-            <div class="cancelBtn" role="button" tabindex="0" data-action="stepCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕</div>
-          ` : `<div class="voidBtn" role="button" tabindex="0" data-action="stepShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">缺货</div>`}
+            <div class="saveBtn" role="button" tabindex="0" data-action="stepSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓</div>
+            <div class="cancelBtn" role="button" tabindex="0" data-action="stepCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕</div>
+          ` : `<div class="voidBtn" role="button" tabindex="0" data-action="stepShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">缺货</div>`}
         </div>
       `;
     }
@@ -1105,7 +1127,7 @@
         return `
           <div class="inlineEditor">
             ${renderInlineCountStepper(memberKey, itemKey)}
-            <div class="voidBtn" role="button" tabindex="0" data-action="pieceOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">实际到货颗数</div>
+            <div class="voidBtn" role="button" tabindex="0" data-action="pieceOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">实际到货颗数</div>
           </div>
         `;
       }
@@ -1125,10 +1147,10 @@
       }
       return `
         <div class="inlineEditor">
-          <input type="number" class="numInput" id="pieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="pieceInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
-          <div class="voidBtn" role="button" tabindex="0" data-action="pieceShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}" style="border-color:var(--red);color:var(--red)">缺货（0颗）</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="pieceCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="pieceSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+          <input type="number" class="numInput" id="pieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="pieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="pieceShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">缺货（0颗）</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="pieceCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="pieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
         </div>
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
         ${error ? `<div class="inlineError">${error}</div>` : ""}
@@ -1147,7 +1169,7 @@
       const piecesPerUnit = piecesPerUnitFor(itemKey);
       const current = currentQtyFor(memberKey, itemKey);
       if (!weightEditing[key]) {
-        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">实际到货克数</div></div>`;
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">实际到货克数</div></div>`;
       }
       if (weightUsePieces[key] && piecesPerUnit) {
         const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
@@ -1167,11 +1189,11 @@
         }
         return `
           <div class="inlineEditor">
-            <input type="number" class="numInput" id="wPieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="weightPieceInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
-            <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
-            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightPieceSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+            <input type="number" class="numInput" id="wPieceInput-${escapeHtml(key)}" placeholder="实收颗数（共${formatQty(totalPieces)}粒）" value="${escapeHtml(draft)}" data-action="weightPieceInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+            <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightPieceSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
           </div>
-          <div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToGrams" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">← 改用填克数</div></div>
+          <div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToGrams" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">← 改用填克数</div></div>
           ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
           ${error ? `<div class="inlineError">${error}</div>` : ""}
         `;
@@ -1189,12 +1211,12 @@
       }
       return `
         <div class="inlineEditor">
-          <input type="number" class="numInput" id="gramsInput-${escapeHtml(key)}" placeholder="实际到手重量（克）" value="${escapeHtml(draft)}" data-action="weightInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
-          <div class="voidBtn" role="button" tabindex="0" data-action="weightShortage" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}" style="border-color:var(--red);color:var(--red)">缺货（0g）</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+          <input type="number" class="numInput" id="gramsInput-${escapeHtml(key)}" placeholder="实际到手重量（克）" value="${escapeHtml(draft)}" data-action="weightInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <div class="voidBtn" role="button" tabindex="0" data-action="weightShortage" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}" style="border-color:var(--red);color:var(--red)">缺货（0g）</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="weightCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="weightSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
         </div>
-        ${piecesPerUnit ? `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToPieces" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">没有秤？改用数颗数（共${formatQty(Math.round(current * piecesPerUnit * 10000) / 10000)}粒）→</div></div>` : ""}
+        ${piecesPerUnit ? `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="weightToPieces" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">没有秤？改用数颗数（共${formatQty(Math.round(current * piecesPerUnit * 10000) / 10000)}粒）→</div></div>` : ""}
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
       `;
     }
@@ -1209,17 +1231,17 @@
       const info = DATA.products[itemKey];
       const current = currentQtyFor(memberKey, itemKey);
       if (!fracEditing[key]) {
-        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="fracOpen" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改比例</div></div>`;
+        return `<div class="inlineEditor"><div class="voidBtn" role="button" tabindex="0" data-action="fracOpen" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改比例</div></div>`;
       }
       if (fracCalcMode[key] === "manual") {
         const draft = fracDraftManual[key] || "";
         const ready = draft !== "" && !isNaN(parseFloat(draft));
         return `
           <div class="inlineEditor">
-            <input type="number" step="any" class="numInput" id="fracManual-${escapeHtml(key)}" placeholder="新比例，例如 0.5" value="${escapeHtml(draft)}" data-action="fracManualInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
-            <div class="voidBtn" role="button" tabindex="0" data-action="fracToWeight" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改用净重计算 →</div>
-            <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
-            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracManualSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+            <input type="number" step="any" class="numInput" id="fracManual-${escapeHtml(key)}" placeholder="新比例，例如 0.5" value="${escapeHtml(draft)}" data-action="fracManualInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+            <div class="voidBtn" role="button" tabindex="0" data-action="fracToWeight" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改用净重计算 →</div>
+            <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
+            ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracManualSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
           </div>
         `;
       }
@@ -1243,13 +1265,13 @@
       }
       return `
         <div class="inlineEditor">
-          <input type="number" step="any" class="numInput" id="fracBunch-${escapeHtml(key)}" placeholder="这份净重（克）" value="${escapeHtml(bunchDraft)}" data-action="fracBunchInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
-          <input type="number" step="any" class="numInput" id="fracTotal-${escapeHtml(key)}" placeholder="全箱总重（克）" value="${escapeHtml(totalDraft)}" data-action="fracTotalInput" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">
+          <input type="number" step="any" class="numInput" id="fracBunch-${escapeHtml(key)}" placeholder="这份净重（克）" value="${escapeHtml(bunchDraft)}" data-action="fracBunchInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
+          <input type="number" step="any" class="numInput" id="fracTotal-${escapeHtml(key)}" placeholder="全箱总重（克）" value="${escapeHtml(totalDraft)}" data-action="fracTotalInput" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">
         </div>
         <div class="inlineEditor">
-          <div class="voidBtn" role="button" tabindex="0" data-action="fracToManual" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">改用直接输入比例 →</div>
-          <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✕ 取消</div>
-          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracCalcSave" data-member="${escapeHtml(memberKey)}" data-item="${itemKey}">✓ 保存</div>` : ""}
+          <div class="voidBtn" role="button" tabindex="0" data-action="fracToManual" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">改用直接输入比例 →</div>
+          <div class="cancelBtn" role="button" tabindex="0" data-action="fracCancel" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✕ 取消</div>
+          ${ready ? `<div class="saveBtn" role="button" tabindex="0" data-action="fracCalcSave" data-member="${escapeHtml(memberKey)}" data-item="${escapeHtml(itemKey)}">✓ 保存</div>` : ""}
         </div>
         ${preview ? `<div class="inlinePreview">${preview}</div>` : ""}
         ${error ? `<div class="inlineError">${error}</div>` : ""}
@@ -1985,6 +2007,11 @@
 
         <div class="ticket">
           <div class="statRow"><span class="statLabel">参团人数</span><span class="statValue">${members.length}</span></div>
+          <div class="statSubRows">
+            ${memberUnitBreakdown(members).map(([label, count]) => `
+              <div class="statSubRow"><span class="statSubLabel">↳ ${escapeHtml(label)}</span><span class="statSubValue">${count}</span></div>
+            `).join("")}
+          </div>
           <div class="statRow"><span class="statLabel">订单总额</span><span class="statValue big">$${grandTotal.toFixed(2)}</span></div>
           ${Math.abs(grandTotal - baseGrandTotal) > 0.001 ? `
             <div class="footNote" style="text-align:right;margin-top:-6px">（原始订单总额：$${baseGrandTotal.toFixed(2)}，已含调整）</div>
