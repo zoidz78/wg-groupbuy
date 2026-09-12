@@ -501,7 +501,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.15.0";
+    const APP_VERSION = "1.16.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -515,6 +515,13 @@
     let overdueByMember = null; // null (not yet computed) | { name: { total, byDate: [{date, label, amount}] } }
     let overdueLoading = false;
     let overdueError = "";
+    // Same lazy/cached pattern as overdueByMember, but for physical
+    // fulfillment instead of payment — which past-round members still have
+    // un-sorted (⬜) items and haven't been marked 收/送 yet. See
+    // computeOwedProductsByMember() for the exact gating rule.
+    let owedByMember = null; // null (not yet computed) | { name: { byDate: [{date, label, items: [{key, label, qty}]}] } }
+    let owedLoading = false;
+    let owedError = "";
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
     // "pending" (date < today, at least one base member unpaid — red), or
     // "completed" (date < today, every base member paid — green). Populated
@@ -695,6 +702,13 @@
       },
       membersTabLoading: { zh: "正在汇总各轮数据，请稍候…", en: "Summing up past rounds, please wait…" },
       membersTabAllClear: { zh: "目前没有人有未付款项 🎉", en: "Nobody currently owes anything 🎉" },
+      owedTabTitle: { zh: "待收/送商品汇总", en: "Members — products still owed" },
+      owedTabNote: {
+        zh: "尚未标记\"已收/送\"的会员，列出他们还有哪些商品未打勾（不含已缺货退款的商品，不含测试轮次）。已标记\"已收/送\"的人不会出现在这里。",
+        en: "Members not yet marked \"已收/送\", with which of their items are still unchecked (fully-refunded shortages excluded, test rounds excluded). Anyone already marked 已收/送 doesn't appear here."
+      },
+      owedTabLoading: { zh: "正在汇总各轮数据，请稍候…", en: "Summing up past rounds, please wait…" },
+      owedTabAllClear: { zh: "目前没有人还欠着商品 🎉", en: "Nobody currently owes any products 🎉" },
       expandStockList: { zh: "📋 查看全部商品备货清单", en: "📋 View full stocking list" },
       collapseStockList: { zh: "收起备货清单", en: "Collapse stocking list" },
       productCountUnit: { zh: "种商品", en: "products" },
@@ -968,6 +982,83 @@
         overdueError = `汇总失败：${e.message}`;
       }
       overdueLoading = false;
+      render();
+    }
+
+    // Powers the new "待收/送商品" (owed-products) card on the 会员 tab —
+    // cross-round, same lazy/cached pattern as computeOverdueByMember(), but
+    // for physical fulfillment rather than money. Gating rule (confirmed):
+    // a member drops off this card entirely once their 收/送 (packedStatus)
+    // is marked for that round — trusted at that point, even if a line was
+    // left unchecked. While still un-收/送'd, every ORIGINAL-order item
+    // (m.items — walk-in-added items never get a sort checkbox in the UI
+    // either, see renderMemberItemLines, so they're not assessable here and
+    // are left out, matching what's actually on-screen) that isn't fully
+    // shortaged (❌, currentQty ≈ 0 — nothing left to physically hand over,
+    // already covered by the refund/shortage flow) and isn't yet checked
+    // off in sortedItems (⬜) counts as still owed.
+    // Deliberately excludes any test round the same two ways
+    // computeOverdueByMember() does (non-plain date key, or a "测试" label)
+    // so a test round can never contaminate a real owed-products list.
+    async function computeOwedProductsByMember() {
+      owedLoading = true;
+      owedError = "";
+      render();
+      const today = todayDateStr();
+      const owed = {};
+      const realRounds = GROUP_BUYS.filter(gb =>
+        gb.date.length === 10 && !(gb.label || "").includes("测试") && gb.date < today
+      );
+      try {
+        await Promise.all(realRounds.map(async (gb) => {
+          const [fileRes, packedSnap, sortedSnap, adjSnap] = await Promise.all([
+            fetch(noCacheUrl(gb.file), NO_STORE).then(r => (r.ok ? r.json() : null)),
+            getDoc(packedDocRef(gb.date)).catch(() => null),
+            getDoc(sortedItemsDocRef(gb.date)).catch(() => null),
+            getDoc(adjustmentsDocRef(gb.date)).catch(() => null),
+          ]);
+          if (!fileRes || !Array.isArray(fileRes.orders)) return;
+          const products = fileRes.products || {};
+          const packedData = packedSnap && packedSnap.exists() ? packedSnap.data() : {};
+          const sortedData = sortedSnap && sortedSnap.exists() ? sortedSnap.data() : {};
+          const adjData = adjSnap && adjSnap.exists() ? adjSnap.data() : {};
+          const isUnverifiedHere = (key) => {
+            const info = products[key];
+            return !!(info && (info.unverified || info.price == null));
+          };
+          const currentQtyHere = (name, key) => {
+            const base = fileRes.orders.find(o => o.name === name);
+            const baseQty = (base && base.items && base.items[key]) || 0;
+            const adjQty = Object.values(adjData).reduce((s, a) => (
+              a && a.member === name && a.type === "item" && a.itemKey === key
+                ? s + (a.qtyDelta || 0) : s
+            ), 0);
+            return baseQty + adjQty;
+          };
+          fileRes.orders.forEach(base => {
+            if (packedData[base.name]) return; // already 收/送'd — trusted, drops off this card
+            const items = [];
+            Object.entries(base.items || {}).forEach(([k, qty]) => {
+              const info = products[k];
+              if (!info) return; // same "product key not found" edge case the UI warns about — skip, nothing to report here
+              const unverified = isUnverifiedHere(k);
+              const effectiveQty = currentQtyHere(base.name, k);
+              if (!unverified && Math.abs(effectiveQty) < 0.0001) return; // ❌ fully shortaged — already refunded, nothing owed
+              const isSorted = !!sortedData[sortKey(base.name, k)];
+              if (isSorted) return; // already pulled/checked off
+              items.push({ key: k, label: info.label, qty });
+            });
+            if (!items.length) return;
+            if (!owed[base.name]) owed[base.name] = { byDate: [] };
+            owed[base.name].byDate.push({ date: gb.date, label: gb.label || gb.date, items });
+          });
+        }));
+        Object.values(owed).forEach(o => o.byDate.sort((a, b) => a.date.localeCompare(b.date)));
+        owedByMember = owed;
+      } catch (e) {
+        owedError = `汇总失败：${e.message}`;
+      }
+      owedLoading = false;
       render();
     }
 
@@ -2530,6 +2621,28 @@
                     `).join("")
             ) : ""}
           </div>
+
+          <div class="card">
+            <div class="sectionTitle" style="margin-top:0">${t("owedTabTitle")}</div>
+            <div class="footNote" style="text-align:left;margin:-6px 0 10px">${t("owedTabNote")}</div>
+            ${owedError ? `<div class="debugBanner">🔧 ${owedError}</div>` : ""}
+            ${owedLoading ? `<div class="emptyNote">${t("owedTabLoading")}</div>` : ""}
+            ${!owedLoading && !owedError && owedByMember ? (
+              Object.keys(owedByMember).length === 0
+                ? `<div class="emptyNote">${t("owedTabAllClear")}</div>`
+                : Object.entries(owedByMember)
+                    .sort((a, b) => b[1].byDate.reduce((s, d) => s + d.items.length, 0) - a[1].byDate.reduce((s, d) => s + d.items.length, 0))
+                    .map(([name, data]) => `
+                      <div class="itemLine"><span>${escapeHtml(name)}${memberUnits[name] ? ` <span style="color:var(--muted);font-weight:400">· 🏠 ${escapeHtml(memberUnits[name])}</span>` : ""}</span></div>
+                      ${data.byDate.map(d => `
+                        <div class="itemLine" style="padding-left:16px;font-size:12px;color:var(--muted);display:block">
+                          <div>${escapeHtml(d.label)}</div>
+                          ${d.items.map(it => `<div style="padding-left:8px">· ${escapeHtml(it.label)} x${formatQty(it.qty)}</div>`).join("")}
+                        </div>
+                      `).join("")}
+                    `).join("")
+            ) : ""}
+          </div>
         `;
         document.querySelectorAll(".langOption").forEach(el => {
           el.addEventListener("click", () => {
@@ -2816,6 +2929,7 @@
           el.addEventListener("click", () => {
             currentView = "members";
             if (!overdueByMember && !overdueLoading) computeOverdueByMember();
+            if (!owedByMember && !owedLoading) computeOwedProductsByMember();
             render();
           });
         }
