@@ -488,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.7.1";
+    const APP_VERSION = "1.7.3";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -683,7 +683,7 @@
       lessWord: { zh: "少", en: "−" },
       moreWord: { zh: "多", en: "+" },
       receivedPrefix: { zh: "实收", en: "Received " },
-      roundedDownTo: { zh: "按100g向下取整为", en: "rounded down to " },
+      roundedDownTo: { zh: "按10g向下取整为", en: "rounded down to " },
       originalPrefix: { zh: "原", en: "orig. " },
       diffPrefix: { zh: "差", en: "diff " },
       originalRatioPrefix: { zh: "原比例", en: "orig. ratio " },
@@ -1229,9 +1229,9 @@
     }
 
     // Business rule for reweighed bulk items: always round the actual weight
-    // down to the nearest 100g (in the member's favor) before pricing it.
+    // down to the nearest 10g (in the member's favor) before pricing it.
     function roundGramsDown(grams) {
-      return Math.floor(grams / 100) * 100;
+      return Math.floor(grams / 10) * 10;
     }
     // A product counts as "unverified" (shows 待确认 instead of a dollar
     // amount, everywhere) either because it's explicitly flagged that way,
@@ -1421,7 +1421,7 @@
     }
 
     // Weight-priced item — grams input converted via gramsPerUnit, rounded
-    // down to the nearest 100g in the member's favor (same rule the old
+    // down to the nearest 10g in the member's favor (same rule the old
     // form's gramsHelper already applies). If the product also declares a
     // piece count, offers "没有秤？改用数颗数" as an alternate no-scale
     // entry method (e.g. splitting a box of pears evenly by counting).
@@ -1990,7 +1990,7 @@
             </select>
             <input type="number" id="adjQtyDelta" placeholder="数量变化，例如 -1（少1份）或 2（多卖2份）" step="any" value="${escapeHtml(adjDraft.qtyDelta)}">
             ${!isWalkin && gramsPerUnit(selectedItemKey) ? `
-              <input type="number" id="adjGramsHelper" data-member="${safeKey}" placeholder="或输入实际到手重量（克），自动换算并按100g向下取整，例如 1230" step="any" value="${escapeHtml(adjDraft.gramsHelper)}">
+              <input type="number" id="adjGramsHelper" data-member="${safeKey}" placeholder="或输入实际到手重量（克），自动换算并按10g向下取整，例如 1230" step="any" value="${escapeHtml(adjDraft.gramsHelper)}">
               <div class="adjGramsPreview" id="adjGramsPreview" ${adjGramsPreview ? "" : "hidden"}>${escapeHtml(adjGramsPreview)}</div>
             ` : ""}
           ` : adjFormType === "weight" ? `
@@ -2245,7 +2245,7 @@
         if (filter === "paid" && !paidState[m.name]) return false;
         if (filter === "unpaid" && paidState[m.name]) return false;
         if (unitFilterQuery.trim() && !(memberUnits[m.name] || "").includes(unitFilterQuery.trim())) return false;
-        if (memberSearchQuery.trim() && !m.name.includes(memberSearchQuery.trim())) return false;
+        if (memberSearchQuery.trim() && !m.name.toLowerCase().includes(memberSearchQuery.trim().toLowerCase())) return false;
         return true;
       });
 
