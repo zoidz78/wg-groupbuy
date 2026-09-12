@@ -488,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.10.0";
+    const APP_VERSION = "1.11.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -665,6 +665,14 @@
       unitsPanelBtn: { zh: "🏠 门牌管理", en: "🏠 Address directory" },
       collapseUnitsBtn: { zh: "收起门牌管理", en: "Collapse address directory" },
       unitsPanelTitle: { zh: "门牌管理（楼栋/门牌号）", en: "Address directory (block/unit)" },
+      membersTabLabel: { zh: "会员", en: "Members" },
+      membersTabTitle: { zh: "会员欠款汇总", en: "Members — amount overdue" },
+      membersTabNote: {
+        zh: "按会员汇总当前未付款金额，跨所有已结束的团购（不含测试轮次）。已付清的人不会出现在这里。",
+        en: "Each member's currently-unpaid total, summed across every past round (test rounds excluded). Anyone fully paid up doesn't appear here."
+      },
+      membersTabLoading: { zh: "正在汇总各轮数据，请稍候…", en: "Summing up past rounds, please wait…" },
+      membersTabAllClear: { zh: "目前没有人有未付款项 🎉", en: "Nobody currently owes anything 🎉" },
       adjustBtn: { zh: "+ 调整", en: "+ Adjustment" },
       cancelAdjustBtn: { zh: "取消调整", en: "Cancel adjustment" },
       adjTypeItem: { zh: "品项数量变化", en: "Item quantity change" },
@@ -862,6 +870,71 @@
           delete roundStatus[gb.date];
         }
       }));
+      render();
+    }
+
+    // Powers the 会员 (Members) tab: each member's CURRENTLY-UNPAID total,
+    // summed across every real past round they're unpaid in — not their
+    // lifetime spend, and not anything from a future/not-yet-happened
+    // round (same date-vs-today rule refreshRoundStatuses already uses).
+    // Computed lazily (only when the tab is actually opened) and cached in
+    // module state afterward, since it needs a fetch + two Firestore reads
+    // PER round — needlessly expensive to do on every page load for a view
+    // most visits never open.
+    //
+    // Deliberately excludes any test round — checked two ways: a date key
+    // that isn't a plain "YYYY-MM-DD" (a test round's key has a "-v2"-style
+    // suffix, so it's longer than 10 characters) AND a label containing
+    // "测试", so a test round survives even if one of those two signals
+    // were ever missing. Test data must never contaminate a real overdue
+    // total — the explicit reason this check exists at all.
+    async function computeOverdueByMember() {
+      overdueLoading = true;
+      overdueError = "";
+      render();
+      const today = todayDateStr();
+      const totals = {};
+      const realRounds = GROUP_BUYS.filter(gb =>
+        gb.date.length === 10 && !(gb.label || "").includes("测试") && gb.date < today
+      );
+      try {
+        await Promise.all(realRounds.map(async (gb) => {
+          const [fileRes, paidSnap, adjSnap] = await Promise.all([
+            fetch(noCacheUrl(gb.file), NO_STORE).then(r => (r.ok ? r.json() : null)),
+            getDoc(paidDocRef(gb.date)).catch(() => null),
+            getDoc(adjustmentsDocRef(gb.date)).catch(() => null),
+          ]);
+          if (!fileRes || !Array.isArray(fileRes.orders)) return;
+          const products = fileRes.products || {};
+          const paidData = paidSnap && paidSnap.exists() ? paidSnap.data() : {};
+          const adjData = adjSnap && adjSnap.exists() ? adjSnap.data() : {};
+          const costOf = (items) => Object.entries(items || {}).reduce((s, [k, q]) => {
+            const info = products[k];
+            return s + (info && info.price != null ? info.price * q : 0);
+          }, 0);
+          const adjTotalFor = (name) => Object.values(adjData).reduce((s, a) => (
+            a && a.member === name && typeof a.amountDelta === "number" ? s + a.amountDelta : s
+          ), 0);
+          // Every name that could owe something this round: the base
+          // roster, plus anyone who only exists via a walk-in adjustment
+          // (they have no `orders` entry at all — see A2 in the knowledge
+          // doc — so costOf({}) correctly contributes $0 and their total
+          // comes entirely from adjTotalFor).
+          const names = new Set(fileRes.orders.map(o => o.name));
+          Object.values(adjData).forEach(a => { if (a && a.member) names.add(a.member); });
+          names.forEach(name => {
+            if (paidData[name]) return; // settled for this round — not part of an overdue total
+            const base = fileRes.orders.find(o => o.name === name);
+            const total = Math.round((costOf(base && base.items) + adjTotalFor(name)) * 100) / 100;
+            if (Math.abs(total) < 0.005) return; // nothing actually owed (e.g. a fully-refunded order)
+            totals[name] = Math.round(((totals[name] || 0) + total) * 100) / 100;
+          });
+        }));
+        overdueByMember = totals;
+      } catch (e) {
+        overdueError = `汇总失败：${e.message}`;
+      }
+      overdueLoading = false;
       render();
     }
 
@@ -2361,6 +2434,57 @@
       // quietly instead of throwing on `DATA.orders` and crashing the page.
       if (!DATA) return;
 
+      if (currentView === "members") {
+        app.innerHTML = `
+          <div class="langPillWrap">
+            <div class="langPill">
+              <span class="langOption${uiLang === "zh" ? " active" : ""}" role="button" tabindex="0" data-lang="zh">${t("langToggleZh")}</span>
+              <span class="langOption${uiLang === "en" ? " active" : ""}" role="button" tabindex="0" data-lang="en">${t("langToggleEn")}</span>
+            </div>
+          </div>
+          <div class="shopHead">
+            <h1 class="shopName">${DATA.groupName || "团购"}</h1>
+          </div>
+
+          <div class="buyTabs" role="tablist">
+            ${GROUP_BUYS.map((gb, i) => `
+              <div class="buyTab" role="tab" tabindex="0" aria-selected="false" data-index="${i}">${gb.label || gb.date}</div>
+            `).join("")}
+            <div class="buyTab active" role="tab" tabindex="0" aria-selected="true" data-view="members">${t("membersTabLabel")}</div>
+          </div>
+
+          <div class="card">
+            <div class="sectionTitle" style="margin-top:0">${t("membersTabTitle")}</div>
+            <div class="footNote" style="text-align:left;margin:-6px 0 10px">${t("membersTabNote")}</div>
+            ${overdueError ? `<div class="debugBanner">🔧 ${overdueError}</div>` : ""}
+            ${overdueLoading ? `<div class="emptyNote">${t("membersTabLoading")}</div>` : ""}
+            ${!overdueLoading && !overdueError && overdueByMember ? (
+              Object.keys(overdueByMember).length === 0
+                ? `<div class="emptyNote">${t("membersTabAllClear")}</div>`
+                : Object.entries(overdueByMember)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([name, total]) => `
+                      <div class="itemLine"><span>${escapeHtml(name)}</span><span class="itemAmt" style="color:var(--red)">$${total.toFixed(2)}</span></div>
+                    `).join("")
+            ) : ""}
+          </div>
+        `;
+        document.querySelectorAll(".langOption").forEach(el => {
+          el.addEventListener("click", () => {
+            uiLang = el.dataset.lang;
+            try { localStorage.setItem("wg_ui_lang", uiLang); } catch (e) { /* fine to skip */ }
+            render();
+          });
+        });
+        document.querySelectorAll('.buyTab[data-index]').forEach(el => {
+          el.addEventListener("click", () => {
+            currentView = "round";
+            loadGroupBuy(parseInt(el.dataset.index, 10));
+          });
+        });
+        return;
+      }
+
       // `id` doubles as this member's position in the original 接龙 (data-<date>.json's
       // `orders` array is already in the order the message listed them) — shown as a
       // "1." serial number prefix on their card, the print report, and the 门牌管理
@@ -2454,13 +2578,12 @@
 
         <div class="announceBtn${announceCopied ? " copied" : ""}" id="announceBtn" role="button" tabindex="0">${announceCopied ? t("copiedCheck") : t("copyAnnounceBtn")}</div>
 
-        ${GROUP_BUYS.length > 1 ? `
-          <div class="buyTabs" role="tablist">
-            ${GROUP_BUYS.map((gb, i) => `
-              <div class="buyTab ${i === activeIndex ? "active" : ""} ${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
-            `).join("")}
-          </div>
-        ` : ""}
+        <div class="buyTabs" role="tablist">
+          ${GROUP_BUYS.map((gb, i) => `
+            <div class="buyTab ${i === activeIndex ? "active" : ""} ${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
+          `).join("")}
+          <div class="buyTab" role="tab" tabindex="0" aria-selected="false" data-view="members">${t("membersTabLabel")}</div>
+        </div>
 
         ${countUnverifiedLines(members) > 0 ? `
           <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
@@ -2608,7 +2731,15 @@
       `;
 
       document.querySelectorAll(".buyTab").forEach(el => {
-        el.addEventListener("click", () => loadGroupBuy(parseInt(el.dataset.index, 10)));
+        if (el.dataset.index != null) {
+          el.addEventListener("click", () => loadGroupBuy(parseInt(el.dataset.index, 10)));
+        } else if (el.dataset.view === "members") {
+          el.addEventListener("click", () => {
+            currentView = "members";
+            if (!overdueByMember && !overdueLoading) computeOverdueByMember();
+            render();
+          });
+        }
       });
       document.querySelectorAll(".tab").forEach(el => {
         el.addEventListener("click", () => { filter = el.dataset.filter; render(); });
