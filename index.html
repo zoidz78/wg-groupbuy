@@ -252,6 +252,11 @@
     font-family: inherit; margin-bottom: 6px;
   }
   .productSearchInput:focus { outline: none; border-color: var(--muted); }
+  .stockListCollapseBtn {
+    text-align: center; font-size: 13px; color: var(--muted); padding: 10px 12px;
+    border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; user-select: none;
+    margin-bottom: 8px;
+  }
   .productSearchResults { margin-bottom: 8px; }
   .productSearchResults:empty { display: none; }
   .productSearchResult {
@@ -394,7 +399,7 @@
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
   .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
-  .sortCheck:focus-visible, .langOption:focus-visible, .editCardBtn:focus-visible {
+  .sortCheck:focus-visible, .langOption:focus-visible, .editCardBtn:focus-visible, .stockListCollapseBtn:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -493,7 +498,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.12.0";
+    const APP_VERSION = "1.13.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -565,6 +570,14 @@
     // the input handler (which deliberately skips render(), see below) can
     // filter without recomputing flavorTotals from scratch.
     let productSearchQuery = "";
+    // The full "all products" stocking list (renderAllProductsList) can run
+    // to 30-40+ rows — starts collapsed behind a tap-to-expand summary, per
+    // explicit request, rather than always showing the whole thing. Only
+    // gates that ONE view: selecting a specific product (selectedProduct)
+    // or typing into the search box already show a focused result
+    // regardless of this flag, since neither of those is the "lengthy
+    // list" being collapsed.
+    let showFullStockList = false;
     let productSearchRoundKeys = [];
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
@@ -678,6 +691,9 @@
       },
       membersTabLoading: { zh: "正在汇总各轮数据，请稍候…", en: "Summing up past rounds, please wait…" },
       membersTabAllClear: { zh: "目前没有人有未付款项 🎉", en: "Nobody currently owes anything 🎉" },
+      expandStockList: { zh: "📋 查看全部商品备货清单", en: "📋 View full stocking list" },
+      collapseStockList: { zh: "收起备货清单", en: "Collapse stocking list" },
+      productCountUnit: { zh: "种商品", en: "products" },
       adjustBtn: { zh: "+ 调整", en: "+ Adjustment" },
       cancelAdjustBtn: { zh: "取消调整", en: "Cancel adjustment" },
       adjTypeItem: { zh: "品项数量变化", en: "Item quantity change" },
@@ -2067,6 +2083,7 @@
           filter = "all";
           selectedProduct = null;
           selectedProductOverlay = null;
+          showFullStockList = false;
           productSearchQuery = "";
           unitFilterQuery = "";
           memberSearchQuery = "";
@@ -2674,7 +2691,9 @@
           <div class="productDetail">
             ${selectedProduct
               ? renderProductMembers(selectedProduct, members)
-              : renderAllProductsList(flavorTotals, grandUnitTotals, baseGrandTotal)}
+              : (showFullStockList
+                  ? `<div class="stockListCollapseBtn" role="button" tabindex="0" id="stockListToggle">${t("collapseStockList")}</div>` + renderAllProductsList(flavorTotals, grandUnitTotals, baseGrandTotal)
+                  : `<div class="stockListCollapseBtn" role="button" tabindex="0" id="stockListToggle">${t("expandStockList")}（${roundProductKeys.length} ${t("productCountUnit")}）</div>`)}
           </div>
         </div>
 
@@ -2960,6 +2979,8 @@
       const editToggleBtn = document.getElementById("editToggleBtn");
       if (editToggleBtn) editToggleBtn.addEventListener("click", toggleEditMode);
       document.querySelectorAll(".editCardBtn").forEach(el => el.addEventListener("click", toggleEditMode));
+      const stockListToggle = document.getElementById("stockListToggle");
+      if (stockListToggle) stockListToggle.addEventListener("click", () => { showFullStockList = !showFullStockList; render(); });
       const pinSubmitBtn = document.getElementById("pinSubmitBtn");
       if (pinSubmitBtn) pinSubmitBtn.addEventListener("click", handlePinSubmit);
       const pinInputEl = document.getElementById("pinInput");
