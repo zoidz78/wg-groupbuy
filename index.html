@@ -509,7 +509,7 @@
     // for the rest of the session; `overdueLoading` drives a "计算中…" state
     // while the cross-round fetches are in flight.
     let currentView = "round"; // "round" | "members"
-    let overdueByMember = null; // null (not yet computed) | { name: totalOwed }
+    let overdueByMember = null; // null (not yet computed) | { name: { total, byDate: [{date, label, amount}] } }
     let overdueLoading = false;
     let overdueError = "";
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -632,15 +632,15 @@
       statOrderTotal: { zh: "订单总额", en: "Order total" },
       statCollected: { zh: "已收款", en: "Collected" },
       statOutstanding: { zh: "未收款", en: "Outstanding" },
-      statPacked: { zh: "已打包", en: "Packed" },
+      statPacked: { zh: "已收/送", en: "Received/Delivered" },
       progressCollectedWord: { zh: "已收", en: "Paid" },
       progressPeopleUnit: { zh: "人", en: "" },
       originalTotalNote: { zh: "原始订单总额", en: "Original order total" },
       includesAdjustments: { zh: "已含调整", en: "incl. adjustments" },
       payBtnOn: { zh: "已付款 ✓", en: "Paid ✓" },
       payBtnOff: { zh: "标记已付款", en: "Mark paid" },
-      packBtnOn: { zh: "已打包 ✓", en: "Packed ✓" },
-      packBtnOff: { zh: "打包", en: "Pack" },
+      packBtnOn: { zh: "已收/送 ✓", en: "Received/Delivered ✓" },
+      packBtnOff: { zh: "收/送", en: "Receive/Deliver" },
       walkinTag: { zh: "现场加购", en: "Walk-in" },
       unverifiedTag: { zh: "缺失/待确认", en: "Missing/unverified" },
       undoBtn: { zh: "撤销", en: "Undo" },
@@ -948,9 +948,16 @@
             const base = fileRes.orders.find(o => o.name === name);
             const total = Math.round((costOf(base && base.items) + adjTotalFor(name)) * 100) / 100;
             if (Math.abs(total) < 0.005) return; // nothing actually owed (e.g. a fully-refunded order)
-            totals[name] = Math.round(((totals[name] || 0) + total) * 100) / 100;
+            if (!totals[name]) totals[name] = { total: 0, byDate: [] };
+            totals[name].total = Math.round((totals[name].total + total) * 100) / 100;
+            totals[name].byDate.push({ date: gb.date, label: gb.label || gb.date, amount: total });
           });
         }));
+        // Each round resolves independently via Promise.all, so byDate entries
+        // land in whatever order rounds happen to finish fetching in — sort
+        // chronologically here so the sub-rows always read oldest-to-newest
+        // regardless of network timing.
+        Object.values(totals).forEach(t => t.byDate.sort((a, b) => a.date.localeCompare(b.date)));
         overdueByMember = totals;
       } catch (e) {
         overdueError = `汇总失败：${e.message}`;
@@ -2484,9 +2491,12 @@
               Object.keys(overdueByMember).length === 0
                 ? `<div class="emptyNote">${t("membersTabAllClear")}</div>`
                 : Object.entries(overdueByMember)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([name, total]) => `
-                      <div class="itemLine"><span>${escapeHtml(name)}</span><span class="itemAmt" style="color:var(--red)">$${total.toFixed(2)}</span></div>
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .map(([name, data]) => `
+                      <div class="itemLine"><span>${escapeHtml(name)}${memberUnits[name] ? ` <span style="color:var(--muted);font-weight:400">🏠 ${escapeHtml(memberUnits[name])}</span>` : ""}</span><span class="itemAmt" style="color:var(--red)">$${data.total.toFixed(2)}</span></div>
+                      ${data.byDate.map(d => `
+                        <div class="itemLine" style="padding-left:16px;font-size:12px;color:var(--muted)"><span>${escapeHtml(d.label)}</span><span>$${d.amount.toFixed(2)}</span></div>
+                      `).join("")}
                     `).join("")
             ) : ""}
           </div>
