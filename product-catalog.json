@@ -1080,6 +1080,14 @@
     "gift_snack_random": {
       "label": "随机小零食(赠品)",
       "unit": "包"
+    },
+    "grape_jufeng_family": {
+      "label": "辽宁巨峰家庭版(4串/箱)",
+      "unit": "箱",
+      "weighMode": "proportional",
+      "aka": [
+        "辽宁巨峰家庭版"
+      ]
     }
   }
 }
