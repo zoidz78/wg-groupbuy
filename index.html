@@ -488,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.7.3";
+    const APP_VERSION = "1.7.5";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -1233,6 +1233,21 @@
     function roundGramsDown(grams) {
       return Math.floor(grams / 10) * 10;
     }
+    // Same buyer-favor rounding, applied to the dollar amount computed from
+    // a weight/piece/ratio correction (delta × price) — rounds to the
+    // nearest 10 cents, always in the member's favor regardless of sign: a
+    // charge (positive) rounds down to a smaller amount owed; a refund
+    // (negative) rounds down too, which makes it MORE negative — i.e. a
+    // bigger refund. Floor is buyer-favorable either way, same as
+    // roundGramsDown above. Used both in the live preview text and the
+    // actual saved amountDelta, so what's shown before saving always
+    // matches what gets saved. The tiny epsilon guards against a value
+    // like 7.20 sometimes being represented as 7.199999999999999 in
+    // floating point, which would otherwise tip the floor down an extra
+    // (wrong) 10 cents.
+    function roundMoneyDown(amount) {
+      return Math.floor(amount * 10 + 1e-9) / 10;
+    }
     // A product counts as "unverified" (shows 待确认 instead of a dollar
     // amount, everywhere) either because it's explicitly flagged that way,
     // or because its `price` is missing/null — the latter matters because a
@@ -1346,7 +1361,7 @@
       const current = currentQtyFor(memberKey, itemKey);
       const qtyDelta = Math.round((newQty - current) * 10000) / 10000;
       if (qtyDelta === 0) return;
-      const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
+      const amountDelta = info && info.price != null ? roundMoneyDown(info.price * qtyDelta) : 0;
       saveAdjustment(GROUP_BUYS[activeIndex].date, {
         member: memberKey, type: "item", itemKey, qtyDelta, amountDelta, note: note || "", ts: Date.now()
       });
@@ -1403,7 +1418,7 @@
         } else {
           const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
           const delta = Math.round((newQty - current) * 10000) / 10000;
-          const amt = info && info.price != null ? delta * info.price : null;
+          const amt = info && info.price != null ? roundMoneyDown(delta * info.price) : null;
           preview = previewPieceCalc(pieces, totalPieces, newQty, unitOf(itemKey), delta, amt);
           ready = true;
         }
@@ -1445,7 +1460,7 @@
           } else {
             const newQty = Math.round((pieces / piecesPerUnit) * 10000) / 10000;
             const delta = Math.round((newQty - current) * 10000) / 10000;
-            const amt = info && info.price != null ? delta * info.price : null;
+            const amt = info && info.price != null ? roundMoneyDown(delta * info.price) : null;
             preview = previewPieceCalc(pieces, totalPieces, newQty, unitOf(itemKey), delta, amt);
             ready = true;
           }
@@ -1468,7 +1483,7 @@
         const rounded = roundGramsDown(grams);
         const newQty = rounded / perUnit;
         const delta = Math.round((newQty - current) * 10000) / 10000;
-        const amt = info && info.price != null ? delta * info.price : null;
+        const amt = info && info.price != null ? roundMoneyDown(delta * info.price) : null;
         const amtText = amt == null ? "" : ` ≈ ${amt >= 0 ? "+" : "-"}$${Math.abs(amt).toFixed(2)}`;
         preview = previewGramsCalc(grams, rounded, newQty, unitOf(itemKey), current, delta, amtText);
         ready = true;
@@ -1522,7 +1537,7 @@
         } else {
           const frac = Math.round((bunch / total) * 10000) / 10000;
           const delta = Math.round((frac - current) * 10000) / 10000;
-          const amt = info && info.price != null ? delta * info.price : null;
+          const amt = info && info.price != null ? roundMoneyDown(delta * info.price) : null;
           preview = previewFracCalc(bunch, total, frac, current, delta, amt);
           ready = true;
         }
@@ -2048,7 +2063,7 @@
       if (qtyEl) qtyEl.value = adjDraft.qtyDelta;
       const info = DATA.products[itemKey];
       const unit = unitOf(itemKey);
-      const amount = info && info.price != null ? info.price * delta : null;
+      const amount = info && info.price != null ? roundMoneyDown(info.price * delta) : null;
       const deltaSign = delta >= 0 ? "+" : "";
       const amtText = amount == null ? "" : ` ≈ ${amount >= 0 ? "+" : "-"}$${Math.abs(amount).toFixed(2)}`;
       adjGramsPreview = previewGramsCalc(grams, rounded, correctQty, unit, currentQty, delta, amtText);
@@ -2067,10 +2082,32 @@
       let entry;
       if (type === "item") {
         const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
-        const qtyDelta = parseFloat(adjDraft.qtyDelta);
+        // If the grams-helper was used, recompute the delta fresh right now
+        // against the CURRENT live state, rather than trusting whatever got
+        // cached in adjDraft.qtyDelta at the last keystroke — see the
+        // handleAdjGramsHelperInput comment above for why that number can
+        // go stale: it's computed against currentQtyFor() at typing time,
+        // and if an intervening action changes the member's adjustment
+        // history before "保存" is clicked (most commonly: deleting an old
+        // adjustment via 撤销, then saving a replacement without retyping
+        // the grams), the cached delta silently submits the wrong amount —
+        // this is exactly the bug a real round hit. Recomputing here closes
+        // that window entirely: the save action always reflects reality at
+        // the moment of saving, never a snapshot from however long ago the
+        // last keystroke was.
+        let qtyDelta;
+        const helperGrams = parseFloat(adjDraft.gramsHelper);
+        const perUnit = gramsPerUnit(itemKey);
+        if (!isWalkin && perUnit && !isNaN(helperGrams) && helperGrams > 0) {
+          const rounded = roundGramsDown(helperGrams);
+          const correctQty = rounded / perUnit;
+          qtyDelta = Math.round((correctQty - currentQtyFor(memberKey, itemKey)) * 10000) / 10000;
+        } else {
+          qtyDelta = parseFloat(adjDraft.qtyDelta);
+        }
         if (!itemKey || isNaN(qtyDelta) || qtyDelta === 0) { adjFormError = "请填写有效的数量变化（不能是 0）"; render(); return; }
         const info = DATA.products[itemKey];
-        const amountDelta = info && info.price != null ? info.price * qtyDelta : 0;
+        const amountDelta = info && info.price != null ? roundMoneyDown(info.price * qtyDelta) : 0;
         entry = { member: memberName, type: "item", itemKey, qtyDelta, amountDelta, note, ts: Date.now() };
       } else if (type === "weight") {
         const itemKey = adjDraft.itemKey || Object.keys(DATA.products)[0];
@@ -2582,6 +2619,13 @@
         });
       });
       document.querySelectorAll(".adjUndo").forEach(el => {
+        // #cleanupInvalidBtn shares this class for styling but has its own
+        // dedicated handler below and no data-id — without this guard, a
+        // click on it would also fire deleteAdjustment(date, undefined)
+        // here. Harmless (there's no Firestore field literally named
+        // "undefined" to delete), but wasteful, and worth closing off now
+        // that it surfaced while investigating a real bug.
+        if (!el.dataset.id) return;
         el.addEventListener("click", (evt) => {
           evt.stopPropagation();
           deleteAdjustment(GROUP_BUYS[activeIndex].date, el.dataset.id);
