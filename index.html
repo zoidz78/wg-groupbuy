@@ -488,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.8.0";
+    const APP_VERSION = "1.9.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -660,6 +660,7 @@
       adjTypeCredit: { zh: "退款/补款（固定金额）", en: "Refund/charge (fixed amount)" },
       adjTypeWeight: { zh: "实际到手重量（仅备注，不影响金额）", en: "Actual weight received (note only, doesn't affect money)" },
       walkinNamePlaceholder: { zh: "买家姓名（现场加购、原本不在名单里的人）", en: "Buyer name (walk-in, not on the original list)" },
+      walkinUnitPlaceholder: { zh: "门牌/地址（可选，输入已有姓名会自动带出）", en: "Address/unit (optional — auto-fills if the name matches an existing member)" },
       adjNotePlaceholder: { zh: "备注，例如：到货少一份 / 现场加购", en: "Note, e.g. one short / walk-in add" },
       copiedCheck: { zh: "已复制 ✓", en: "Copied ✓" },
       copyAnnounceBtn: { zh: "📢 复制到货通知（@全员）", en: "📢 Copy arrival announcement (@everyone)" },
@@ -864,7 +865,7 @@
         .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
     function resetAdjDraft() {
-      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "" };
+      adjDraft = { name: "", itemKey: "", qtyDelta: "", amount: "", grams: "", note: "", gramsHelper: "", unit: "" };
       adjFormType = "item";
       adjFormError = "";
       adjGramsPreview = "";
@@ -1356,14 +1357,19 @@
     // this item's current price, saved as one type:"item" entry. Undo is
     // free — it's just the normal per-adjustment 撤销 on the resulting
     // ledger line, same as any other entry.
-    function saveInlineItemAdjustment(memberKey, itemKey, newQty, note) {
+    // `extra` carries structured, machine-readable fields alongside the
+    // human-readable `note` — currently `actualGrams`/`actualPieces` — so
+    // buildMemberMessage() can show the real weight/piece count received
+    // without parsing the note string (which is free text, and may be in
+    // either language once translated — never something to regex against).
+    function saveInlineItemAdjustment(memberKey, itemKey, newQty, note, extra) {
       const info = DATA.products[itemKey];
       const current = currentQtyFor(memberKey, itemKey);
       const qtyDelta = Math.round((newQty - current) * 10000) / 10000;
       if (qtyDelta === 0) return;
       const amountDelta = info && info.price != null ? roundMoneyDown(info.price * qtyDelta) : 0;
       saveAdjustment(GROUP_BUYS[activeIndex].date, {
-        member: memberKey, type: "item", itemKey, qtyDelta, amountDelta, note: note || "", ts: Date.now()
+        member: memberKey, type: "item", itemKey, qtyDelta, amountDelta, note: note || "", ts: Date.now(), ...(extra || {})
       });
     }
 
@@ -1621,7 +1627,7 @@
               const pieces = parseFloat(weightDraftPieces[key]);
               const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
               if (!isNaN(pieces) && pieces >= 0 && pieces <= totalPieces) {
-                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`);
+                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`, { actualPieces: pieces });
               }
               weightEditing[key] = false; delete weightDraftPieces[key];
             }
@@ -1636,7 +1642,7 @@
               const grams = parseFloat(weightDraftGrams[key]);
               if (perUnit && !isNaN(grams) && grams > 0) {
                 const rounded = roundGramsDown(grams);
-                saveInlineItemAdjustment(memberKey, itemKey, rounded / perUnit, `实收${formatQty(rounded)}g`);
+                saveInlineItemAdjustment(memberKey, itemKey, rounded / perUnit, `实收${formatQty(rounded)}g`, { actualGrams: rounded });
               }
               weightEditing[key] = false; delete weightDraftGrams[key];
             }
@@ -1647,7 +1653,7 @@
               const pieces = parseFloat(weightDraftPieces[key]);
               const totalPieces = Math.round(current * piecesPerUnit * 10000) / 10000;
               if (!isNaN(pieces) && pieces >= 0 && pieces <= totalPieces) {
-                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`);
+                saveInlineItemAdjustment(memberKey, itemKey, pieces / piecesPerUnit, `实收${formatQty(pieces)}/${formatQty(totalPieces)}粒`, { actualPieces: pieces });
               }
               weightEditing[key] = false; delete weightDraftPieces[key];
             }
@@ -1665,7 +1671,7 @@
               const total = parseFloat(fracDraftTotal[key]);
               if (!isNaN(bunch) && !isNaN(total) && total > 0 && bunch <= total) {
                 boxTotalCache[itemKey] = total;
-                saveInlineItemAdjustment(memberKey, itemKey, bunch / total, `净重${formatQty(bunch)}g/总重${formatQty(total)}g`);
+                saveInlineItemAdjustment(memberKey, itemKey, bunch / total, `净重${formatQty(bunch)}g/总重${formatQty(total)}g`, { actualGrams: bunch });
               }
               fracEditing[key] = false; delete fracDraftBunch[key]; delete fracDraftTotal[key];
             }
@@ -1754,12 +1760,30 @@
     }
 
     // The "actual weight" note for one member's item, if one was recorded —
-    // see the "实际到手重量" adjustment type. Purely informational (never
-    // affects money or the stocking list), for items that get portioned out
-    // by hand and don't always land on the ordered amount; billing is left
-    // as-is (rounded down) but the buyer is still told what they actually got.
+    // shown in the payment message so the buyer knows what they actually
+    // got, even though billing is left as-is (rounded down). Purely
+    // informational, never affects money or the stocking list.
+    //
+    // Checks TWO sources, because this is a fixed regression: the original
+    // (pre-inline-editor) design only ever wrote a dedicated `type:"weight"`
+    // annotation entry (from the old form's "实际到手重量（仅备注）" radio
+    // option) — but once the new inline weight/box-share editors became the
+    // normal way to record an actual weight, they saved a structured
+    // `actualGrams` field on an ordinary `type:"item"` entry instead (see
+    // saveInlineItemAdjustment's `extra` param), and this function was never
+    // updated to also look there. The result: the weight note silently
+    // stopped showing in payment messages for anything corrected through
+    // the current, normal UI — exactly the same shape of regression as the
+    // "$" sign one above (a feature whose one true source moved, and a
+    // reader that kept checking only the old one). Picks whichever
+    // qualifying entry is most recent, in case an item was corrected more
+    // than once.
     function actualWeightFor(memberName, itemKey) {
-      return adjustmentsForMember(memberName).find(a => a.type === "weight" && a.itemKey === itemKey);
+      const candidates = adjustmentsForMember(memberName).filter(a =>
+        a.itemKey === itemKey && ((a.type === "weight") || (a.type === "item" && a.actualGrams != null))
+      );
+      if (!candidates.length) return null;
+      return candidates.reduce((latest, a) => (a.ts || 0) > (latest.ts || 0) ? a : latest);
     }
 
     // Builds the plain-text WeChat message for one member — their itemized
@@ -2007,6 +2031,7 @@
       return `
         <div class="adjForm">
           ${isWalkin ? `<input type="text" id="adjWalkinName" placeholder="${t('walkinNamePlaceholder')}" value="${escapeHtml(adjDraft.name)}">` : ""}
+          ${isWalkin ? `<input type="text" id="adjWalkinUnit" placeholder="${t('walkinUnitPlaceholder')}" value="${escapeHtml(adjDraft.unit || '')}" style="margin-top:6px">` : ""}
           <div class="adjFormRow">
             <label><input type="radio" name="adjType" value="item" ${adjFormType === "item" ? "checked" : ""}> ${t("adjTypeItem")}</label>
             <label><input type="radio" name="adjType" value="credit" ${adjFormType === "credit" ? "checked" : ""}> ${t("adjTypeCredit")}</label>
@@ -2136,6 +2161,14 @@
         entry = { member: memberName, type: "credit", amountDelta, note, ts: Date.now() };
       }
       saveAdjustment(GROUP_BUYS[activeIndex].date, entry);
+      // If an address was given for this walk-in, save it into the shared
+      // 门牌 directory too — same doc the 门牌管理 panel reads/writes —
+      // so it's there for both the auto-populate lookup next time this
+      // name comes up, and for organizing this delivery like any other
+      // member's address already is.
+      if (isWalkin && (adjDraft.unit || "").trim()) {
+        saveMemberUnits({ [memberName]: adjDraft.unit.trim() });
+      }
       openAdjustFormFor = null;
       resetAdjDraft();
       render();
@@ -2653,7 +2686,24 @@
         el.addEventListener("change", () => { adjFormType = el.value; render(); });
       });
       const adjWalkinNameEl = document.getElementById("adjWalkinName");
-      if (adjWalkinNameEl) adjWalkinNameEl.addEventListener("input", () => { adjDraft.name = adjWalkinNameEl.value; });
+      if (adjWalkinNameEl) adjWalkinNameEl.addEventListener("input", () => {
+        adjDraft.name = adjWalkinNameEl.value;
+        // Auto-populate the address field from the existing 门牌 directory
+        // if the typed name matches someone already known — but only while
+        // the address field is still blank, so this never overwrites
+        // something the person already typed there themselves. Writes the
+        // DOM value directly rather than going through adjDraft.unit +
+        // render(), so this doesn't steal focus from the name field
+        // mid-keystroke.
+        const unitEl = document.getElementById("adjWalkinUnit");
+        const knownUnit = memberUnits[adjDraft.name.trim()];
+        if (unitEl && !adjDraft.unit && knownUnit) {
+          unitEl.value = knownUnit;
+          adjDraft.unit = knownUnit;
+        }
+      });
+      const adjWalkinUnitEl = document.getElementById("adjWalkinUnit");
+      if (adjWalkinUnitEl) adjWalkinUnitEl.addEventListener("input", () => { adjDraft.unit = adjWalkinUnitEl.value; });
       const adjItemKeyEl = document.getElementById("adjItemKey");
       if (adjItemKeyEl) adjItemKeyEl.addEventListener("change", () => {
         adjDraft.itemKey = adjItemKeyEl.value;
@@ -2714,9 +2764,20 @@
 
       const addWalkinBtn = document.getElementById("addWalkinBtn");
       if (addWalkinBtn) addWalkinBtn.addEventListener("click", () => {
-        if (openAdjustFormFor === "__walkin__") { openAdjustFormFor = null; }
-        else { openAdjustFormFor = "__walkin__"; resetAdjDraft(); }
+        const opening = openAdjustFormFor !== "__walkin__";
+        if (opening) { openAdjustFormFor = "__walkin__"; resetAdjDraft(); }
+        else { openAdjustFormFor = null; }
         render();
+        // The "+ 新增买家" button lives in the toolbar, well below the member
+        // list — but the form it opens renders right after that list, i.e.
+        // potentially a full screen or more ABOVE where the person just
+        // tapped. Without this, they'd have to scroll up to even see it.
+        // Scrolling only on open (not close) avoids an unwanted jump when
+        // collapsing the form.
+        if (opening) {
+          const formEl = document.querySelector(".adjForm");
+          if (formEl) formEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       });
       const bulkToggleBtn = document.getElementById("bulkToggleBtn");
       if (bulkToggleBtn) bulkToggleBtn.addEventListener("click", () => { showBulkPanel = !showBulkPanel; bulkError = ""; render(); });
