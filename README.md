@@ -9,7 +9,13 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 
 - 卡片式排版：统计信息、每位成员、备货清单分别独立成卡片，手机上
   一屏可看到 2～3 张卡片
-- 按口味/商品逐一列出每位成员的订单明细，附单项小计和个人总计
+- 界面右上角有 **中文 / EN 双语切换**（仅切换管理界面上的按钮、标
+  签这些文字；成员姓名、商品名称、复制出去的付款消息/到货通知等
+  "数据"永远是中文，因为买家看到的是这些消息，不是管理界面）。切
+  换会记在这台设备上，下次打开自动保持上次选的语言
+- 按口味/商品逐一列出每位成员的订单明细，附单项小计和个人总计；
+  如果某个商品在送货日被调整过，调整那一行会**紧跟在该商品自己
+  那一行下面**，不再统一堆在最后
 - 每件商品名称前会自动带上对应的表情图标（🍑水蜜桃、🐔鸡肉、🥟馄
   饨等），新商品也能根据关键词自动匹配到合适的图标，不需要逐个手
   动设置（详见下方"商品表情图标"）
@@ -17,19 +23,55 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   录（现场加购的人不在接龙里，所以不带序号）
 - 一键标记付款状态（"标记已付款" / "已付款 ✓"），**所有打开此链接
   的人实时共享同一份付款状态**（详见下方"共享实时收款状态"）
+- 每位成员卡片上有一个独立的 **"✏️ 编辑调整"/"完成编辑"** 按钮，
+  不用再滚动到底部工具栏才能进入编辑模式（工具栏原来的按钮仍然保
+  留，两者是同一个开关）
+- **打包状态**：每位成员卡片上有独立的"打包"按钮，和付款状态互不
+  影响（可以已打包未付款，也可以已付款未打包），统计卡片上会显示
+  "已打包 X / Y 人"
+- **逐件分拣勾选**：进入编辑模式后，每一行商品前有一个可勾选的
+  ⬜/✅，方便几个人分头实际拣货时互相看到进度；完全缺货的那一行会
+  直接显示 ❌ 代替勾选框（没东西可拣了），部分到货的行会带一个
+  ⚠️ 部分到货 的小标记
+- **商品数量的四种就地编辑方式**（进入编辑模式后，直接点某一行商
+  品即可，不用再打开旧的"+ 调整"表单）：
+  - 普通商品：+/− 加减器，外加一个"缺货"快捷按钮
+  - 按重量计价、或整包按重量分装的商品：输入实际到手克数，系统按
+    **10g** 向下取整（约定俗成不多收）自动换算成对应数量；也可以
+    切换成"没有秤？改用数颗数"
+  - 按箱/份分装、每份重量不固定的商品（例如葡萄论串卖、一箱几串
+    分给几个人）：输入这一份的重量和整箱重量，按比例自动算出应付
+    金额；同一箱后面登记的人会自动带出前一个人填过的整箱重量
+  - 按固定颗数分装、部分损坏或短少的商品：直接填实收颗数 / 应收颗
+    数，按比例折算金额
+  - 旧的"+ 调整"表单仍然保留在编辑模式下作为备用，两者写入的是同
+    一种记录，撤销、报表、付款消息的显示方式完全一样
 - 每位成员卡片上有 **"💬 复制付款消息"** 按钮，一键复制一段可直接
   粘贴到微信的收款消息——包含该成员的订单明细、送货日调整说明
   （例如短缺、退款）和应付总额（详见下方"复制付款消息"）
 - 页面顶部有更醒目的 **"📢 复制到货通知"** 按钮，一键复制一条 @ 全员
   的取货通知，方便直接发到群里（详见下方"复制到货通知"）
-- 顶部统计卡片：参团人数、订单总额、已收款、未收款
+- 顶部统计卡片：参团人数、订单总额、已收款、未收款、已打包
 - **商品查询 & 备货清单**：显示每种口味/商品总共需要订购的数量；
   卡片上方有一个下拉菜单，**只列出本场实际有人订的商品**（没人订
   的商品不会出现），选中某个商品后，下方会切换成显示这个商品是谁
   订的、每人订了多少份，并给出小计；备货清单里的**每一行商品也可
-  以直接点击**，同样会弹出这份认购明细，点击弹窗任意处关闭
-- 按 全部 / 未付款 / 已付款 筛选
-- 支持多场团购，超过一场后以标签页形式切换（按日期排序）
+  以直接点击**，同样会弹出这份认购明细，点击弹窗任意处关闭。商品
+  很多（三四十种起）时，完整清单默认**收起**，显示成一行"📋 查看
+  全部商品备货清单（N 种商品）"，点开再看，避免一屏全是密密麻麻
+  的表格；切换场次会自动重新收起
+- **缺货/退货明细（供索赔）卡片**：只要本场有商品被记录为短少，
+  就会在商品查询下方自动出现这张卡片，按商品汇总短了多少、该退多
+  少钱、影响了谁（附备注），损失最大的排最前面，并给出应退合计；
+  没有短货时这张卡片完全不显示
+- 按 全部 / 未付款 / 已付款 筛选，外加**门牌/地址下拉**（107 /
+  109 / 印度小店 / 后门）和**姓名搜索框**，三者可以同时叠加使用
+- **会员** 标签页（在所有场次标签的最右边）：汇总每位成员**当前欠
+  款**（跨过去所有场次未付款部分相加，不是历史总消费），按欠款金
+  额从高到低排序，方便追欠款
+- 支持多场团购，超过一场后以标签页形式切换（按日期排序）；**已结
+  束的场次标签会自动上色**——全部收款完成显示绿色，还有人未付款
+  显示红色，未来/当天进行中的场次不上色
 - 自动浅色/深色模式，手机和电脑均适配
 - 送货日调整：短缺、退款/补款、现场加购都可以在页面上直接记录，
   金额自动重新计算（详见下方"送货日调整"）
@@ -55,7 +97,11 @@ WG团购群制作，但换一套数据后也可用于任何团购。
 | `manifest.json` | 列出所有团购场次：`{ date, label, file }`。日期最新的排在最前面。 |
 | `data-<日期>.json` | 每场团购一个文件：商品、价格，以及每位成员的订单。 |
 | `product-emoji-map.json` | 关键词 → 表情图标对照表，决定每个商品名称前显示哪个图标。可以随时扩充。 |
-| `message-template.json` | "复制付款消息"按钮生成的文字模板——问候语、每行明细的措辞、结尾语等。想改消息的措辞，改这个文件就够了，不需要碰 `index.html`。 |
+| `message-template.json` | "复制付款消息"/"复制到货通知"生成文字用的模板——问候语、每行明细的措辞、结尾语等。想改消息的措辞，改这个文件就够了，不需要碰 `index.html`。 |
+
+`product-catalog.json` 是 Claude 内部使用的商品参考表（记录商品短
+键、上次价格、称重方式等），**从不部署到网站上**，`index.html` 也
+不会读取它，纯粹方便下次新建数据文件时对照。
 
 付款状态**不**存放在仓库的任何文件里——它实时存放在 Firebase
 Firestore 中，见下方说明。
@@ -93,7 +139,11 @@ Firestore 中，见下方说明。
   "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
-    "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
+    "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" },
+    "peach": { "label": "彩虹油蟠桃", "price": 8.0, "unit": "kg", "weighMode": "weight", "gramsPerUnit": 1000 },
+    "tangerine_seedless": { "label": "无籽蜜橘(2kg/包)", "price": 10.0, "weighMode": "weight", "gramsPerUnit": 2000 },
+    "grape_jufeng": { "label": "辽宁巨峰(3串/箱)", "price": 25.0, "weighMode": "proportional" },
+    "pear_box": { "label": "香梨(4粒/份)", "price": 12.0, "piecesPerUnit": 4 }
   },
   "orders": [
     { "name": "小明", "items": { "sig": 3 } },
@@ -105,10 +155,22 @@ Firestore 中，见下方说明。
 ```
 
 - `itemsLabel`（可选）——一句话描述这场团购是什么（例如"小馄饨团购"），仅供页面顶部
-  的"📢 复制到货通知"按钮使用；不填的话会退化成把所有商品名称用"、"连起来。
-- `products` —— 短键 → `{ label（中文名）, price, unit?（可选）}`。`unit`
-  为可选字段，默认是`"盒"`—— 如果商品按重量或其他非盒装单位出售，
-  需明确设置（例如`"kg"`）。
+  的"📢 复制到货通知"按钮使用；不填的话会退化成"{场次标签}团购"（例如"9/1团购"），
+  不会再把所有商品名称列出来。
+- `products` —— 短键 → 商品信息：
+  - `label`（中文名）、`price` 必填。
+  - `unit`（可选）——默认是`"盒"`，商品按重量或其他非盒装单位出售时需明确设置
+    （例如`"kg"`）。
+  - `weighMode`（可选）——决定这个商品在编辑模式下用哪种就地编辑器：
+    `"weight"` 用实际到手克数编辑器，`"proportional"` 用按箱分摊比例编辑器；
+    不填就默认用普通 +/− 加减器。
+  - `gramsPerUnit`（可选）——`weighMode:"weight"` 商品每单位对应多少克（例如
+    `"kg"` 商品填 `1000`，"无籽蜜橘(2kg/包)"这种整包商品填 `2000`）；不填的话
+    会尝试从 `unit`/`label` 里的重量文字自动猜，但明确写出来更可靠。
+  - `piecesPerUnit`（可选）——这个商品一份/一箱包含几颗/几件，用于按颗数折算
+    金额的编辑器（部分损坏、部分短少时用）。
+  - 这几个字段都是可选的——旧的、没有这些字段的数据文件完全兼容，所有商品会
+    退化成普通的 +/− 加减器，不会出错。
 - `orders` —— 每条明细对应一笔要收的款。`items` 里的数量可以是小数
   （例如`0.5`表示半份/半公斤）。
 - **合并订单**：如果两位成员一起拼单、并作为一笔总款支付，用**一
@@ -125,18 +187,23 @@ Firestore 中，见下方说明。
 
 付款状态通过 **Firebase Firestore** 实时同步——任何人打开这个链
 接标记付款，其他所有正在查看的人都会立刻看到更新，不需要手动刷
-新。
+新。这也是打包状态、分拣勾选、门牌信息和送货日调整共用的同一套
+实时机制。
 
 - **Firebase 项目**：WG Group Buy（`wg-group-buy`）
-- **数据结构**：`paidStatus` 这个 collection 下，每场团购一个
-  document（用日期作为 document ID），字段是每位成员的姓名 →
-  `true`/`false`
+- **数据结构**：每场团购一个 document（用日期作为 document ID）：
+  - `paidStatus` —— 每位成员的姓名 → `true`/`false`，外加一个特殊字段
+    `__locked`（该场是否已全部收款自动锁定）
+  - `packedStatus` —— 每位成员的姓名 → 是否已打包
+  - `sortedItems` —— key 是 `成员姓名::商品短键`，值是是否已勾选分拣
+  - `adjustments` —— 每条送货日调整一个自动生成的 ID
+  - `memberInfo/directory`（单一 document，不按日期分）—— 每位成员的门牌号
 - **前端接入方式**：`index.html` 中直接内嵌了 Firebase 的
   `firebaseConfig`（apiKey、projectId 等）。这些值本身不是密钥、公
   开也没关系——真正的访问控制由下面的安全规则决定，而不是靠隐藏
   这些配置
 - **Firestore 安全规则**（Firebase 控制台 → Firestore Database →
-  Rules）：
+  Rules，完整版见仓库里的 `firestore-rules.md`）：
 
   ```
   rules_version = '2';
@@ -148,12 +215,21 @@ Firestore 中，见下方说明。
       match /adjustments/{groupBuyDate} {
         allow read, write: if true;
       }
+      match /packedStatus/{groupBuyDate} {
+        allow read, write: if true;
+      }
+      match /sortedItems/{groupBuyDate} {
+        allow read, write: if true;
+      }
+      match /memberInfo/{docId} {
+        allow read, write: if true;
+      }
     }
   }
   ```
 
-  这条规则只开放了 `paidStatus` 和 `adjustments` 这两个 collection
-  的读写权限给任何拥有链接的人，项目里其他数据不受影响。
+  这条规则开放了以上五个 collection 的读写权限给任何拥有链接的
+  人，项目里其他数据不受影响。
 
 - 如果页面顶部出现红色的 🔧 提示条，说明 Firestore 读取或写入时
   出错了，提示条会显示具体的错误信息，方便排查。
@@ -184,62 +260,50 @@ GitHub Pages 的 CDN 缓存还没刷新到最新的 `index.html`——等一两�
 collection 里，每场团购一个 document，作为原始订单之外的第二层记
 录，方便随时对照"当初订了什么"和"最后实际收了多少钱"。
 
-**使用方式：**
+**日常使用最快的方式：** 进入编辑模式后（点任意一张成员卡片上的
+"✏️ 编辑调整"，或底部工具栏同名按钮，首次需要输入编辑密码），**直
+接点某一行商品**即可弹出对应的就地编辑器（普通加减器 / 称重 /
+按箱分摊 / 按颗数——具体是哪一种由这个商品在 `data-<日期>.json`
+里的 `weighMode`/`piecesPerUnit` 决定，见上方"数据结构"），填好保
+存即可，金额自动按下面的规则换算，不需要手动心算。
 
-1. 点击页面底部工具栏的 **"✏️ 编辑调整"**，输入编辑密码解锁（密
-   码写在 `index.html` 脚本开头的 `EDIT_PIN` 常量里，默认是
-   `1117`，可以自行修改）。这只是防止误触的软限制，不是真正的权
-   限控制——Firestore 规则本身对拥有链接的任何人都是开放读写的，
-   和已收款状态一样。
-2. 解锁后，每位成员卡片下方会出现 **"+ 调整"** 按钮，点开后可以
-   选择：
-   - **品项数量变化**：某个商品的数量增加或减少（例如到货少一
-     份、或现场多卖一份），系统会按该商品的单价自动换算金额，不
-     需要手动心算。这也是**大宗按重量分装商品**（例如"无籽蜜橘
-     (2kg/包)"这类整包称重的水果，几个人合买一包再拆分）的处理
-     方式：接龙时先填一个预估数量，等实际过秤后再用这个功能改成
-     真实重量。
-     - 所有**按重量计价的商品**都会在这个表单下多出一个 **"或输
-       入实际到手重量（克）"** 输入框——不管是单位直接就是"kg"的
-       商品（例如脆甜大荔冬枣、普罗旺斯番茄），还是商品名称里写
-       着重量的整包商品（如"无籽蜜橘(2kg/包)"、"香蕉(900g/份)"）。
-       直接填过秤读数（例如 `600` 或 `1230`），系统会自动**按
-       100g向下取整**（约定俗成不多收，1.23kg 按 1.2kg 算），换
-       算成对应的商品数量差值并自动填进"数量变化"框里，同时在下
-       方显示换算过程和金额——不用再手动把克数硬套进"数量变化"
-       框（那个框的单位是这个商品自己的单位，可能是kg、也可能是
-       包/份，从来不是克；直接填克数，kg 商品会被当成"多称600
-       kg"，包装商品会被当成"多卖1230包"）。如果同一个人这个商
-       品之前已经调整过一次，再调一次会在上一次调整后的基础上继
-       续换算，不会重复计算。
-     - 这个换算只是帮你把克数转成正确的数量差值，本质上还是一条
-       普通的"品项数量变化"记录，撤销、导出报告、付款消息里的显
-       示方式都和手动填数量差值完全一样。
-   - **退款/补款（固定金额）**：不对应具体商品的一笔整额调整，
-     附上备注说明原因。
-   - **实际到手重量（仅备注，不影响金额）**：像水果、肉类这类现
-     场分装的商品，实际分到每个人手上的重量常常和接龙时的预估对
-     不上——这个选项不改变收费（按惯例向下取整，不多收），但会
-     记下实际重量，"复制付款消息"里会自动显示给对方看（例如
-     "彩虹油蟠桃  16（2044g）"）。
-3. 工具栏的 **"+ 新增买家"** 用于记录一位原本不在接龙名单里、纯
-   粹现场临时购买的人。**姓名栏只填名字本身，不要带"@"**——如果
-   是直接从微信消息里把"@某某"整段复制过来的，"@"会被自动去掉，
-   但保险起见还是手动去掉比较好，避免和"复制付款消息"里自动加
-   的"@"重复变成"@@"。
-4. 每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
-5. 如果情况比较复杂（例如很多人的订单都要调整），可以把送货情况
-   讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
-   **"📋 批量导入调整"** 面板一次性套用。
+**称重类商品的取整规则：** 输入实际到手克数后，系统按 **10g**（不
+是100g）**向下取整**（约定俗成不多收买家的钱，例如1395g按1390g
+算）。由此算出的金额如果出现零头（例如0.33kg×$22=$7.26这种），
+还会再按 **1 角** 向下取整——应收的钱只会往下取整、退款只会往下取
+整变得更多，两个方向都对买家有利。同一个人同一件商品第二次修改
+时，会在上一次修改后的基础上继续换算，不会重复计算。
+
+如果情况比较复杂（例如很多人的订单都要调整），也可以把送货情况
+讲给 Claude，让它生成一段调整记录的 JSON，再粘贴进工具栏的
+**"📋 批量导入调整"** 面板一次性套用；旧的逐条填写的 **"+ 调整"**
+表单也仍然保留作为备用，两者写入的记录格式完全一样。
+
+每条调整记录旁边都有 **"撤销"** 链接，可以随时移除。
 
 以上这些编辑操作，在该场团购**全部收款并自动锁定**后会暂时无法使
 用——见下方"全部收款后自动锁定"。
+
+## 打包与分拣
+
+- **打包**：每位成员卡片上有一个独立的"打包"按钮，和"标记已付款"
+  互不影响、互不依赖——存在自己的 `packedStatus` collection 里，
+  任何人都能点，不需要先解锁编辑模式。统计卡片上会显示"已打包
+  X / Y 人"。
+- **分拣勾选**：进入编辑模式后，每一行商品前面会出现 ⬜/✅ 勾选
+  框，方便几个人分头去实际拣货时，互相看到哪些已经拣好了——存在
+  `sortedItems` collection 里，同样是实时共享、任何人可点，和付
+  款、调整完全独立，纯粹是"东西有没有物理上拣出来"的记录，不影响
+  任何金额。已经彻底缺货的商品（数量归零）不会显示勾选框，而是直
+  接显示 ❌（没东西可拣），部分到货的商品仍显示勾选框，但会带一个
+  ⚠️ 部分到货 的提醒。
 
 ## 全部收款后自动锁定
 
 当一场团购里**所有人都被标记为已付款**后，页面会自动锁定这一场：
 不能再标记/取消付款、不能加送货日调整、也不能新增买家，防止团购
-结清之后被误触改动。
+结清之后被误触改动（打包和分拣状态不受锁定影响，随时可以继续操
+作）。
 
 - 锁定状态是**所有人共享**的——存在 Firebase 里，和付款状态一
   样，不是某一台设备自己的状态，刷新页面也不会解锁。
@@ -250,6 +314,24 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
   改"这件事变得太随意。
 - "💬 复制付款消息""📢 复制到货通知""🖨️ 导出报告"这几个只读/复
   制类的按钮不受锁定影响，随时可用。
+
+## 已结束场次的标签颜色
+
+日期已过的场次，标签页会自动上色，方便一眼看出哪几场还有尾款没
+收：全部收款完成显示**绿色**，还有人没付款显示**红色**；当天或未
+来的场次一律不上色（算作"还没到日子"）。当前选中的那个标签始终
+保持原来的深色高亮，颜色只体现在没被选中的标签上。这个颜色只根据
+接龙原始名单里的人算的，现场加购的人（走的是调整记录）暂不计入，
+是有意保留的小限制。
+
+## 会员（欠款汇总）
+
+标签栏最右边有一个 **"会员"** 标签，汇总每位成员**当前未结清**的
+金额——把过去每一场里还没标付款的部分加总起来，不是这个人的历史
+总消费。按欠款从多到少排序。这个统计是打开这个标签时才现算的（不
+是每次开页面都算一遍），算过一次后本次浏览就不用再重算。带"测
+试"字样日期的场次（例如 9/10测试(v2)）不会计入，避免测试数据污染
+真实欠款。
 
 ## 门牌管理
 
@@ -269,6 +351,9 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
   到（和页面上其他内容一样的公开程度）。**修改**门牌号仍然需要先解锁编
   辑模式：点击底部工具栏的 **"🏠 门牌管理"**（需要编辑密码），看到本场
   每位成员的门牌号输入框，填好后点"保存"，所有人立刻看到最新数据。
+- 新增买家（走场加购）表单里，如果输入的名字和门牌名录里已有的成员同
+  名，地址会自动带出来（只在地址框还是空的时候才会自动填，不会覆盖手
+  动填的内容）。
 
 **首次使用前需要在 Firebase 控制台加一条新规则**（Firestore Database →
 Rules），因为这是一个全新的 collection：
@@ -279,8 +364,8 @@ match /memberInfo/{docId} {
 }
 ```
 
-加在现有 `paidStatus`/`adjustments` 规则旁边即可。没加这条规则之前，点开
-"🏠 门牌管理"会看到红色的 🔧 错误提示。
+加在现有规则旁边即可（完整规则见 `firestore-rules.md`）。没加这条规则之
+前，点开"🏠 门牌管理"会看到红色的 🔧 错误提示。
 
 ## 商品表情图标（`product-emoji-map.json`）
 
@@ -319,6 +404,19 @@ match /memberInfo/{docId} {
 Paynow 93395373 /ZHAO JIE
 ```
 
+如果这位成员的某件商品在送货日被调整过，调整那一行会紧跟在**该商品自己
+那一行**下面（而不是统一堆在所有商品明细的最后），例如：
+
+```
+@小明
+
+哈密瓜 x2盒  $13
+↳ 哈密瓜 -1盒（到货少一份） -$6.5
+土鸡蛋  $9.3
+
+一共$9.3～
+```
+
 最后的收款方式那一行（`closingUnpaid`）只在这位成员**还没付款**时才会出现；
 一旦标记已付款，这段消息就不再显示收款方式（`closingPaid`，目前留空）。这两
 行都在 `message-template.json` 里，可以自由改成任何收款方式或留空。
@@ -350,6 +448,19 @@ Paynow 93395373 /ZHAO JIE
   段里——这个一般是固定的，不需要每场都改。
 - 其余措辞同样在 `message-template.json` 里，改法和上面"复制付款消息"一样。
 
+## 商品查询（谁订了这个商品）
+
+想知道某个商品一共谁订了、订了多少，有两种入口，都会弹出同一份明细：
+
+1. **商品查询** 卡片上方的下拉菜单——只列出**本场实际有人订**的商品（没
+   人订的商品不出现），选一个即可看到每个买家的姓名和数量，以及小计。
+2. **备货清单里的任意一行也可以直接点**（不用先去下拉菜单里找），弹出同
+   样的明细弹窗，点弹窗任意处关闭。
+
+商品种类多（三四十种起）时，默认只显示一行"📋 查看全部商品备货清单（N
+种商品）"的收起状态，点开才展开完整表格，避免刷屏；切换到别的场次会自动
+重新收起。
+
 ## 导出报告
 
 点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
@@ -360,11 +471,17 @@ Paynow 93395373 /ZHAO JIE
 
 ## 补充说明
 
-- 页面上所有文字均为中文，这是有意为之——新增的任何文字都请保持中文，与现有风格一致。
-- 页面最底部一行小字括号里的数字（例如"（1.0）"）是这个页面代码的版本号——
+- 管理界面上的按钮、标签等文字支持中/英双语切换（右上角的切换
+  开关），但成员姓名、商品名称、送货日调整的备注，以及复制出去的
+  付款消息/到货通知，永远保持中文——因为买家看到的是这些内容，不
+  是管理界面本身。新增的界面文字（按钮、提示语等）请同时给出中英
+  两个版本；新增的商品名称、备注等数据类文字保持中文即可。
+- 页面最底部一行小字（例如"v1.13.0"）是这个页面代码的版本号——
   每次 Claude 改动 `index.html` 都会往上加一点，方便部署后一眼确认线上跑
   的是不是预期的版本，不需要打开开发者工具。和这场团购的日期、订单数据
   完全无关，纯粹是代码本身的版本标记。
+- 称重商品的取整规则是向下取整到最近的 **10g**（不是100g）——1395g按
+  1390g算，始终对买家有利。
 - 曾经尝试过用 Claude Artifact（`window.storage`）来实现跨设备共
   享付款状态，但受限于 Anthropic 平台当时一个已知的 postMessage
   跨域问题（已公开报告：`anthropics/claude-code#42064`），未能稳
@@ -380,7 +497,6 @@ branch → `main` / root）。推送到 `main` 分支后，线上页面会在一
 
 # WG Group Buy — Payment Collection Dashboard
 
-
 A simple, self-hosted, receipt-style dashboard for tracking group-buy
 orders and payment status. Built for WG团购群 (the "WG Group Buy"
 chat), but works for any group buy once you swap in your own data.
@@ -392,8 +508,15 @@ chat), but works for any group buy once you swap in your own data.
 - Card-based layout: the summary stats, each member, and the stocking
   list are each their own card — on mobile you can see roughly 2–3
   cards per screen
+- A **Chinese / EN toggle** in the top corner switches the admin UI's
+  own labels and buttons only — member names, product names, and
+  anything copied out as a payment message or arrival announcement
+  stay Chinese regardless of this toggle, since buyers read those
+  messages, not the admin UI. The choice is remembered per device
 - Lists each member's order itemized by flavor/product, with a
-  per-item subtotal and a personal total
+  per-item subtotal and a personal total; if an item was corrected on
+  delivery day, that adjustment line now sits directly under the item
+  it corrects, instead of being dumped in a block at the end
 - Every product name gets an emoji prefix looked up automatically by
   keyword (🍑 for peaches, 🐔 for chicken, 🥟 for dumplings, etc.) —
   new products get matched automatically too, no manual tagging
@@ -406,6 +529,37 @@ chat), but works for any group buy once you swap in your own data.
   paid" / "Paid ✓"), and **paid status is shared live across
   everyone who opens the link** (see "Shared live payment status"
   below)
+- Each member's card has its own **"✏️ 编辑调整" / "完成编辑"**
+  (edit) toggle — no need to scroll to the bottom toolbar to enter
+  edit mode (the original toolbar button is still there too; both
+  flip the same shared edit mode)
+- **Packing status**: an independent "打包" (packed) toggle per
+  member card, tracked separately from paid status (a member can be
+  packed-not-paid or paid-not-packed) — shown in the stats ticket as
+  "已打包 X / Y 人"
+- **Per-item sorting checkboxes**: in edit mode, every item line gets
+  a ⬜/✅ tick, so several people physically pulling stock can see each
+  other's progress in real time. A fully-shortaged item shows ❌
+  instead of a checkbox (nothing left to pull); a partial shortage
+  keeps the checkbox plus a small ⚠️ 部分到货 flag
+- **Four inline ways to correct a product's quantity** (in edit mode,
+  tap the item line directly — no need to open the older "+ 调整"
+  form):
+  - Plain products: a +/− stepper with a "缺货" (shortage) shortcut
+  - Weight-priced or bagged-by-weight products: type the actual grams
+    received, rounded down to the nearest **10g** (never rounds up)
+    and converted to the right quantity automatically; can switch to
+    "没有秤？改用数颗数" (no scale? count pieces instead)
+  - Box-shared products where each portion's weight varies (e.g.
+    grapes sold by bunch out of a shared box): enter this portion's
+    weight and the box's total weight, and the price is computed
+    proportionally — the next person sharing the same box gets the
+    total weight pre-filled from the first entry
+  - Fixed-piece-count products with partial damage/shortage: enter
+    pieces received vs. pieces expected, and the price is prorated
+  - The older "+ 调整" form still works in edit mode as a fallback —
+    both write the exact same record, so undo, reports, and payment
+    messages behave identically either way
 - Each member's card has a **"💬 复制付款消息"** (copy payment
   message) button that copies a ready-to-paste WeChat message with
   their itemized order, any delivery-day adjustments (with the
@@ -415,19 +569,34 @@ chat), but works for any group buy once you swap in your own data.
   copies a single "come collect it" message that @mentions every
   member, ready to post to the group (see "Arrival announcement"
   below)
-- Summary stats card: participant count, order total, amount
-  collected, amount outstanding
-- **商品查询 & 备货清单** (Product lookup & stocking list) card:
-  shows the total quantity needed per flavor/product. A dropdown at
-  the top lists **only the products actually ordered this round**
-  (anything nobody ordered never shows up) — pick one to swap the
-  panel below into exactly who ordered it, how much each, and a
-  subtotal. Every line in the stocking list itself is also tappable
-  and pops up that same breakdown; tap anywhere on the popup to
-  close it
-- Filter by All / Unpaid / Paid
+- Top stats ticket: number of members, order total, collected,
+  outstanding, and packed count
+- **Product lookup & stocking list**: shows the total quantity needed
+  for each flavor/product. A dropdown above the stocking list shows
+  **only products actually ordered this round** — picking one swaps
+  the panel below to show exactly who ordered it, how much each
+  person ordered, and a subtotal. Every row in the stocking list
+  itself is also tappable and pops up that same breakdown; tap
+  anywhere on the popup to close it. When a round has a lot of
+  distinct products (30-40+), the full list starts **collapsed**
+  behind a "📋 查看全部商品备货清单（N 种商品）" summary line, to
+  avoid a wall of tables — it re-collapses whenever you switch rounds
+- **Shortage/refund summary card**: whenever a round has any item
+  recorded as short on delivery, a "缺货/退货明细（供索赔）" card
+  appears below the product lookup, aggregating the shortfall by
+  product — quantity short, refund owed, and who was affected —
+  biggest loss first, plus a total refund line. Hidden entirely when
+  nothing is short
+- Filter by All / Unpaid / Paid, plus a **block/address dropdown**
+  (107 / 109 / 印度小店 / 后门) and a **member name search box** —
+  all three combine
+- A **会员 (Members)** tab, rightmost in the tab bar, showing each
+  member's currently-outstanding balance summed across every past
+  round (not their lifetime spend), sorted highest-owed first
 - Supports multiple group buys — once there's more than one, tabs
-  appear (sorted by date) to switch between them
+  appear (sorted by date) to switch between them; **past rounds are
+  color-coded** — green once everyone's paid, red if anyone's still
+  unpaid, uncolored for today's or future rounds
 - Automatic light/dark mode, responsive on both mobile and desktop
 - Delivery-day adjustments: shortages, refunds/surcharges, and
   walk-in extras can all be recorded right on the page, with amounts
@@ -435,8 +604,9 @@ chat), but works for any group buy once you swap in your own data.
 - **Auto-locks once everyone's paid**: once every member in a round
   is marked paid, that round locks — no more (un)marking paid, no
   adjustments, no walk-ins — to prevent an accidental change after
-  it's settled. Enter the edit PIN to unlock it again (see
-  "Auto-lock after full payment" below)
+  it's settled. Enter the edit PIN to unlock it again (packing and
+  sorting stay unaffected by the lock — see "Auto-lock after full
+  payment" below)
 - **Block/unit directory**: record each member's block/unit number to
   help plan deliveries — shown right on their card (visible to anyone
   with the link), but never stored in a repo file and never appears
@@ -455,11 +625,16 @@ chat), but works for any group buy once you swap in your own data.
 
 | File | Purpose |
 |---|---|
-| `index.html` | The whole app — reads `manifest.json` and whichever `data-*.json` files it references, and reads/writes paid status via Firebase. You normally don't need to touch this file. |
+| `index.html` | The whole app — reads `manifest.json` and whichever `data-*.json` files it references, and reads/writes state via Firebase. You normally don't need to touch this file. |
 | `manifest.json` | Lists every group buy: `{ date, label, file }`. Most recent date first. |
 | `data-<date>.json` | One file per group buy: products, prices, and every member's order. |
 | `product-emoji-map.json` | Keyword → emoji lookup table that decides which icon shows next to each product name. Safe to extend any time. |
-| `message-template.json` | The wording used by the "copy payment message" button — greeting, per-line phrasing, closing line, etc. To change how the message reads, edit this file — `index.html` doesn't need to change. |
+| `message-template.json` | The wording used by the "copy payment message" / "copy arrival announcement" buttons — greeting, per-line phrasing, closing line, etc. To change how a message reads, edit this file — `index.html` doesn't need to change. |
+
+`product-catalog.json` is a Claude-side reference file only (tracks
+short keys, last-used prices, weighing mode) — it's **never deployed**
+and `index.html` never fetches it; it just makes building the next
+round's data file faster.
 
 Paid status is **not** stored in any file in this repo — it lives
 live in Firebase Firestore (see below).
@@ -500,7 +675,11 @@ mistype a product's short key in someone's `items`):
   "itemsLabel": "小馄饨团购",
   "products": {
     "sig": { "label": "招牌鲜肉馄饨", "price": 6.5 },
-    "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" }
+    "pork_belly": { "label": "五花肉", "price": 12.0, "unit": "kg" },
+    "peach": { "label": "彩虹油蟠桃", "price": 8.0, "unit": "kg", "weighMode": "weight", "gramsPerUnit": 1000 },
+    "tangerine_seedless": { "label": "无籽蜜橘(2kg/包)", "price": 10.0, "weighMode": "weight", "gramsPerUnit": 2000 },
+    "grape_jufeng": { "label": "辽宁巨峰(3串/箱)", "price": 25.0, "weighMode": "proportional" },
+    "pear_box": { "label": "香梨(4粒/份)", "price": 12.0, "piecesPerUnit": 4 }
   },
   "orders": [
     { "name": "小明", "items": { "sig": 3 } },
@@ -513,11 +692,22 @@ mistype a product's short key in someone's `items`):
 
 - `itemsLabel` (optional) — a short phrase for what this round is (e.g. "小馄饨团购"),
   used only by the "📢 复制到货通知" button at the top of the page. If omitted, it falls
-  back to every product's label joined by "、".
-- `products` — short key → `{ label (Chinese name), price, unit?
-  (optional) }`. `unit` defaults to `"盒"` (box) if omitted — set it
-  explicitly (e.g. `"kg"`) for anything sold by weight or another
-  unit.
+  back to `"{round label}团购"` (e.g. "9/1团购"), never to a list of every product.
+- `products` — short key → product info:
+  - `label` (Chinese name) and `price` are required.
+  - `unit` (optional) — defaults to `"盒"` (box); set it explicitly (e.g. `"kg"`) for
+    anything sold by weight or another unit.
+  - `weighMode` (optional) — decides which inline editor this product gets in edit mode:
+    `"weight"` for a grams-input editor, `"proportional"` for a box-share calculator;
+    omit it for the default plain +/− stepper.
+  - `gramsPerUnit` (optional) — grams per unit for a `weighMode:"weight"` product (e.g.
+    `1000` for a `"kg"` product, `2000` for a "无籽蜜橘(2kg/包)"-style bagged item). If
+    omitted, the app tries to infer it from `unit`/the weight text in `label`, but
+    setting it explicitly is more reliable.
+  - `piecesPerUnit` (optional) — how many pieces are in one unit/box, used by the
+    piece-count editor for partial damage/shortage.
+  - All of these fields are optional — older data files without them are fully
+    compatible; every product just falls back to the plain +/− stepper.
 - `orders` — one entry per amount to collect. Quantities in `items`
   can be decimals (e.g. `0.5` for half a portion/half a kg).
 - **Combined orders**: if two members order together and pay as one
@@ -538,18 +728,24 @@ mistype a product's short key in someone's `items`):
 Paid status syncs in real time via **Firebase Firestore** — when
 anyone with the link marks someone as paid, everyone else currently
 viewing the page sees the update instantly, with no manual refresh
-needed.
+needed. The same real-time mechanism backs packing status, sorting
+checkboxes, the block/unit directory, and delivery-day adjustments.
 
 - **Firebase project:** WG Group Buy (`wg-group-buy`)
-- **Data shape:** under the `paidStatus` collection, one document per
-  group buy (keyed by date), with fields mapping each member's name
-  → `true`/`false`
+- **Data shape:** one document per group buy (keyed by date), across:
+  - `paidStatus` — each member's name → `true`/`false`, plus a
+    special `__locked` field (whether the round auto-locked)
+  - `packedStatus` — each member's name → packed or not
+  - `sortedItems` — keys shaped `memberName::itemKey` → ticked or not
+  - `adjustments` — one auto-generated ID per delivery-day adjustment
+  - `memberInfo/directory` (a single document, not keyed by date) —
+    each member's block/unit number
 - **How the frontend connects:** `index.html` embeds the Firebase
   `firebaseConfig` directly (apiKey, projectId, etc.). These values
   aren't secrets and are fine to be public — actual access control
   comes from the security rules below, not from hiding this config.
 - **Firestore security rules** (Firebase console → Firestore
-  Database → Rules):
+  Database → Rules — full copy in this repo's `firestore-rules.md`):
 
   ```
   rules_version = '2';
@@ -561,13 +757,21 @@ needed.
       match /adjustments/{groupBuyDate} {
         allow read, write: if true;
       }
+      match /packedStatus/{groupBuyDate} {
+        allow read, write: if true;
+      }
+      match /sortedItems/{groupBuyDate} {
+        allow read, write: if true;
+      }
+      match /memberInfo/{docId} {
+        allow read, write: if true;
+      }
     }
   }
   ```
 
-  This only opens read/write access to the `paidStatus` and
-  `adjustments` collections for anyone with the link — nothing else
-  in the project is exposed.
+  This opens read/write access to these five collections for anyone
+  with the link — nothing else in the project is exposed.
 
 - If a red 🔧 banner appears at the top of the page, it means a
   Firestore read or write failed — the banner shows the specific
@@ -605,71 +809,51 @@ Firestore (an `adjustments` collection, one document per round) as a
 second layer on top of the frozen original order, so there's always
 a clean record of what was ordered vs. what was actually charged.
 
-**How to use it:**
+**Fastest everyday path:** once in edit mode (tap "✏️ 编辑调整" on
+any member card, or the same button in the bottom toolbar — the
+first time on a device needs the edit PIN), **tap the item line
+directly**. This opens the matching inline editor — plain stepper,
+weight, box-share, or piece-count, decided by that product's
+`weighMode`/`piecesPerUnit` in `data-<date>.json` (see "Data schema"
+above) — and saves the right amount automatically using the rounding
+rules below.
 
-1. Tap **"✏️ 编辑调整"** (Edit adjustments) in the bottom toolbar and
-   enter the edit PIN to unlock (set via the `EDIT_PIN` constant near
-   the top of `index.html`'s script — `1117` by default; change it
-   freely). This is only a soft gate against accidental taps, not
-   real access control — the Firestore rules themselves stay open to
-   anyone with the link, same as paid status.
-2. Once unlocked, each member's card gets a **"+ 调整"** (+ Adjust)
-   button with two options:
-   - **品项数量变化** (quantity change): a product's quantity goes up
-     or down (e.g. one box missing on delivery, or an extra one sold
-     on the spot) — the dashboard computes the dollar amount from
-     that product's price automatically. This is also how to handle
-     a **bulk item split by weight** (e.g. a 2kg bag of tangerines
-     shared between two people): log an estimated quantity at order
-     time, then correct it to the real weighed amount here once it's
-     known.
-     - Every **weight-priced product** shows an extra **"或输入实际
-       到手重量（克）"** (or enter actual weight received, in grams)
-       field here — whether it's priced directly by the kilogram
-       (e.g. 脆甜大荔冬枣, 普罗旺斯番茄) or a bagged/bulk item whose
-       name embeds a pack weight (e.g. "无籽蜜橘(2kg/包)",
-       "香蕉(900g/份)"). Type the scale reading directly (e.g. `600`
-       or `1230`) and the dashboard **rounds it down to the nearest
-       100g** (the house rule — never round up, 1.23kg is billed as
-       1.2kg), converts that into the right quantity difference for
-       that product's own unit, fills in the "quantity change" field
-       for you, and shows the conversion and dollar impact
-       underneath — no more hand-converting grams into kg or into a
-       fraction of a bag (typing the grams straight into the qty
-       field would be read as that unit — "600" as 600 kilograms, or
-       "1230" as 1230 bags — and produce nonsense either way).
-       Correcting the same person's same item a second time nets
-       against the already-corrected amount, not the original order.
-     - This is purely a shortcut for computing the right number to
-       put in the quantity field — the saved record is an ordinary
-       "品项数量变化" entry, so undo, report export, and the payment
-       message all behave exactly as if you'd typed the quantity
-       change by hand.
-   - **退款/补款（固定金额）** (refund/surcharge): a flat dollar
-     adjustment not tied to any specific product, with a note.
-   - **实际到手重量（仅备注，不影响金额）** (actual weight received,
-     info only): for produce or meat that gets portioned out by hand,
-     what each person actually receives often doesn't match the
-     estimated order exactly. This option doesn't change what they're
-     charged (rounded down as usual, never charging extra) but records
-     the real weight, which the "copy payment message" button then
-     shows automatically (e.g. "彩虹油蟠桃  16（2044g）").
-3. **"+ 新增买家"** (+ Add buyer) in the toolbar records someone who
-   bought on the spot but wasn't in the original order at all. **Enter
-   just the name, without a leading "@"** — if you paste it straight
-   out of a WeChat message where it appeared as "@某某", the "@" is
-   stripped automatically, but it's cleaner to leave it off yourself so
-   it doesn't double up with the "@" the payment message already adds
-   (which would otherwise read "@@某某").
-4. Every adjustment line has a **"撤销"** (undo) link to remove it.
-5. For a messier delivery-day recap, describe what happened to
-   Claude in chat and it can generate the adjustment entries as JSON
-   to paste into the toolbar's **"📋 批量导入调整"** (bulk import)
-   panel, applying them all at once.
+**Rounding rules for weight-priced items:** enter the actual grams
+received, and the app rounds down to the nearest **10g** (never up —
+1395g bills as 1390g). If the resulting dollar figure lands on an odd
+number of cents (e.g. 0.33kg × $22 = $7.26), it's rounded down again
+to the nearest **10 cents** — a charge rounds down to a smaller
+amount owed, and a refund rounds down too (making it a slightly
+bigger refund) — both directions favor the buyer. Correcting the same
+person's same item a second time nets against the already-corrected
+amount, not the original order.
+
+For a messier delivery-day recap, you can also describe what happened
+to Claude and have it generate the adjustment entries as JSON to
+paste into the toolbar's **"📋 批量导入调整"** (bulk import) panel.
+The older, form-based **"+ 调整"** option still works too in edit
+mode as a fallback — both write the identical record shape.
+
+Every adjustment line has a **"撤销"** (undo) link to remove it.
 
 These editing actions are all temporarily unavailable once a round has
 **auto-locked after full payment** — see "Auto-lock after full payment"
 below.
+
+## Packing and sorting
+
+- **Packing**: each member's card has its own "打包" (packed) toggle,
+  independent of "标记已付款" — stored in its own `packedStatus`
+  collection, tappable by anyone without unlocking edit mode. The
+  stats ticket shows "已打包 X / Y 人".
+- **Sorting checkboxes**: in edit mode, every item line gets a ⬜/✅
+  tick, so several people physically pulling stock at once can see
+  each other's progress — stored in `sortedItems`, likewise live and
+  ungated, and completely independent of payment/packing/adjustments;
+  it's purely a "has this been physically pulled" tracker and never
+  touches money. A fully-shortaged item (quantity down to zero) shows
+  ❌ instead of a checkbox (nothing left to pull); a partial shortage
+  keeps the checkbox plus a small ⚠️ 部分到货 flag.
 
 ## Auto-lock after full payment
 
@@ -677,6 +861,7 @@ Once **every member in a round has been marked paid**, the page
 automatically locks that round: no more marking/unmarking paid, no
 delivery-day adjustments, and no adding walk-in buyers — this
 prevents an accidental change once a group buy is already settled.
+Packing and sorting stay available even while locked.
 
 - The locked state is **shared by everyone** — it lives in Firebase,
   same as paid status, not just on one device, and a page reload
@@ -690,6 +875,25 @@ prevents an accidental change once a group buy is already settled.
 - The read-only/copy buttons — "💬 复制付款消息", "📢 复制到货通知",
   "🖨️ 导出报告" — are unaffected by the lock and stay available at
   all times.
+
+## Round tab coloring
+
+Past-round tabs are color-coded so you can spot outstanding balances
+at a glance: **green** once every base member in that round has paid,
+**red** if anyone's still unpaid. Today's and future rounds are left
+uncolored (treated as "hasn't happened yet"). The currently-selected
+tab always keeps its own dark "active" highlight regardless of color.
+This is based on the original 接龙 roster only — walk-ins added via
+adjustments aren't factored in yet, a known, low-stakes limitation.
+
+## Members (outstanding balances)
+
+The rightmost tab, **"会员"**, sums each member's currently-unpaid
+total across every past round (not their lifetime spend), sorted
+highest-owed first. It's computed the first time you open the tab
+(not on every page load) and cached for the rest of the session.
+Rounds with a "测试" (test) marker in the date, like 9/10测试(v2),
+are excluded so test data never pollutes a real balance.
 
 ## Block/unit directory
 
@@ -714,6 +918,10 @@ else in this project:
   management) in the bottom toolbar (after unlocking with the edit PIN) to
   see and edit every current member's unit number; tap "保存" to save. Every
   device sees the same saved data immediately.
+- On the walk-in ("+ 新增买家") form, typing a name that matches an
+  existing member in the directory auto-fills their address — only
+  while the address field is still blank, so it never overwrites a
+  manual entry.
 
 **Needs one new Firebase rule the first time you use this** (Firestore
 Database → Rules in the Firebase console), since it's a brand-new
@@ -725,8 +933,8 @@ match /memberInfo/{docId} {
 }
 ```
 
-Add it next to the existing `paidStatus`/`adjustments` rules. Without it,
-opening "🏠 门牌管理" shows a red 🔧 error banner instead.
+Add it next to the existing rules (full copy in `firestore-rules.md`).
+Without it, opening "🏠 门牌管理" shows a red 🔧 error banner instead.
 
 ## Product emoji icons (`product-emoji-map.json`)
 
@@ -744,12 +952,11 @@ matches 🥟, etc.) — icons don't need to be picked by hand per product.
 
 ## Copy payment message (`message-template.json`)
 
-Each member's card has a **"💬 复制付款消息"** button that assembles their
-itemized order, any delivery-day adjustments (with the reason, e.g. "到货少
-一份" for a shortage), and the total due into a message, then copies it to
-the clipboard so it can be pasted straight into WeChat. This is separate
-from the "mark paid" button — one person can sort/collect payment while
-another tracks who's paid, and the PDF export for a paper trail is
+Each member's card has a **"💬 复制付款消息"** button that copies a
+ready-to-paste WeChat message with their itemized order, any delivery-day
+adjustments (with the reason, e.g. a shortage), and the total due. This is
+separate from the "mark paid" button — one person can sort/collect payment
+while another tracks who's paid, and the PDF export for a paper trail is
 unaffected either way.
 
 The format matches how this group already writes these messages by hand
@@ -768,6 +975,20 @@ The format matches how this group already writes these messages by hand
 一共$42～
 
 Paynow 93395373 /ZHAO JIE
+```
+
+If one of that member's items was corrected on delivery day, the
+adjustment line now sits right under **that product's own line**
+rather than in a block at the end, e.g.:
+
+```
+@小明
+
+哈密瓜 x2盒  $13
+↳ 哈密瓜 -1盒（到货少一份） -$6.5
+土鸡蛋  $9.3
+
+一共$9.3～
 ```
 
 That last payment-info line (`closingUnpaid`) only appears while this member
@@ -807,6 +1028,23 @@ per-member payment message above:
 - The rest of the wording lives in `message-template.json` too, same as the payment
   message above.
 
+## Product lookup (who ordered what)
+
+Two ways to see who ordered a given product, both landing on the same
+breakdown:
+
+1. The dropdown above the **商品查询/备货清单** card — lists only
+   products **actually ordered this round**. Pick one to see every
+   buyer's name and quantity, plus a subtotal.
+2. **Any row in the stocking list is directly tappable** too, no need
+   to find it in the dropdown first — pops up the same breakdown; tap
+   anywhere on it to close.
+
+When a round has a lot of distinct products (30-40+), the full list
+starts **collapsed** behind a "📋 查看全部商品备货清单（N 种商品）"
+summary to avoid a wall of tables — it re-collapses on every round
+switch.
+
 ## Exporting a report
 
 **"🖨️ 导出报告（PDF/打印）"** (Export report) opens the browser's
@@ -819,14 +1057,21 @@ into several pages of paper.
 
 ## Notes
 
-- All text on the page is intentionally in Mandarin — keep any new
-  text in Mandarin to match the existing style.
-- The small number in parentheses at the very bottom of the page
-  (e.g. "（1.0）") is the code's version number — Claude bumps it every
+- The admin UI's own chrome (buttons, labels, tabs) supports a
+  Chinese/English toggle in the top corner, but member names, product
+  names, adjustment notes, and anything copied out as a payment
+  message or arrival announcement always stay in Mandarin — buyers
+  read those, not the admin UI. Add new UI chrome text in both
+  languages; new data-facing text (product names, notes) can stay
+  Mandarin-only, matching the existing style.
+- The small version string at the very bottom of the page (e.g.
+  "v1.13.0") is the code's version number — Claude bumps it every
   time `index.html` changes, so after deploying you can glance at the
   live page and confirm it picked up the version you expect, no dev
   tools needed. It has nothing to do with this round's date or order
   data — it's purely a code build marker.
+- The house billing rule rounds actual weight down to the nearest
+  **10g** (not 100g) — always in the buyer's favor.
 - A Claude Artifact (`window.storage`) approach was tried first for
   shared cross-device payment status, but hit a known Anthropic
   platform postMessage cross-origin bug at the time (publicly
