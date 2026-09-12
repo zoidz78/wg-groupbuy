@@ -488,6 +488,9 @@
       totalLine: "一共{total}～",
       closingPaid: "",
       closingUnpaid: "",
+      reminderDateLine: "{label}　{amount}",
+      reminderTotalLine: "一共欠{total}，麻烦补上哈～",
+      reminderClosing: "",
       // For the "📢 复制到货通知" group announcement button (see buildGroupAnnouncement).
       mentionPrefix: "@",
       mentionSeparator: " ",
@@ -498,7 +501,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.13.0";
+    const APP_VERSION = "1.15.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -581,6 +584,7 @@
     let productSearchRoundKeys = [];
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
+    let reminderCopiedFor = null; // member name whose payment-reminder message was just copied (会员 tab), for the same transient feedback
 
     // True once every member in this round has been marked paid — set via the
     // special "__locked" field in the same paidStatus/{date} Firestore doc (not
@@ -705,6 +709,7 @@
       copiedCheck: { zh: "已复制 ✓", en: "Copied ✓" },
       copyAnnounceBtn: { zh: "📢 复制到货通知（@全员）", en: "📢 Copy arrival announcement (@everyone)" },
       copyPaymentMsgBtn: { zh: "💬 复制付款消息", en: "💬 Copy payment message" },
+      copyReminderBtn: { zh: "💬 复制催款消息", en: "💬 Copy payment reminder" },
       editModeOn: { zh: "✅ 完成编辑", en: "✅ Done editing" },
       editModeOff: { zh: "✏️ 编辑调整", en: "✏️ Edit adjustments" },
       passwordError: { zh: "密码错误", en: "Incorrect password" },
@@ -1982,6 +1987,30 @@
       return lines.join("\n");
     }
 
+    // Builds the payment-reminder message for the 会员 (Members/overdue) tab —
+    // one message per member, listing every past round they still owe money
+    // from (using the same byDate breakdown computeOverdueByMember() already
+    // produces) plus the combined total. Deliberately separate from
+    // buildMemberMessage(): that one is a single round's itemized receipt,
+    // this one is a cross-round nudge and doesn't need item-level detail —
+    // just which rounds and how much, so the member can tell what it's for
+    // without the organizer having to dig up each round's numbers by hand.
+    // Wording comes from message-template.json, same as the other two
+    // message builders.
+    function buildReminderMessage(name, overdueData) {
+      const t = MESSAGE_TEMPLATE;
+      const lines = [];
+      lines.push(fillTemplate(t.greeting, { name }));
+      lines.push("");
+      overdueData.byDate.forEach(d => {
+        lines.push(fillTemplate(t.reminderDateLine, { label: d.label, amount: formatAmt(d.amount) }));
+      });
+      lines.push("");
+      lines.push(fillTemplate(t.reminderTotalLine, { total: formatAmt(overdueData.total) }));
+      if (t.reminderClosing) lines.push(t.reminderClosing);
+      return lines.join("\n");
+    }
+
     // Every member's name for the current round, in 接龙 order — original
     // orders first (as written in data-<date>.json), then anyone who only
     // shows up via a walk-in adjustment. Same order render() uses for the
@@ -2482,7 +2511,7 @@
             <div class="buyTab active" role="tab" tabindex="0" aria-selected="true" data-view="members">${t("membersTabLabel")}</div>
           </div>
 
-          <div class="card">
+          <div class="card membersTabView">
             <div class="sectionTitle" style="margin-top:0">${t("membersTabTitle")}</div>
             <div class="footNote" style="text-align:left;margin:-6px 0 10px">${t("membersTabNote")}</div>
             ${overdueError ? `<div class="debugBanner">🔧 ${overdueError}</div>` : ""}
@@ -2493,10 +2522,11 @@
                 : Object.entries(overdueByMember)
                     .sort((a, b) => b[1].total - a[1].total)
                     .map(([name, data]) => `
-                      <div class="itemLine"><span>${escapeHtml(name)}${memberUnits[name] ? ` <span style="color:var(--muted);font-weight:400">🏠 ${escapeHtml(memberUnits[name])}</span>` : ""}</span><span class="itemAmt" style="color:var(--red)">$${data.total.toFixed(2)}</span></div>
+                      <div class="itemLine"><span>${escapeHtml(name)}${memberUnits[name] ? ` <span style="color:var(--muted);font-weight:400">· 🏠 ${escapeHtml(memberUnits[name])}</span>` : ""}</span><span class="itemAmt" style="color:var(--red)">$${data.total.toFixed(2)}</span></div>
                       ${data.byDate.map(d => `
                         <div class="itemLine" style="padding-left:16px;font-size:12px;color:var(--muted)"><span>${escapeHtml(d.label)}</span><span>$${d.amount.toFixed(2)}</span></div>
                       `).join("")}
+                      <div class="copyMsgBtn${reminderCopiedFor === name ? " copied" : ""}" style="margin:6px 0 14px" role="button" tabindex="0" data-name="${escapeHtml(name)}">${reminderCopiedFor === name ? t("copiedCheck") : t("copyReminderBtn")}</div>
                     `).join("")
             ) : ""}
           </div>
@@ -2512,6 +2542,20 @@
           el.addEventListener("click", () => {
             currentView = "round";
             loadGroupBuy(parseInt(el.dataset.index, 10));
+          });
+        });
+        document.querySelectorAll(".membersTabView .copyMsgBtn").forEach(el => {
+          el.addEventListener("click", () => {
+            const name = el.dataset.name;
+            const data = overdueByMember[name];
+            if (!data) return;
+            copyTextToClipboard(buildReminderMessage(name, data)).then(() => {
+              reminderCopiedFor = name;
+              render();
+              setTimeout(() => {
+                if (reminderCopiedFor === name) { reminderCopiedFor = null; render(); }
+              }, 1500);
+            });
           });
         });
         return;
