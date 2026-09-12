@@ -21,7 +21,7 @@ The app allows group members to select products from an active catalog, automati
 ### 1. Member Workflow (Front-End H5)
 1. **Access:** Member taps an H5 link or scans a QR code inside the WeChat group chat.
 2. **Identification:** Member inputs their **WeChat Display Name** (微信昵称).
-3. **Product Selection:** Member browses available items, selects quantities (`+` / `-`), and adds notes or gift options where applicable.
+3. **Product Selection:** Member filters products by category tabs, browses available items, selects quantities (`+` / `-`), and adds notes or gift options where applicable.
 4. **Order Submission & Atomic Lock:** Member taps **"Submit & Copy 接龙" (提交并复制接龙)**.
    * The frontend executes an **atomic transaction** against Firestore to assign a guaranteed, incremental index number (e.g., `#32`).
    * The structured order record is saved to Firestore.
@@ -41,7 +41,11 @@ The app allows group members to select products from an active catalog, automati
 * Must use Firestore `runTransaction` when saving orders to prevent race conditions when multiple members submit simultaneously.
 * Dynamic counter tracks the total number of orders submitted in the current round and increments safely.
 
-### 2. 接龙 Text Formatting Engine
+### 2. Category Tab Navigation & Availability
+* **Category Tabs:** Render category tabs (e.g., *Meats, Produce, Frozen, Gifts*) dynamically derived from the `category` field to simplify mobile navigation.
+* **Active Status Filtering:** Only display items where `"active": true` during customer ordering. Hide or disable items marked `"active": false`.
+
+### 3. 接龙 Text Formatting Engine
 The app must format clipboard output to strictly match this pattern:
 
 ```text
