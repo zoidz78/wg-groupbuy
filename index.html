@@ -488,7 +488,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.7.5";
+    const APP_VERSION = "1.8.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Per-round tab coloring: "future" (date >= today, left default/uncolored),
@@ -1725,16 +1725,32 @@
       return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : ""));
     }
 
-    // Money for the copy-message, trimmed of trailing zeros and with no "$" —
-    // matches how this group already writes these messages by hand (e.g.
-    // "16", "6.7", not "$16.00", "$6.70").
+    // Money for the copy-message, trimmed of trailing zeros, WITH a "$"
+    // prefix. This is an explicit, deliberate override — the group's
+    // original hand-written convention omitted "$" (e.g. "16" not
+    // "$16.00"), and an earlier version of this file matched that on
+    // purpose. The person running this dashboard has since asked for "$"
+    // back at least once, and it silently reverted again — almost
+    // certainly because a later edit read the old comment describing the
+    // no-$ behavior as "working as designed" and treated a still-missing
+    // "$" as correct rather than as a regression. If this is ever touched
+    // again: the "$" is the current, confirmed-correct behavior. Do not
+    // remove it to "match how the group writes by hand" without the
+    // person explicitly asking for that specific change in this
+    // conversation.
+    //
+    // Sign placement matters: for a negative amount, Number(x).toFixed(2)
+    // already produces a leading "-" (e.g. "-6.6"), so a naive "$" + that
+    // string would read "$-6.6" (wrong order). The "$" goes after any
+    // leading "-", not before it, so this reads "-$6.6". This matters
+    // because one call site (the adjustment-line amount in the WeChat
+    // message) separately prepends its own "+" for a positive delta and
+    // nothing for a negative one, relying on formatAmt's own output to
+    // already carry the correct sign — e.g. "+" + "$6.6" = "+$6.6", or
+    // "" + "-$6.6" = "-$6.6".
     function formatAmt(x) {
-      // Number(x) first: x is normally already a real number here, but this
-      // is cheap insurance against a stray string sneaking in (`x.toFixed`
-      // doesn't exist on strings and would throw) — see the matching note on
-      // formatQty() below, which is at more direct risk since its input
-      // often comes straight from hand-authored data-<date>.json.
-      return Number(Number(x).toFixed(2)).toString();
+      const raw = Number(Number(x).toFixed(2)).toString();
+      return raw.startsWith("-") ? `-$${raw.slice(1)}` : `$${raw}`;
     }
 
     // The "actual weight" note for one member's item, if one was recorded —
