@@ -178,13 +178,18 @@
   }
   .payBtn.on { background: var(--green-btn); border-color: var(--green-btn); color: white; }
   .payBtn.locked { opacity: 0.55; cursor: default; }
-  .rowBtns { display: flex; gap: 6px; flex-shrink: 0; }
+  .rowBtns { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
   .packBtn {
     font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
     border: 1px solid var(--line); background: var(--bg); color: var(--muted);
     cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
   }
   .packBtn.on { background: var(--pack-btn); border-color: var(--pack-btn); color: white; }
+  .editCardBtn {
+    font-size: 12.5px; padding: 6px 13px; border-radius: 14px;
+    border: 1px dashed var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer; user-select: none; display: inline-block; flex-shrink: 0;
+  }
 
   .itemLine.unverified {
     color: var(--warn-text);
@@ -389,7 +394,7 @@
   .adjAddBtn:focus-visible, .announceBtn:focus-visible, .toolBtn:focus-visible,
   .tab:focus-visible, .buyTab:focus-visible, .adjUndo:focus-visible, .productSearchResult:focus-visible,
   .stepBtn:focus-visible, .voidBtn:focus-visible, .saveBtn:focus-visible, .cancelBtn:focus-visible,
-  .sortCheck:focus-visible, .langOption:focus-visible {
+  .sortCheck:focus-visible, .langOption:focus-visible, .editCardBtn:focus-visible {
     outline: 2px solid var(--ink); outline-offset: 2px;
   }
 
@@ -488,7 +493,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.11.0";
+    const APP_VERSION = "1.12.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -2638,6 +2643,7 @@
                 <div class="rowBtns">
                   <div class="packBtn ${packedState[m.name] ? "on" : ""}" role="button" tabindex="0" aria-pressed="${packedState[m.name] ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${packedState[m.name] ? t("packBtnOn") : t("packBtnOff")}</div>
                   <div class="payBtn ${paidState[m.name] ? "on" : ""}${roundLocked ? " locked" : ""}" role="button" tabindex="${roundLocked ? "-1" : "0"}" aria-pressed="${paidState[m.name] ? "true" : "false"}" aria-disabled="${roundLocked ? "true" : "false"}" data-name="${escapeHtml(m.name)}">${paidState[m.name] ? t("payBtnOn") : t("payBtnOff")}</div>
+                  ${!roundLocked ? `<div class="editCardBtn" role="button" tabindex="0">${editMode ? t("editModeOn") : t("editModeOff")}</div>` : ""}
                 </div>
               </div>
               ${memberUnits[m.name] ? `<div class="unitDisplay">🏠 ${escapeHtml(memberUnits[m.name])}</div>` : ""}
@@ -2926,12 +2932,34 @@
       const adjCancelBtn = document.getElementById("adjCancelBtn");
       if (adjCancelBtn) adjCancelBtn.addEventListener("click", () => { openAdjustFormFor = null; resetAdjDraft(); render(); });
 
-      const editToggleBtn = document.getElementById("editToggleBtn");
-      if (editToggleBtn) editToggleBtn.addEventListener("click", () => {
-        if (!editUnlocked) { showPinInput = !showPinInput; }
-        else { editMode = !editMode; openAdjustFormFor = null; showBulkPanel = false; showUnitsPanel = false; resetAdjDraft(); }
+      // Shared by the toolbar's edit toggle AND every per-card one (added
+      // so entering edit mode doesn't require scrolling all the way to the
+      // toolbar and back up to the card you actually wanted to edit).
+      // Both call this identically; the only extra step here is scrolling
+      // to the PIN prompt on the rare occasion it's needed — first-ever
+      // unlock on a device, since editUnlocked persists afterward — since
+      // that prompt only ever renders in the toolbar, far from a card
+      // button someone just tapped.
+      function toggleEditMode() {
+        if (!editUnlocked) {
+          showPinInput = !showPinInput;
+          render();
+          if (showPinInput) {
+            const pinRow = document.getElementById("pinInput");
+            if (pinRow) pinRow.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          return;
+        }
+        editMode = !editMode;
+        openAdjustFormFor = null;
+        showBulkPanel = false;
+        showUnitsPanel = false;
+        resetAdjDraft();
         render();
-      });
+      }
+      const editToggleBtn = document.getElementById("editToggleBtn");
+      if (editToggleBtn) editToggleBtn.addEventListener("click", toggleEditMode);
+      document.querySelectorAll(".editCardBtn").forEach(el => el.addEventListener("click", toggleEditMode));
       const pinSubmitBtn = document.getElementById("pinSubmitBtn");
       if (pinSubmitBtn) pinSubmitBtn.addEventListener("click", handlePinSubmit);
       const pinInputEl = document.getElementById("pinInput");
