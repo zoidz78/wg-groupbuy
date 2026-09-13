@@ -3309,9 +3309,14 @@
       const parts = Object.entries(m.items).flatMap(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return [];
-        const ownPart = isUnverified(k)
+        const ownText = isUnverified(k)
           ? `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}(待确认)`
           : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
+        // Only the original ordered line gets struck through, not the
+        // adjustment text right after it (that's the correction itself —
+        // striking it too would make the correction look voided as well).
+        const hasShortage = (adjByOriginalItem[k] || []).some(a => a.type === "item" && a.qtyDelta < 0);
+        const ownPart = hasShortage ? `<span style="text-decoration:line-through;color:#888">${ownText}</span>` : ownText;
         return [ownPart, ...(adjByOriginalItem[k] || []).map(adjText)];
       });
       const adjParts = trailingAdjustments.map(adjText);
