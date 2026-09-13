@@ -258,6 +258,7 @@
     border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; user-select: none;
     margin-bottom: 8px;
   }
+  .stockListCollapseBtn.copied { background: var(--green-btn); border-color: var(--green-btn); border-style: solid; color: white; }
   .productSearchResults { margin-bottom: 8px; }
   .productSearchResults:empty { display: none; }
   .productSearchResult {
@@ -542,7 +543,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.20.0";
+    const APP_VERSION = "1.21.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Same two-signal test-round check computeOverdueByMember()/
@@ -644,6 +645,7 @@
     let productSearchRoundKeys = [];
     let copiedFor = null; // member name whose WeChat message was just copied, for transient "已复制" feedback
     let announceCopied = false; // transient "已复制" feedback for the group arrival-announcement button
+    let stockListCopied = false; // transient "已复制" feedback for the 备货清单 order-list copy button
     let reminderCopiedFor = null; // member name whose payment-reminder message was just copied (会员 tab), for the same transient feedback
 
     // True once every member in this round has been marked paid — set via the
@@ -776,6 +778,7 @@
       adjNotePlaceholder: { zh: "备注，例如：到货少一份 / 现场加购", en: "Note, e.g. one short / walk-in add" },
       copiedCheck: { zh: "已复制 ✓", en: "Copied ✓" },
       copyAnnounceBtn: { zh: "📢 复制到货通知（@全员）", en: "📢 Copy arrival announcement (@everyone)" },
+      copyStockListBtn: { zh: "📋 复制清单（下单用）", en: "📋 Copy order list" },
       copyPaymentMsgBtn: { zh: "💬 复制付款消息", en: "💬 Copy payment message" },
       copyReminderBtn: { zh: "💬 复制催款消息", en: "💬 Copy payment reminder" },
       editModeOn: { zh: "✅ 完成", en: "✅ Done" },
@@ -2233,6 +2236,48 @@
       return `${mentions}\n\n${body}`;
     }
 
+    // Plain-text version of 备货清单 (the stocking list card), formatted for
+    // pasting straight into a supplier's order chat — same rows and totals
+    // as renderAllProductsList(), just as text instead of HTML. Recomputes
+    // flavorTotals/grandUnitTotals itself from DATA.orders rather than
+    // reading render()'s local copies (same self-contained pattern as
+    // buildGroupAnnouncement()/buildMemberMessage()), so it always reflects
+    // the current round regardless of what's currently expanded/selected
+    // on screen. Deliberately built from the ORIGINAL orders only, same
+    // "never touched by delivery-day adjustments" rule as the on-screen
+    // 备货清单 itself (see the matching comment in render()) — this is a
+    // supplier order list, not a running tally of what's been corrected.
+    function buildStockListOrderText() {
+      const orders = DATA.orders || [];
+      const flavorTotals = {};
+      Object.keys(DATA.products).forEach(k => flavorTotals[k] = 0);
+      orders.forEach(m => Object.entries(m.items || {}).forEach(([k, qty]) => {
+        if (flavorTotals[k] != null) flavorTotals[k] += qty;
+      }));
+      const grandUnitTotals = unitTotals(orders.map(m => m.items || {}));
+      const lines = ["产品 · 数量 · 金额", ""];
+      let grandTotal = 0;
+      Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).forEach(([k, info]) => {
+        const unit = info.unit || "盒";
+        // Unverified (no confirmed price yet) — same "待确认" treatment as
+        // renderAllProductsList()/printItemsLine(), and left out of
+        // grandTotal for the same reason: there's no real dollar figure to
+        // add yet.
+        if (isUnverified(k)) {
+          lines.push(`${emojiLabel(info)}（待确认）`);
+          lines.push(`${formatQty(flavorTotals[k])}${unit} · 待确认`);
+          return;
+        }
+        const amount = flavorTotals[k] * info.price;
+        grandTotal += amount;
+        lines.push(`${emojiLabel(info)} · $${info.price.toFixed(2)}/${unit}`);
+        lines.push(`${formatQty(flavorTotals[k])}${unit} · $${amount.toFixed(2)}`);
+      });
+      lines.push("");
+      lines.push(`合计 · ${formatUnitTotals(grandUnitTotals)} · $${grandTotal.toFixed(2)}`);
+      return lines.join("\n");
+    }
+
     // navigator.clipboard needs a secure context + user gesture, both true
     // here (GitHub Pages is https, this runs from a tap), but falls back to
     // the old textarea+execCommand trick for any browser that lacks it.
@@ -2968,6 +3013,7 @@
               return `<option value="${k}"${selectedProduct === k ? " selected" : ""}>${emojiLabel(info)} · ${meta}</option>`;
             }).join("")}
           </select>
+          <div class="stockListCollapseBtn${stockListCopied ? " copied" : ""}" role="button" tabindex="0" id="copyStockListBtn">${stockListCopied ? t("copiedCheck") : t("copyStockListBtn")}</div>
           <div class="productDetail">
             ${selectedProduct
               ? renderProductMembers(selectedProduct, members)
@@ -3146,6 +3192,17 @@
             announceCopied = true;
             render();
             setTimeout(() => { announceCopied = false; render(); }, 1500);
+          });
+        });
+      }
+
+      const copyStockListBtnEl = document.getElementById("copyStockListBtn");
+      if (copyStockListBtnEl) {
+        copyStockListBtnEl.addEventListener("click", () => {
+          copyTextToClipboard(buildStockListOrderText()).then(() => {
+            stockListCopied = true;
+            render();
+            setTimeout(() => { stockListCopied = false; render(); }, 1500);
           });
         });
       }
