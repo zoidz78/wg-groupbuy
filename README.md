@@ -21,14 +21,14 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   动设置（详见下方"商品表情图标"）
 - 每位成员前面带一个序号，和接龙里的顺序一致，方便对照原始接龙记
   录（现场加购的人不在接龙里，所以不带序号）
-- 一键标记付款状态（"标记已付款" / "已付款 ✓"），**所有打开此链接
+- 一键标记付款状态（"未付款" / "已付款 ✓"），**所有打开此链接
   的人实时共享同一份付款状态**（详见下方"共享实时收款状态"）
-- 每位成员卡片上有一个独立的 **"✏️ 编辑调整"/"完成编辑"** 按钮，
+- 每位成员卡片上有一个独立的 **"✏️ 编辑"/"✅ 完成"** 按钮，
   不用再滚动到底部工具栏才能进入编辑模式（工具栏原来的按钮仍然保
   留，两者是同一个开关）
-- **打包状态**：每位成员卡片上有独立的"打包"按钮，和付款状态互不
-  影响（可以已打包未付款，也可以已付款未打包），统计卡片上会显示
-  "已打包 X / Y 人"
+- **收/送状态**：每位成员卡片上有独立的"收/送"按钮，和付款状态互不
+  影响（可以已收/送未付款，也可以已付款未收/送），统计卡片上会显示
+  "已收/送 X / Y 人"
 - **逐件分拣勾选**：进入编辑模式后，每一行商品前有一个可勾选的
   ⬜/✅，方便几个人分头实际拣货时互相看到进度；完全缺货的那一行会
   直接显示 ❌ 代替勾选框（没东西可拣了），部分到货的行会带一个
@@ -51,7 +51,7 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   （例如短缺、退款）和应付总额（详见下方"复制付款消息"）
 - 页面顶部有更醒目的 **"📢 复制到货通知"** 按钮，一键复制一条 @ 全员
   的取货通知，方便直接发到群里（详见下方"复制到货通知"）
-- 顶部统计卡片：参团人数、订单总额、已收款、未收款、已打包
+- 顶部统计卡片：参团人数、订单总额、已收款、未收款、已收/送
 - **商品查询 & 备货清单**：显示每种口味/商品总共需要订购的数量；
   卡片上方有一个下拉菜单，**只列出本场实际有人订的商品**（没人订
   的商品不会出现），选中某个商品后，下方会切换成显示这个商品是谁
@@ -83,7 +83,7 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   会直接显示在每位成员的卡片上（拥有链接的任何人都能看到），但
   绝不会出现在仓库文件里，也绝不会出现在付款消息或到货通知里
   （详见下方"门牌管理"）
-- 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
+- 一键导出报告：生成并下载紧凑的表格式 PDF，不会因为人数
   多而变成好几页
 - 工具栏 **"🔄 刷新"** 按钮：手动重新加载整个页面。保存到 iOS 主屏
   幕、以"网页 App"方式打开时没有 Safari 那个下拉刷新的手势（这个
@@ -191,14 +191,15 @@ Firestore 中，见下方说明。
 
 付款状态通过 **Firebase Firestore** 实时同步——任何人打开这个链
 接标记付款，其他所有正在查看的人都会立刻看到更新，不需要手动刷
-新。这也是打包状态、分拣勾选、门牌信息和送货日调整共用的同一套
+新。这也是收/送状态、分拣勾选、门牌信息和送货日调整共用的同一套
 实时机制。
 
 - **Firebase 项目**：WG Group Buy（`wg-group-buy`）
 - **数据结构**：每场团购一个 document（用日期作为 document ID）：
   - `paidStatus` —— 每位成员的姓名 → `true`/`false`，外加一个特殊字段
     `__locked`（该场是否已全部收款自动锁定）
-  - `packedStatus` —— 每位成员的姓名 → 是否已打包
+  - `packedStatus` —— 每位成员的姓名 → 是否已收/送（collection 名称沿用
+    历史命名，页面上显示的按钮文字已经是"收/送"）
   - `sortedItems` —— key 是 `成员姓名::商品短键`，值是是否已勾选分拣
   - `adjustments` —— 每条送货日调整一个自动生成的 ID
   - `memberInfo/directory`（单一 document，不按日期分）—— 每位成员的门牌号
@@ -265,7 +266,7 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 录，方便随时对照"当初订了什么"和"最后实际收了多少钱"。
 
 **日常使用最快的方式：** 进入编辑模式后（点任意一张成员卡片上的
-"✏️ 编辑调整"，或底部工具栏同名按钮，首次需要输入编辑密码），**直
+"✏️ 编辑"，或底部工具栏同名按钮，首次需要输入编辑密码），**直
 接点某一行商品**即可弹出对应的就地编辑器（普通加减器 / 称重 /
 按箱分摊 / 按颗数——具体是哪一种由这个商品在 `data-<日期>.json`
 里的 `weighMode`/`piecesPerUnit` 决定，见上方"数据结构"），填好保
@@ -288,12 +289,12 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 以上这些编辑操作，在该场团购**全部收款并自动锁定**后会暂时无法使
 用——见下方"全部收款后自动锁定"。
 
-## 打包与分拣
+## 收/送与分拣
 
-- **打包**：每位成员卡片上有一个独立的"打包"按钮，和"标记已付款"
-  互不影响、互不依赖——存在自己的 `packedStatus` collection 里，
-  任何人都能点，不需要先解锁编辑模式。统计卡片上会显示"已打包
-  X / Y 人"。
+- **收/送**：每位成员卡片上有一个独立的"收/送"按钮，和"未付款/已付款"
+  互不影响、互不依赖——存在自己的 `packedStatus` collection 里（名称
+  沿用历史命名），任何人都能点，不需要先解锁编辑模式。统计卡片上会显示
+  "已收/送 X / Y 人"。
 - **分拣勾选**：进入编辑模式后，每一行商品前面会出现 ⬜/✅ 勾选
   框，方便几个人分头去实际拣货时，互相看到哪些已经拣好了——存在
   `sortedItems` collection 里，同样是实时共享、任何人可点，和付
@@ -306,12 +307,12 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 
 当一场团购里**所有人都被标记为已付款**后，页面会自动锁定这一场：
 不能再标记/取消付款、不能加送货日调整、也不能新增买家，防止团购
-结清之后被误触改动（打包和分拣状态不受锁定影响，随时可以继续操
+结清之后被误触改动（收/送和分拣状态不受锁定影响，随时可以继续操
 作）。
 
 - 锁定状态是**所有人共享**的——存在 Firebase 里，和付款状态一
   样，不是某一台设备自己的状态，刷新页面也不会解锁。
-- 锁定后，底部工具栏的"✏️ 编辑调整"按钮会变成 **"🔓 解锁"**，点
+- 锁定后，底部工具栏的"✏️ 编辑"按钮会变成 **"🔓 解锁"**，点
   开后输入编辑密码（和送货日调整用的是同一个 `EDIT_PIN`）即可解
   锁，所有人立刻看到解锁后的状态。即使这台设备之前已经输入过一次
   密码，解锁这一步仍然需要重新输入——这是有意为之，避免"结清后误
@@ -398,7 +399,7 @@ match /memberInfo/{docId} {
 
 每位成员卡片上的 **"💬 复制付款消息"** 按钮，会把该成员的订单明细、任何
 送货日调整（附原因，例如"到货少一份"为一个短缺）和应付总额，拼成一段可以直接粘贴
-进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"标记已付款"按钮是
+进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"未付款"/"已付款 ✓"按钮是
 两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
 导出 PDF 的留档功能也完全不受影响。
 
@@ -487,11 +488,20 @@ Paynow 93395373 /ZHAO JIE
 
 ## 导出报告
 
-点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
-示一份紧凑的表格版报告——不论当前的筛选状态如何，都会列出所有成
-员，附带每人的明细、金额、付款状态，以及备货清单。可以直接打印，
-或在打印对话框里选择"存为 PDF"保存文件。这个表格式排版是特意和
-屏幕上的卡片式排版分开设计的，人数较多时也不会变成好几页。
+点击 **"🖨️ 导出报告（PDF/打印）"** 会直接生成并下载一份 PDF 文
+件——不论当前的筛选状态如何，都会列出所有成员，附带每人的明细、
+金额、付款状态，以及备货清单；下载好之后可以用手机/电脑自己的方
+式打印或分享。这个表格式排版是特意和屏幕上的卡片式排版分开设计
+的，人数较多时也不会变成好几页。如果某件商品本轮有记录短缺，备货
+清单里对应那一行会划线标注，并附一句说明"以缺货明细为准"。
+
+**为什么不是直接调用浏览器的打印功能：** 这个页面主要是在微信内置
+浏览器、或 iOS 保存到主屏幕的"网页 App"模式下打开的，这两种环境都
+不支持浏览器自带的打印/另存为 PDF 功能——按钮点了没反应，也不会报
+错，不容易发现是环境问题。现在改成页面自己生成 PDF（用
+`html2canvas` 把报告内容原样截成图片，再用 `jsPDF` 拼成 PDF 文件
+下载），这两种环境都能正常触发文件下载，不再依赖浏览器本身的打印
+支持。
 
 ## 补充说明
 
@@ -549,18 +559,19 @@ chat), but works for any group buy once you swap in your own data.
   original 接龙, to make cross-checking against the raw WeChat thread
   easy (walk-ins added on delivery day aren't numbered, since they
   were never part of the 接龙)
-- One-tap paid-status toggle ("标记已付款" / "已付款 ✓" — "Mark
-  paid" / "Paid ✓"), and **paid status is shared live across
+- One-tap paid-status toggle ("未付款" / "已付款 ✓" — "Unpaid" /
+  "Paid ✓"), and **paid status is shared live across
   everyone who opens the link** (see "Shared live payment status"
   below)
-- Each member's card has its own **"✏️ 编辑调整" / "完成编辑"**
+- Each member's card has its own **"✏️ 编辑" / "✅ 完成"**
   (edit) toggle — no need to scroll to the bottom toolbar to enter
   edit mode (the original toolbar button is still there too; both
   flip the same shared edit mode)
-- **Packing status**: an independent "打包" (packed) toggle per
-  member card, tracked separately from paid status (a member can be
-  packed-not-paid or paid-not-packed) — shown in the stats ticket as
-  "已打包 X / Y 人"
+- **Pickup/delivery status**: an independent "收/送" ("Pending" /
+  "Done ✓") toggle per member card, tracked separately from paid
+  status (a member can be received/delivered-not-paid or
+  paid-not-received/delivered) — shown in the stats ticket as
+  "已收/送 X / Y 人"
 - **Per-item sorting checkboxes**: in edit mode, every item line gets
   a ⬜/✅ tick, so several people physically pulling stock can see each
   other's progress in real time. A fully-shortaged item shows ❌
@@ -639,8 +650,8 @@ chat), but works for any group buy once you swap in your own data.
   with the link), but never stored in a repo file and never appears
   in any payment message or announcement (see "Block/unit directory"
   below)
-- One-tap report export: a dense table format you can print or save
-  as a PDF, so a large round doesn't turn into several pages
+- One-tap report export: generates and downloads a dense table-format
+  PDF directly, so a large round doesn't turn into several pages
 - Toolbar **"🔄 刷新"** (Refresh) button: manually reloads the whole
   page. Saved to the iOS Home Screen as a "web app," the page opens
   full-screen with no Safari UI — including no pull-to-refresh gesture,
@@ -768,7 +779,8 @@ checkboxes, the block/unit directory, and delivery-day adjustments.
 - **Data shape:** one document per group buy (keyed by date), across:
   - `paidStatus` — each member's name → `true`/`false`, plus a
     special `__locked` field (whether the round auto-locked)
-  - `packedStatus` — each member's name → packed or not
+  - `packedStatus` — each member's name → received/delivered (收/送)
+    or not (collection name kept from before the label rename)
   - `sortedItems` — keys shaped `memberName::itemKey` → ticked or not
   - `adjustments` — one auto-generated ID per delivery-day adjustment
   - `memberInfo/directory` (a single document, not keyed by date) —
@@ -842,7 +854,7 @@ Firestore (an `adjustments` collection, one document per round) as a
 second layer on top of the frozen original order, so there's always
 a clean record of what was ordered vs. what was actually charged.
 
-**Fastest everyday path:** once in edit mode (tap "✏️ 编辑调整" on
+**Fastest everyday path:** once in edit mode (tap "✏️ 编辑" on
 any member card, or the same button in the bottom toolbar — the
 first time on a device needs the edit PIN), **tap the item line
 directly**. This opens the matching inline editor — plain stepper,
@@ -873,16 +885,17 @@ These editing actions are all temporarily unavailable once a round has
 **auto-locked after full payment** — see "Auto-lock after full payment"
 below.
 
-## Packing and sorting
+## Pickup/delivery status and sorting
 
-- **Packing**: each member's card has its own "打包" (packed) toggle,
-  independent of "标记已付款" — stored in its own `packedStatus`
-  collection, tappable by anyone without unlocking edit mode. The
-  stats ticket shows "已打包 X / Y 人".
+- **收/送 ("Pending" / "Done ✓")**: each member's card has its own
+  toggle, independent of "未付款"/"已付款 ✓" — stored in its own
+  `packedStatus` collection (name kept from before the label rename),
+  tappable by anyone without unlocking edit mode. The stats ticket
+  shows "已收/送 X / Y 人".
 - **Sorting checkboxes**: in edit mode, every item line gets a ⬜/✅
   tick, so several people physically pulling stock at once can see
   each other's progress — stored in `sortedItems`, likewise live and
-  ungated, and completely independent of payment/packing/adjustments;
+  ungated, and completely independent of payment/pickup-delivery/adjustments;
   it's purely a "has this been physically pulled" tracker and never
   touches money. A fully-shortaged item (quantity down to zero) shows
   ❌ instead of a checkbox (nothing left to pull); a partial shortage
@@ -894,12 +907,12 @@ Once **every member in a round has been marked paid**, the page
 automatically locks that round: no more marking/unmarking paid, no
 delivery-day adjustments, and no adding walk-in buyers — this
 prevents an accidental change once a group buy is already settled.
-Packing and sorting stay available even while locked.
+收/送 and sorting stay available even while locked.
 
 - The locked state is **shared by everyone** — it lives in Firebase,
   same as paid status, not just on one device, and a page reload
   doesn't clear it.
-- Once locked, the bottom toolbar's "✏️ 编辑调整" button becomes
+- Once locked, the bottom toolbar's "✏️ 编辑" button becomes
   **"🔓 解锁"** (Unlock). Tapping it and entering the edit PIN (the
   same `EDIT_PIN` used for delivery-day adjustments) unlocks it for
   everyone, instantly. This always requires re-entering the PIN, even
@@ -1107,13 +1120,24 @@ switch.
 
 ## Exporting a report
 
-**"🖨️ 导出报告（PDF/打印）"** (Export report) opens the browser's
-print dialog with a dense, table-formatted report — every member
-regardless of the current filter, with their itemized order, amount,
-and paid status, plus the stocking list. Print it directly, or choose
-"Save as PDF" in the dialog. This table layout is deliberately
+**"🖨️ 导出报告（PDF/打印）"** (Export report) generates a PDF file
+directly and downloads it — every member regardless of the current
+filter, with their itemized order, amount, and paid status, plus the
+stocking list. Print or share the downloaded file however your phone
+or computer normally handles a PDF. This table layout is deliberately
 separate from the on-screen card layout so a large round doesn't turn
-into several pages of paper.
+into several pages. Any product with a recorded shortage this round
+gets struck through in the stocking list, with a note pointing to the
+shortage details for the real figure.
+
+**Why this doesn't just call the browser's print function:** the page
+is mainly opened from inside WeChat's in-app browser, or as an iOS
+"Add to Home Screen" web app — neither environment exposes the
+browser's own print/save-as-PDF feature, so the button used to just
+silently do nothing there, with no error to explain why. It now
+generates the PDF itself instead (renders the report to an image with
+`html2canvas`, then assembles that into a PDF with `jsPDF`), which
+works as a plain file download in both of those environments.
 
 ## Notes
 

@@ -172,7 +172,7 @@ list, or too ambiguous to price confidently, don't drop it or silently guess:
 - Responsive: single column on mobile, two-column member grid above 860px.
 - Each member card = itemized line per flavor with its own subtotal, then a total line.
 - Filter tabs: 全部 / 未付款 / 已付款.
-- Pay toggle button text: "标记已付款" / "已付款 ✓".
+- Pay toggle button text: "未付款" / "已付款 ✓" (renamed from "标记已付款" 2026-09-13).
 - Totals grouped by unit, not blindly summed (separate "总数量（盒）" / "总数量（kg）" rows).
 - Stocking list (备货清单) only shows products with ≥1 unit actually ordered.
 - Missing/unverified items flagged amber, excluded from totals until confirmed.
@@ -349,7 +349,8 @@ instead:
 
 **Two ways entries get written to that same Firestore doc:**
 
-1. **Live in-dashboard editing.** The organizer taps "✏️ 编辑调整" in the toolbar,
+1. **Live in-dashboard editing.** The organizer taps "✏️ 编辑" (renamed from "✏️
+   编辑调整" 2026-09-13) in the toolbar,
    enters the PIN (`EDIT_PIN` constant near the top of `index.html`'s script — currently
    `"1117"`; this is a soft UI gate only, not real security, since Firestore rules stay
    open to anyone with the link, same as paid-status), then gets a "+ 调整" button per
@@ -386,16 +387,19 @@ someone unlocks it with the edit PIN.
 
 ---
 
-## A2b. Packing status (separate from payment)
+## A2b. 收/送 status (separate from payment)
 
-Each member row has a "打包" toggle button next to "标记已付款" — a second,
+Each member row has a "收/送" toggle button next to "未付款"/"已付款 ✓" — a second,
 independent yes/no state for whether that member's order has been physically
-packed for pickup. Lives in its own Firestore collection `packedStatus/{date}`
-(same live-sync `onSnapshot`/`setDoc merge:true` pattern as `paidStatus`), so it
-never clobbers or depends on payment status — a member can be packed-not-paid
-or paid-not-packed, tracked independently. Unlike the pay toggle, it's never
-blocked by `roundLocked` (packing is an operational task, not something the
-payment auto-lock should freeze). Visible in the stats ticket as "已打包 X / Y
+received/delivered. (Renamed from "打包"/"已打包" to "收/送"/"已收/送" in 1.14.0 —
+same collection and mechanics, label-only change, reframed as tracking
+pickup/delivery rather than packing.) Lives in its own Firestore collection
+`packedStatus/{date}` (name kept from before the rename — same live-sync
+`onSnapshot`/`setDoc merge:true` pattern as `paidStatus`), so it
+never clobbers or depends on payment status — a member can be received/delivered-not-paid
+or paid-not-received/delivered, tracked independently. Unlike the pay toggle, it's never
+blocked by `roundLocked` (this is an operational task, not something the
+payment auto-lock should freeze). Visible in the stats ticket as "已收/送 X / Y
 人" alongside the existing "已收 X / Y 人" line. Requires the Firestore rule for
 `packedStatus/{groupBuyDate}` (open read/write, same shape as the other two) —
 already added to `firestore.rules`; needs to be pasted into the Firebase
@@ -465,7 +469,7 @@ edit mode). Tapping it builds a ready-to-paste WeChat message for that member's 
 copies it to the clipboard (`navigator.clipboard.writeText`, with a `document.execCommand('copy')`
 fallback for older/in-app browsers); the button briefly shows "已复制 ✓" for 1.5s as confirmation.
 
-This is deliberately separate from the "标记已付款" toggle — one person can sort/collect payment
+This is deliberately separate from the "未付款"/"已付款 ✓" toggle — one person can sort/collect payment
 while another marks paid, so both stay independent and both are still needed. The PDF export
 (print) is unchanged and stays as the paper-trail record.
 
@@ -888,6 +892,50 @@ now it's visible right where you're already looking.
 
 ---
 
+## A7b. PDF export (real PDF instead of `window.print()`, since 1.17.0)
+
+`exportReport()` used to call `window.print()` and rely on `@media print` to hide
+everything but `.printOnly`. That silently did nothing when this dashboard is opened
+from WeChat's in-app browser, or as an iOS "Add to Home Screen" web app — neither
+environment exposes `window.print()` at all, and the call just no-ops with no error to
+catch, which is why the button looked broken with no clue why.
+
+**Current approach:** generate the PDF client-side and trigger a real file download
+instead, which works the same in every environment:
+
+1. Reset UI state (filter→all, edit mode off, any open panel closed) and `render()`,
+   same as before.
+2. Force `.printOnly` (normally `display:none` outside an actual browser print) visible
+   off-screen at a fixed 800px width, `left:-99999px`, so nothing flashes or shifts the
+   page's own layout.
+3. `html2canvas` renders that live DOM to a canvas — chosen over jsPDF's own text/table
+   drawing API specifically because jsPDF's built-in fonts don't cover Chinese at all,
+   and this report is entirely Mandarin. Capturing the real rendered output reuses its
+   actual fonts, table layout, and shortage strike-throughs for free, instead of
+   reimplementing all of that in jsPDF's drawing calls.
+4. The canvas becomes one tall PNG, sliced across as many A4 pages as needed (standard
+   jsPDF recipe: paginate by shifting the same image up page-by-page, not by trying to
+   paginate the DOM itself).
+5. `pdf.save()` triggers the download, named `{groupName}-{round label}.pdf` with
+   filesystem-unsafe characters stripped.
+
+Both libraries (`html2canvas` 1.4.1, `jspdf` 2.5.1) load lazily from cdnjs via
+`loadScriptOnce()` — not bundled — the same pattern already used elsewhere for optional
+CDN dependencies. A `"正在生成 PDF…"` banner shows while it runs (`exportStatus` state);
+a second tap while one is already generating is ignored (`exportingReport` guard); any
+failure shows `导出 PDF 出错：{message}` via the existing `storageDebug` banner rather
+than failing silently.
+
+**Also added in the same pass:** shortage strikethrough in the print report — a member's
+own struck-through item line only (never the adjustment line correcting it, which would
+make the correction itself look voided), and a struck-through row in the stocking list
+for any product with a recorded shortage this round, with a "划线 = 本轮有短缺" note.
+`printItemsLine()` was rebuilt into a flex two-column layout (label left, price
+right-aligned in one consistent column) ending in a bold 合计 row per member, so amounts
+line up regardless of item-name length instead of trailing at ragged positions.
+
+---
+
 ## B. Setting up a brand-new dashboard from scratch (a different group)
 
 `index.html` is fully generic — it only knows about `manifest.json`, the
@@ -967,7 +1015,10 @@ to update anything, that's almost always the GitHub Pages CDN-caching issue abov
 not this button — same fix (wait, or force-quit and reopen).
 
 **"🖨️ 导出报告" needed several clicks before the print dialog actually opened**
-(fixed 2026-09-08): `exportReport()` reset some UI state (filter/edit mode/open
+(fixed 2026-09-08, **superseded 2026-09-13 — see "PDF export" note after A7 below**;
+kept here for history since the underlying lesson about browser-gesture timing still
+applies to anything else that opens a native dialog): `exportReport()` reset some UI
+state (filter/edit mode/open
 panels) and called `render()`, then called `window.print()` inside a
 `requestAnimationFrame` callback — the reasoning at the time was probably "give the
 DOM a frame to settle before printing," but it wasn't actually needed: the print
@@ -1307,7 +1358,8 @@ alongside every edit, in the same response.
 |---|---|
 | 1.20.0 | Tab bar changed from one flex row to two explicit rows (this project is used mainly on phone/tablet — a guaranteed row break reads more reliably than relying on flex-wrap): row 1 is real rounds + 成员, row 2 is test/v2 rounds (only rendered when one exists), both centered independently. Replaces 1.18.0's single-row "gap spacer" approach — `.buyTabGap` removed, `renderBuyTabsBar()` now wraps two `.buyTabs` rows in a new `.buyTabsWrap` column container instead. See A5c. |
 | 1.19.0 | `renderProductMembers()` (商品查询 dropdown/search detail panel and the 备货清单 popup — both already shared this one function) now lists each buyer's item-type adjustments on that product too, via the existing `adjustmentLineHtml()`, instead of only the original order — no more hunting through every member's card to find a correction on one product. Total/subtotal stay original-order-only, unchanged. A buyer with an adjustment but no original order for this product (e.g. a walk-in add) is now included too, shown with "—" instead of a quantity. See A7. |
-| 1.18.0 | **Round tab reorganization (see A5c for full detail).** New shared `isTestRound(gb)` helper (test = "测试" in label, or a non-plain-`YYYY-MM-DD` date) reused by both the boot sort and the new `renderBuyTabsBar()` tab-bar renderer — real rounds now always sort/group ahead of test rounds. Fixes a real latent bug: a "-v2"-style date could previously sort as "newest" under a plain string comparison, meaning the site could boot straight into a test round instead of the newest real one. `manifest.json`: 9/1 relabeled "9/1测试(v2)" (its `date`/file deliberately left unchanged — see A5c for why). **Undocumented version:** `APP_VERSION` was found at `1.17.0` with no corresponding log entry when this file was next edited (2026-09-13) — cause unknown; add a note here if you find out what it was. |
+| 1.18.0 | **Round tab reorganization (see A5c for full detail).** New shared `isTestRound(gb)` helper (test = "测试" in label, or a non-plain-`YYYY-MM-DD` date) reused by both the boot sort and the new `renderBuyTabsBar()` tab-bar renderer — real rounds now always sort/group ahead of test rounds. Fixes a real latent bug: a "-v2"-style date could previously sort as "newest" under a plain string comparison, meaning the site could boot straight into a test round instead of the newest real one. `manifest.json`: 9/1 relabeled "9/1测试(v2)" (its `date`/file deliberately left unchanged — see A5c for why). |
+| 1.17.0 | **Retroactively documented 2026-09-13** — this version shipped from a different chat session with no log entry written at the time (the gap itself was caught and flagged in this doc, then traced back via chat history). Shortened several button labels: 编辑调整→编辑, 标记已付款→未付款, Edit adjustments→Edit, Mark paid→Unpaid, 完成编辑→完成, Done editing→Done, and (per 1.14.0's earlier 打包→收/送 rename) Receive/Deliver→Pending, Received/Delivered→Done. Also relabeled the 备货清单 header 口味→产品, and added the 🗑️ 重置测试场次 (reset test round) button gated to `-v2`-suffixed date keys (two sequential `window.confirm()` prompts, plus the `-v2` check enforced again inside `resetTestRound()` itself, not just in whether the button renders). **Replaced `window.print()`-based export with a real generated PDF** (`html2canvas` + `jsPDF`, loaded lazily from CDN) — see the new "PDF export" note right after A7 below for why and how. This is also the session that added shortage strikethrough to both the stocking list and each member's items in the print report, rebuilt `printItemsLine()` into a two-column flex layout ending in a bold 合计 row, and reworded the payment reminder message template. **Lesson from this gap:** when picking up a project after time away, checking `APP_VERSION` against the log catches a stale *local* copy, but not a genuinely undocumented version that's already the copy you're looking at — if the log's top entry doesn't match `APP_VERSION` and nothing seems missing from the file itself, the fix is to log what's actually in the code now, not just wait for a mismatch to explain itself. |
 | 1.16.0 | **#5 — new "待收/送商品" (owed-products) card on the 会员 tab.** Cross-round, same lazy/cached pattern as `computeOverdueByMember()` (`computeOwedProductsByMember()`), but for physical fulfillment instead of money. Confirmed gating rule: a member drops off this card entirely once their 收/送 (`packedStatus`) is marked for that round — trusted at that point even if a line was left unchecked. While still un-收/送'd, every ORIGINAL-order item (`m.items` — walk-in-added items never get a sort checkbox in the UI either, so they're correctly left out here too, matching what's actually on-screen) that isn't fully shortaged (❌, current qty ≈ 0 — already covered by the refund/shortage flow, nothing left to hand over) and isn't yet checked off in `sortedItems` (⬜) counts as still owed. Sub-rows group by round date/label, then list the specific unchecked product(s), newest-last. Excludes test/v2 rounds the same two ways `computeOverdueByMember()` already does. |
 | 1.15.0 | **#4 — payment-reminder copy button on the 会员 (Members/overdue) tab.** New `buildReminderMessage(name, overdueData)`, separate from `buildMemberMessage()`: greets the member, lists every past round they still owe from (reusing 1.14.0's per-round `byDate` breakdown — round label + amount, one line each), then a combined-total line and an optional closing line, all worded via new `message-template.json` fields (`reminderDateLine`, `reminderTotalLine`, `reminderClosing`) so wording stays editable there like the other two message builders. Deliberately cross-round and summary-only (no item-level detail) — this is a nudge, not a receipt. Button reuses the existing `.copyMsgBtn` styling/copied-feedback pattern with its own `reminderCopiedFor` state so it doesn't collide with the per-round payment-message button's `copiedFor`. |
 | 1.14.0 | **#1-#3 from the new work-list.** (a) Renamed the 打包/已打包 toggle to 收/送・已收/送 — same `packedStatus` collection and toggle mechanics, label-only change, now framed as tracking delivery/collection rather than packing. (b) 会员 (Members) tab: each row now shows the member's address (🏠, from the existing `memberInfo` directory — same data already shown in the round view, no new source) beside their name. (c) `computeOverdueByMember()` now keeps each member's per-round breakdown instead of collapsing straight to one number — `overdueByMember[name]` is `{ total, byDate: [{date, label, amount}] }` — and the Members tab renders one indented sub-row per group-buy date/label under each member's total, sorted oldest-to-newest. |
