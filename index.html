@@ -502,8 +502,9 @@
       closingPaid: "",
       closingUnpaid: "",
       reminderDateLine: "{label}团购　{amount}",
-      reminderTotalLine: "一共{total}，麻烦补上哈～",
-      reminderClosing: "",
+      reminderTotalLine: "一共{total}，",
+      reminderCheckInLine: "亲，确认一下付款哈。要是转过了让我知道下～",
+      reminderClosing: "\nPaynow 93395373 /ZHAO JIE， 亲，转账后记得发截图",
       // For the "📢 复制到货通知" group announcement button (see buildGroupAnnouncement).
       mentionPrefix: "@",
       mentionSeparator: " ",
@@ -2126,13 +2127,13 @@
     }
 
     // Builds the payment-reminder message for the 会员 (Members/overdue) tab —
-    // one message per member, listing every past round they still owe money
-    // from (using the same byDate breakdown computeOverdueByMember() already
-    // produces) plus the combined total. Deliberately separate from
+    // one message per member, showing only the combined total they owe
+    // across every unpaid round (computeOverdueByMember() still tracks the
+    // per-round byDate breakdown for the on-screen 欠费 card, this message
+    // just doesn't surface it — a friendly nudge with one number reads
+    // better than a multi-round itemization). Deliberately separate from
     // buildMemberMessage(): that one is a single round's itemized receipt,
-    // this one is a cross-round nudge and doesn't need item-level detail —
-    // just which rounds and how much, so the member can tell what it's for
-    // without the organizer having to dig up each round's numbers by hand.
+    // this one is a cross-round nudge.
     // Wording comes from message-template.json, same as the other two
     // message builders.
     function buildReminderMessage(name, overdueData) {
@@ -2140,11 +2141,9 @@
       const lines = [];
       lines.push(fillTemplate(t.greeting, { name }));
       lines.push("");
-      overdueData.byDate.forEach(d => {
-        lines.push(fillTemplate(t.reminderDateLine, { label: d.label, amount: formatAmt(d.amount) }));
-      });
-      lines.push("");
       lines.push(fillTemplate(t.reminderTotalLine, { total: formatAmt(overdueData.total) }));
+      lines.push("");
+      if (t.reminderCheckInLine) lines.push(t.reminderCheckInLine);
       if (t.reminderClosing) lines.push(t.reminderClosing);
       return lines.join("\n");
     }
