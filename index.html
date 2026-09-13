@@ -404,23 +404,32 @@
   }
 
   .printOnly { display: none; }
+  /* These were previously nested inside @media print, but the PDF export
+     captures the live .printOnly DOM via html2canvas — not an actual
+     browser print — so they need to be ordinary rules to show up in the
+     exported file too. .printOnly itself still defaults to display:none
+     above, so none of this affects the normal on-screen view; it only
+     matters once something (an actual print, or exportReport()'s inline
+     style override) makes .printOnly visible. */
+  .printOnly .shopName { font-size: 18px; margin-bottom: 2px; }
+  .printMeta { text-align: center; font-size: 11px; color: #333; margin-bottom: 10px; }
+  .printWarn { font-size: 10.5px; color: #7a5200; margin-bottom: 8px; text-align: center; }
+  .printSectionTitle { font-weight: 700; font-size: 12.5px; margin: 10px 0 4px; }
+  .printTable { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  .printTable th, .printTable td { border-bottom: 1px solid #ccc; padding: 2.5px 5px; text-align: left; vertical-align: top; }
+  .printTable th { font-weight: 700; border-bottom: 1.5px solid #000; }
+  .printTable tfoot td { font-weight: 700; border-top: 1.5px solid #000; border-bottom: none; }
+  .printAmt { text-align: right; font-family: "SF Mono", Menlo, Consolas, monospace; white-space: nowrap; }
+  .printStatus { text-align: center; white-space: nowrap; }
+  .printShortRow td { text-decoration: line-through; color: #888; }
   @media print {
     body { background: #fff; padding: 8px; color: #000; }
     .page > *:not(.printOnly) { display: none !important; }
     .printOnly { display: block !important; }
-    .printOnly .shopName { font-size: 18px; margin-bottom: 2px; }
-    .printMeta { text-align: center; font-size: 11px; color: #333; margin-bottom: 10px; }
-    .printWarn { font-size: 10.5px; color: #7a5200; margin-bottom: 8px; text-align: center; }
-    .printSectionTitle { font-weight: 700; font-size: 12.5px; margin: 10px 0 4px; }
-    .printTable { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-    .printTable th, .printTable td { border-bottom: 1px solid #ccc; padding: 2.5px 5px; text-align: left; vertical-align: top; }
-    .printTable th { font-weight: 700; border-bottom: 1.5px solid #000; }
-    .printTable tfoot td { font-weight: 700; border-top: 1.5px solid #000; border-bottom: none; }
-    .printAmt { text-align: right; font-family: "SF Mono", Menlo, Consolas, monospace; white-space: nowrap; }
-    .printStatus { text-align: center; white-space: nowrap; }
   }
 </style>
 </head>
+
 <body>
   <div class="page" id="app"></div>
 
@@ -855,6 +864,8 @@
     let unsubscribeSortedItems = null;
     let unsubscribeAdjustments = null;
     let storageDebug = ""; // shows a Firestore error inline, if any — no console access needed
+    let exportingReport = false; // guards exportReport() against double-taps while a PDF is being built
+    let exportStatus = ""; // transient "正在生成 PDF…" banner text, shown only while exportingReport
 
     function paidDocRef(dateKey) {
       return doc(db, "paidStatus", dateKey);
@@ -2899,10 +2910,11 @@
         ${renderShortageCard()}
 
         ${storageDebug ? `<div class="debugBanner">🔧 ${storageDebug}</div>` : ""}
+        ${exportStatus ? `<div class="debugBanner" style="background:#eee;color:#333">⏳ ${exportStatus}</div>` : ""}
 
         <div class="toolbar">
           <div class="toolBtn" id="refreshBtn" role="button" tabindex="0">${t("refreshBtn")}</div>
-          <div class="toolBtn" id="exportReportBtn" role="button" tabindex="0">${t("exportReportBtn")}</div>
+          <div class="toolBtn" id="exportReportBtn" role="button" tabindex="0"${exportingReport ? ' style="opacity:.5;pointer-events:none"' : ""}>${t("exportReportBtn")}</div>
           ${roundLocked
             ? `<div class="toolBtn" id="unlockToggleBtn" role="button" tabindex="0">${showUnlockPrompt ? t("cancelUnlockBtn") : t("unlockBtn")}</div>`
             : `<div class="toolBtn" id="editToggleBtn" role="button" tabindex="0">${editMode ? t("editModeOn") : t("editModeOff")}</div>`
@@ -3311,6 +3323,11 @@
     // of the on-screen cards, which ran to many pages for a real-size round.
     function renderPrintSection(members, flavorTotals, grandTotal, collected, grandUnitTotalsArg, baseGrandTotalArg) {
       const unverifiedCount = countUnverifiedLines(members);
+      // Product keys with at least one recorded shortage this round (see
+      // shortageSummary() — same source the 缺货/退货明细 card reads from),
+      // so the stocking list can flag them instead of silently showing a
+      // pre-shortage quantity/amount as if it were fully delivered.
+      const shortageKeys = new Set(shortageSummary().map(r => r.key));
       return `
         <div class="printOnly">
           <div class="shopHead"><h1 class="shopName">${DATA.groupName || "团购"}</h1></div>
@@ -3337,6 +3354,7 @@
             </tfoot>
           </table>
           <div class="printSectionTitle">备货清单</div>
+          ${shortageKeys.size > 0 ? `<div class="printWarn">划线 = 本轮有短缺，数量/金额以下方缺货明细为准</div>` : ""}
           <table class="printTable">
             <thead><tr><th>产品</th><th>数量</th><th>金额</th></tr></thead>
             <tbody>
@@ -3346,10 +3364,11 @@
                 // explicit unverified flag would otherwise crash the print
                 // report's rendering (and the print section is built into
                 // every normal render(), not just when actually printing).
+                const rowClass = shortageKeys.has(k) ? ` class="printShortRow"` : "";
                 if (isUnverified(k)) {
-                  return `<tr><td>${emojiLabel(info)}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
+                  return `<tr${rowClass}><td>${emojiLabel(info)}(待确认)</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">待确认</td></tr>`;
                 }
-                return `<tr><td>${emojiLabel(info)}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
+                return `<tr${rowClass}><td>${emojiLabel(info)}</td><td class="printAmt">${formatQty(flavorTotals[k])}${unitOf(k)}</td><td class="printAmt">$${(flavorTotals[k] * info.price).toFixed(2)}</td></tr>`;
               }).join("")}
             </tbody>
             <tfoot>
@@ -3558,53 +3577,117 @@
       `;
     }
 
-    // Opens the browser's print dialog with a clean, formatted version of the
-    // current round (every member regardless of the active filter, no edit
-    // controls) — the person can print it or choose "Save as PDF" for a file.
-    // print.css (below, @media print) hides everything interactive.
-    function exportReport() {
+    // Loads a classic (non-module) script once and caches the in-flight
+    // promise, so exportReport() can safely be tapped again while the first
+    // load is still pending without injecting duplicate <script> tags.
+    const loadedScripts = {};
+    function loadScriptOnce(src) {
+      if (loadedScripts[src]) return loadedScripts[src];
+      loadedScripts[src] = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => { delete loadedScripts[src]; reject(new Error(`加载失败：${src}`)); };
+        document.head.appendChild(s);
+      });
+      return loadedScripts[src];
+    }
+
+    // Builds an actual PDF file of the current round (every member
+    // regardless of the active filter, no edit controls) and downloads it,
+    // so it can be printed via the browser's or device's own print/share
+    // options afterward.
+    //
+    // This used to call window.print() and rely on @media print to hide
+    // everything but .printOnly. That's why the button did nothing: this
+    // dashboard is opened from inside WeChat's in-app browser (and often
+    // added to the home screen on iOS), and neither environment exposes
+    // window.print() at all — the call just silently no-ops, with no error
+    // to catch. Generating the PDF ourselves sidesteps that entirely: it
+    // only needs a <script> tag to load and a file download, both of which
+    // work in those environments.
+    //
+    // html2canvas + jsPDF (rather than jsPDF's own text/table APIs) is
+    // deliberate: jsPDF's built-in fonts don't cover Chinese characters at
+    // all, and this report is entirely in Mandarin. Rendering the existing
+    // .printOnly DOM to a canvas and dropping that image into the PDF reuses
+    // the real rendered output — same fonts, same table layout, same
+    // shortage strike-throughs — instead of re-implementing it in jsPDF's
+    // own drawing API.
+    async function exportReport() {
+      if (exportingReport) return; // already generating one — ignore a second tap
+      exportingReport = true;
       const prevFilter = filter;
       const prevEditMode = editMode;
       const prevSelectedProductOverlay = selectedProductOverlay;
-      const prevTitle = document.title;
       filter = "all";
       editMode = false;
       selectedProductOverlay = null;
       openAdjustFormFor = null;
       showBulkPanel = false;
       showPinInput = false;
+      exportStatus = "正在生成 PDF…";
       render();
-      if (DATA && GROUP_BUYS[activeIndex]) {
-        document.title = `${DATA.groupName || "团购"}-${GROUP_BUYS[activeIndex].label || GROUP_BUYS[activeIndex].date}`;
-      }
-      let restored = false;
-      const restore = () => {
-        if (restored) return;
-        restored = true;
+
+      const printEl = document.querySelector(".printOnly");
+      let styled = false;
+      try {
+        await Promise.all([
+          loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+          loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"),
+        ]);
+        if (!printEl) throw new Error("未找到报告内容");
+
+        // .printOnly is display:none outside of an actual browser print (see
+        // @media print above) — html2canvas captures the live DOM, not the
+        // print media query, so it's forced visible directly here. Pushed
+        // off-screen at a fixed width rather than shown in place, so this
+        // never causes a visible flash or affects the page's own layout.
+        printEl.style.cssText += "display:block;position:fixed;left:-99999px;top:0;width:800px;background:#fff;padding:16px;";
+        styled = true;
+        await new Promise(r => requestAnimationFrame(r)); // let the style change actually paint before capturing
+
+        const canvas = await window.html2canvas(printEl, { scale: 2, backgroundColor: "#ffffff" });
+
+        printEl.style.cssText = "";
+        styled = false;
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: "pt", format: "a4" });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const imgData = canvas.toDataURL("image/png");
+
+        // canvas is one tall image; sliced across as many A4 pages as it
+        // needs by shifting the same image up page-by-page (a standard
+        // jsPDF recipe) rather than trying to paginate the DOM itself.
+        let heightLeft = imgHeight;
+        let position = 0;
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        while (heightLeft > 0) {
+          position -= pageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const roundLabel = GROUP_BUYS[activeIndex] ? (GROUP_BUYS[activeIndex].label || GROUP_BUYS[activeIndex].date) : "";
+        const safeLabel = `${DATA.groupName || "团购"}-${roundLabel}`.replace(/[\\/:*?"<>|]/g, "_");
+        pdf.save(`${safeLabel}.pdf`);
+      } catch (e) {
+        storageDebug = `导出 PDF 出错：${e.message}`;
+      } finally {
+        if (styled) printEl.style.cssText = "";
         filter = prevFilter;
         editMode = prevEditMode;
         selectedProductOverlay = prevSelectedProductOverlay;
-        document.title = prevTitle;
+        exportingReport = false;
+        exportStatus = "";
         render();
-        window.removeEventListener("afterprint", restore);
-      };
-      window.addEventListener("afterprint", restore);
-      // window.print() is called synchronously here, in the same tick as the
-      // click handler — NOT deferred via requestAnimationFrame (as this used
-      // to do). Deferring it even by one frame pushes it just far enough
-      // outside the click's "user gesture" window that some browsers (Safari,
-      // and especially WeChat's in-app browser — exactly what this group
-      // uses) silently ignore the print() call rather than opening the
-      // dialog, which is what made this take several clicks to work: each
-      // click's deferred call either did or didn't land inside that
-      // browser's grace window. Nothing about the print OUTPUT needed that
-      // delay — renderPrintSection() already builds from the full,
-      // unfiltered member list on every render() regardless of `filter`, and
-      // @media print hides everything else via pure CSS — so there was
-      // nothing to wait a frame for in the first place.
-      window.print();
-      // Safety net for browsers that don't fire afterprint reliably.
-      setTimeout(restore, 2000);
+      }
     }
 
     function showLoadErrorFallback(message) {
