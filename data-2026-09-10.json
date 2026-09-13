@@ -12,11 +12,6 @@
       "price": 4.2,
       "unit": "粒"
     },
-    "grape_jufeng_ln": {
-      "label": "辽宁巨峰(3串/箱)",
-      "price": 24.8,
-      "unit": "箱"
-    },
     "apple_envy": {
       "label": "Envy苹果(5粒/份)",
       "price": 10.5,
@@ -381,6 +376,11 @@
       "label": "北海道原味牛乳(12盒/箱)",
       "price": 22,
       "unit": "箱"
+    },
+    "grape_jufeng_family": {
+      "label": "辽宁巨峰家庭版(4串/箱)",
+      "price": 24.8,
+      "unit": "箱"
     }
   },
   "orders": [
@@ -389,7 +389,7 @@
       "items": {
         "mango_pzh": 1,
         "watermelon_my": 1,
-        "grape_jufeng_ln": 0.6667,
+        "grape_jufeng_family": 0.5,
         "apple_envy": 1
       }
     },
@@ -405,14 +405,14 @@
       "items": {
         "peach_box_lqy": 0.5,
         "grape_nina": 2,
-        "grape_jufeng_ln": 0.3333
+        "grape_jufeng_family": 0.25
       }
     },
     {
       "name": "幸运的笑笑子",
       "items": {
         "grape_nina": 1,
-        "grape_jufeng_ln": 0.3333,
+        "grape_jufeng_family": 0.25,
         "honey_plum": 1.5,
         "watermelon_my": 1
       }

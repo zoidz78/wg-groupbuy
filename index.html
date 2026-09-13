@@ -545,7 +545,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.18.0";
+    const APP_VERSION = "1.19.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Same two-signal test-round check computeOverdueByMember()/
@@ -3576,14 +3576,29 @@
     // adjustment annotations at all: this is the untouched record of what
     // was ordered, and shortages/returns are reported in their own
     // 缺货/退货明细 card instead of being mixed in here.
+    // Per-buyer breakdown for one product — shown both in the 商品查询
+    // dropdown/search detail panel and in the 备货清单 row-tap popup (both
+    // call this same function, see renderProductOverlay below). The total
+    // and subtotal stay original-order-only, per the 1.6.1 decision that
+    // 商品查询's published quantities never move — but each buyer's own row
+    // now also lists any item-type adjustment on this exact product, via
+    // the same adjustmentLineHtml() the member card uses, so a correction
+    // is visible here without hunting through every member's card to find
+    // who it was on. A buyer with an adjustment but no original order for
+    // this product (e.g. a walk-in add) is still listed, with "—" in place
+    // of an original quantity, so that addition isn't invisible here either.
     function renderProductMembers(key, members) {
       const info = DATA.products[key];
       if (!info) return "";
       const unit = unitOf(key);
       const unverified = isUnverified(key);
       const buyers = members
-        .map(m => ({ m, qty: (m.items && m.items[key]) || 0 }))
-        .filter(x => x.qty);
+        .map(m => ({
+          m,
+          qty: (m.items && m.items[key]) || 0,
+          itemAdjs: adjustmentsForMember(m.name).filter(a => a.type === "item" && a.itemKey === key),
+        }))
+        .filter(x => x.qty || x.itemAdjs.length);
       const totalQty = buyers.reduce((s, x) => s + x.qty, 0);
       const subtotal = unverified ? null : totalQty * info.price;
       return `
@@ -3591,8 +3606,9 @@
           <span>${emojiLabel(info)}${unverified ? `<span class="unverifiedTag">${t("unverifiedTag")}</span>` : ""}</span>
           <span>${formatQty(totalQty)}${unit}</span>
         </div>
-        ${buyers.length === 0 ? `<div class="emptyNote">${t("noOrdersYet")}</div>` : buyers.map(({ m, qty }) => `
-          <div class="itemLine"><span>${escapeHtml(m.name)}</span><span class="itemAmt">x${formatQty(qty)}${unit}</span></div>
+        ${buyers.length === 0 ? `<div class="emptyNote">${t("noOrdersYet")}</div>` : buyers.map(({ m, qty, itemAdjs }) => `
+          <div class="itemLine"><span>${escapeHtml(m.name)}</span><span class="itemAmt">${qty ? `x${formatQty(qty)}${unit}` : "—"}</span></div>
+          ${itemAdjs.map(a => adjustmentLineHtml(a)).join("")}
         `).join("")}
         <div class="rowTotalLine"><span>${t("subtotal")}</span><span class="rowTotalAmt">${unverified ? t("unconfirmedPrice") : `$${subtotal.toFixed(2)}`}</span></div>
       `;
