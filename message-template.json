@@ -18,6 +18,6 @@
   "reminderClosing": "\nPaynow 93395373 /ZHAO JIE， 亲，转账后记得发截图",
   "mentionPrefix": "@",
   "mentionSeparator": " ",
-  "pickupLocation": "06-02",
-  "groupAnnouncementText": "{arrived}到啦，欢迎来{location}自取，需要送货小群联系～"
+  "pickupLocation": "107 06-02",
+  "groupAnnouncementText": "团购到了，我们在分装，有空的可以来{location}自取，会比较快。\n需要送货的也可以小群弹一下时间，我们好安排。\n\n*请尽快安排时间取/送，家里冰箱位置有限。"
 }

@@ -21,14 +21,14 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   动设置（详见下方"商品表情图标"）
 - 每位成员前面带一个序号，和接龙里的顺序一致，方便对照原始接龙记
   录（现场加购的人不在接龙里，所以不带序号）
-- 一键切换付款状态（"未付款" / "已付款 ✓"），**所有打开此链接
+- 一键标记付款状态（"标记已付款" / "已付款 ✓"），**所有打开此链接
   的人实时共享同一份付款状态**（详见下方"共享实时收款状态"）
-- 每位成员卡片上有一个独立的 **"✏️ 编辑"/"✅ 完成"** 按钮，
+- 每位成员卡片上有一个独立的 **"✏️ 编辑调整"/"完成编辑"** 按钮，
   不用再滚动到底部工具栏才能进入编辑模式（工具栏原来的按钮仍然保
   留，两者是同一个开关）
-- **收/送状态**：每位成员卡片上有独立的"收/送"按钮，和付款状态互不
-  影响（可以已收/送未付款，也可以已付款未收/送），统计卡片上会显示
-  "已收/送 X / Y 人"
+- **打包状态**：每位成员卡片上有独立的"打包"按钮，和付款状态互不
+  影响（可以已打包未付款，也可以已付款未打包），统计卡片上会显示
+  "已打包 X / Y 人"
 - **逐件分拣勾选**：进入编辑模式后，每一行商品前有一个可勾选的
   ⬜/✅，方便几个人分头实际拣货时互相看到进度；完全缺货的那一行会
   直接显示 ❌ 代替勾选框（没东西可拣了），部分到货的行会带一个
@@ -51,7 +51,7 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   （例如短缺、退款）和应付总额（详见下方"复制付款消息"）
 - 页面顶部有更醒目的 **"📢 复制到货通知"** 按钮，一键复制一条 @ 全员
   的取货通知，方便直接发到群里（详见下方"复制到货通知"）
-- 顶部统计卡片：参团人数、订单总额、已收款、未收款、已收/送
+- 顶部统计卡片：参团人数、订单总额、已收款、未收款、已打包
 - **商品查询 & 备货清单**：显示每种口味/商品总共需要订购的数量；
   卡片上方有一个下拉菜单，**只列出本场实际有人订的商品**（没人订
   的商品不会出现），选中某个商品后，下方会切换成显示这个商品是谁
@@ -66,14 +66,13 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   没有短货时这张卡片完全不显示
 - 按 全部 / 未付款 / 已付款 筛选，外加**门牌/地址下拉**（107 /
   109 / 印度小店 / 后门）和**姓名搜索框**，三者可以同时叠加使用
-- **会员** 标签页（在所有场次标签的最右边）：汇总每位成员**当前欠
-  款**（跨过去所有场次未付款部分相加，不是历史总消费），按欠款金
-  额从高到低排序，附带门牌和一键**"💬 复制催款消息"**；下方还有一
-  张**待收/送商品汇总**卡片，列出还没收/送、身上还有哪些商品没打
-  勾的成员（详见下方"会员（欠款汇总 & 待收/送商品）"）
-- 支持多场团购，超过一场后以标签页形式切换（按日期排序）；**已结
-  束的场次标签会自动上色**——全部收款完成显示绿色，还有人未付款
-  显示红色，未来/当天进行中的场次不上色
+- **会员** 标签页（排在所有正式场次标签后面）：汇总每位成员**当前
+  欠款**（跨过去所有场次未付款部分相加，不是历史总消费），按欠款
+  金额从高到低排序，方便追欠款
+- 支持多场团购，超过一场后以标签页形式切换（按日期排序，分两行居
+  中显示——正式场次+会员一行，测试/v2 场次另起一行）；**已结束的
+  场次标签会自动上色**——全部收款完成显示绿色，还有人未付款显示红
+  色，未来/当天进行中的场次不上色
 - 自动浅色/深色模式，手机和电脑均适配
 - 送货日调整：短缺、退款/补款、现场加购都可以在页面上直接记录，
   金额自动重新计算（详见下方"送货日调整"）
@@ -84,12 +83,8 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   会直接显示在每位成员的卡片上（拥有链接的任何人都能看到），但
   绝不会出现在仓库文件里，也绝不会出现在付款消息或到货通知里
   （详见下方"门牌管理"）
-- 一键导出报告：直接生成紧凑表格形式的 PDF 文件并下载，不会因为
-  人数多而变成好几页，微信内置浏览器和 iOS 主屏幕网页 App 里也能
-  正常使用（详见下方"导出报告"）
-- 测试场次（日期以 `-v2` 结尾）专属的 **"🗑️ 重置测试场次"** 按
-  钮，一键清空该场测试数据，方便反复测试（详见下方"重置测试场
-  次"）
+- 一键导出报告：紧凑的表格形式，可打印或另存为 PDF，不会因为人数
+  多而变成好几页
 - 工具栏 **"🔄 刷新"** 按钮：手动重新加载整个页面。保存到 iOS 主屏
   幕、以"网页 App"方式打开时没有 Safari 那个下拉刷新的手势（这个
   手势属于 Safari 的界面外壳，全屏网页 App 里没有），这个按钮就是
@@ -163,9 +158,9 @@ Firestore 中，见下方说明。
 }
 ```
 
-- `itemsLabel`（可选）——一句话描述这场团购是什么（例如"小馄饨团购"），仅供页面顶部
-  的"📢 复制到货通知"按钮使用；不填的话会退化成"{场次标签}团购"（例如"9/1团购"），
-  不会再把所有商品名称列出来。
+- `itemsLabel`（可选）——一句话描述这场团购是什么（例如"小馄饨团购"）。历史字段：
+  以前"📢 复制到货通知"按钮会读它，2026-09-13起改成统一的通用文案后就不再使用了；
+  留着不影响任何东西，新场次不必再特意填写。
 - `products` —— 短键 → 商品信息：
   - `label`（中文名）、`price` 必填。
   - `unit`（可选）——默认是`"盒"`，商品按重量或其他非盒装单位出售时需明确设置
@@ -196,14 +191,14 @@ Firestore 中，见下方说明。
 
 付款状态通过 **Firebase Firestore** 实时同步——任何人打开这个链
 接标记付款，其他所有正在查看的人都会立刻看到更新，不需要手动刷
-新。这也是收/送状态、分拣勾选、门牌信息和送货日调整共用的同一套
+新。这也是打包状态、分拣勾选、门牌信息和送货日调整共用的同一套
 实时机制。
 
 - **Firebase 项目**：WG Group Buy（`wg-group-buy`）
 - **数据结构**：每场团购一个 document（用日期作为 document ID）：
   - `paidStatus` —— 每位成员的姓名 → `true`/`false`，外加一个特殊字段
     `__locked`（该场是否已全部收款自动锁定）
-  - `packedStatus` —— 每位成员的姓名 → 是否已收/送（collection 名称沿用旧名，界面文字已改）
+  - `packedStatus` —— 每位成员的姓名 → 是否已打包
   - `sortedItems` —— key 是 `成员姓名::商品短键`，值是是否已勾选分拣
   - `adjustments` —— 每条送货日调整一个自动生成的 ID
   - `memberInfo/directory`（单一 document，不按日期分）—— 每位成员的门牌号
@@ -270,7 +265,7 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 录，方便随时对照"当初订了什么"和"最后实际收了多少钱"。
 
 **日常使用最快的方式：** 进入编辑模式后（点任意一张成员卡片上的
-"✏️ 编辑"，或底部工具栏同名按钮，首次需要输入编辑密码），**直
+"✏️ 编辑调整"，或底部工具栏同名按钮，首次需要输入编辑密码），**直
 接点某一行商品**即可弹出对应的就地编辑器（普通加减器 / 称重 /
 按箱分摊 / 按颗数——具体是哪一种由这个商品在 `data-<日期>.json`
 里的 `weighMode`/`piecesPerUnit` 决定，见上方"数据结构"），填好保
@@ -293,13 +288,12 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 以上这些编辑操作，在该场团购**全部收款并自动锁定**后会暂时无法使
 用——见下方"全部收款后自动锁定"。
 
-## 收/送与分拣
+## 打包与分拣
 
-- **收/送**：每位成员卡片上有一个独立的"收/送"按钮，和付款状态
+- **打包**：每位成员卡片上有一个独立的"打包"按钮，和"标记已付款"
   互不影响、互不依赖——存在自己的 `packedStatus` collection 里，
-  任何人都能点，不需要先解锁编辑模式。统计卡片上会显示"已收/送
-  X / Y 人"。（这个按钮原来叫"打包"，界面文字已改为"收/送"，含
-  义不变，仍是同一套数据。）
+  任何人都能点，不需要先解锁编辑模式。统计卡片上会显示"已打包
+  X / Y 人"。
 - **分拣勾选**：进入编辑模式后，每一行商品前面会出现 ⬜/✅ 勾选
   框，方便几个人分头去实际拣货时，互相看到哪些已经拣好了——存在
   `sortedItems` collection 里，同样是实时共享、任何人可点，和付
@@ -312,12 +306,12 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 
 当一场团购里**所有人都被标记为已付款**后，页面会自动锁定这一场：
 不能再标记/取消付款、不能加送货日调整、也不能新增买家，防止团购
-结清之后被误触改动（收/送和分拣状态不受锁定影响，随时可以继续操
+结清之后被误触改动（打包和分拣状态不受锁定影响，随时可以继续操
 作）。
 
 - 锁定状态是**所有人共享**的——存在 Firebase 里，和付款状态一
   样，不是某一台设备自己的状态，刷新页面也不会解锁。
-- 锁定后，底部工具栏的"✏️ 编辑"按钮会变成 **"🔓 解锁"**，点
+- 锁定后，底部工具栏的"✏️ 编辑调整"按钮会变成 **"🔓 解锁"**，点
   开后输入编辑密码（和送货日调整用的是同一个 `EDIT_PIN`）即可解
   锁，所有人立刻看到解锁后的状态。即使这台设备之前已经输入过一次
   密码，解锁这一步仍然需要重新输入——这是有意为之，避免"结清后误
@@ -334,36 +328,25 @@ collection 里，每场团购一个 document，作为原始订单之外的第二
 接龙原始名单里的人算的，现场加购的人（走的是调整记录）暂不计入，
 是有意保留的小限制。
 
-## 重置测试场次
+## 场次标签分组（正式 / 测试）
 
-日期以 `-v2` 结尾的场次（用于测试新功能，例如 9/11测试(v2)）会在
-工具栏出现一个 **"🗑️ 重置测试场次"** 按钮，一键清空这个测试场次
-在 Firebase 里的付款、收/送、分拣勾选和调整记录（`paidStatus`、
-`packedStatus`、`sortedItems`、`adjustments` 四个 collection 对应
-的文档），方便反复测试而不用手动一条条撤销。点击后会连续弹出两
-次确认对话框，避免手滑误删；按钮和这个连环确认只在 `-v2` 结尾的
-测试场次出现，正式场次的数据不会被这个按钮影响到。
+标签栏分两行显示（这个项目主要在手机/平板上用，固定分两行比让标签
+自动换行更整齐）：第一行是所有正式场次（新到旧）加上 **"会员"**
+标签，都居中显示；第二行是测试/v2 场次（新到旧），同样居中——如果
+当前没有任何测试场次，第二行不会显示。
 
-## 会员（欠款汇总 & 待收/送商品）
+一场算不算"测试"，判断方式和"会员"欠款汇总一直以来用的规则完全一
+样：标签文字里带"测试"，或者日期不是标准的 `YYYY-MM-DD`（比如带
+`-v2` 后缀）。不需要额外的数据字段——给场次起个带"测试"字样的标签
+就够了，跟 9/11测试(v2) 一样。
 
-标签栏最右边有一个 **"会员"** 标签，下面有两张卡片：
+## 会员（欠款汇总）
 
-- **会员欠款汇总**：汇总每位成员**当前未结清**的金额——把过去每
-  一场里还没标付款的部分加总起来，不是这个人的历史总消费。按欠款
-  从多到少排序，每人姓名旁如果填过门牌会带 🏠 图标一起显示。每位
-  成员名下有一个 **"💬 复制催款消息"** 按钮，一键复制一段跨场次的
-  催款消息——只显示欠款总额，不逐场列明细（这是一句友好的提醒，
-  不是收款单），和上面按场次的"💬 复制付款消息"是两个独立的按
-  钮，措辞同样存放在 `message-template.json` 里。
-- **待收/送商品汇总**：列出还没被标记"已收/送"的成员，按场次分组
-  显示他们还有哪些商品没有在分拣时打勾（已经因缺货全额退款的商品
-  不计入）。一旦某位成员某一场被标记"已收/送"，就会从这张卡片上
-  消失，即使还有商品没打勾也一样——一旦收/送就默认全部已经到手。
-
-这两张卡片都是打开"会员"标签时才现算的（不是每次开页面都算一
-遍），算过一次后本次浏览就不用再重算。带"测试"字样日期的场次
-（例如 9/10测试(v2)）不会计入任何一张卡片，避免测试数据污染真实
-统计。
+汇总每位成员**当前未结清**的金额——把过去每一场里还没标付款的部分
+加总起来，不是这个人的历史总消费。按欠款从多到少排序。这个统计是
+打开这个标签时才现算的（不是每次开页面都算一遍），算过一次后本次
+浏览就不用再重算。带"测试"字样日期的场次（例如 9/10测试(v2)）不会
+计入，避免测试数据污染真实欠款。
 
 ## 门牌管理
 
@@ -415,9 +398,9 @@ match /memberInfo/{docId} {
 
 每位成员卡片上的 **"💬 复制付款消息"** 按钮，会把该成员的订单明细、任何
 送货日调整（附原因，例如"到货少一份"为一个短缺）和应付总额，拼成一段可以直接粘贴
-进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"未付款/已付款 ✓"
-付款状态按钮是两回事——谁去收款、谁去核对付款状态，可以是两个人分工，
-互不影响；导出 PDF 的留档功能也完全不受影响。
+进微信对话或群聊的文字，点一下就复制到剪贴板。这个和"标记已付款"按钮是
+两回事——谁去收款、谁去核对付款状态，可以是两个人分工，互不影响；打印/
+导出 PDF 的留档功能也完全不受影响。
 
 格式和这个群平时手写的收款消息一致（不带表情图标；金额前带"$"符号）。示例
 （**未付款**状态，"@小美"为示意用的化名，不是真实成员）：
@@ -467,18 +450,22 @@ Paynow 93395373 /ZHAO JIE
 ```
 @小明 @小华 @阿强 ...（本场所有成员，接龙顺序）
 
-小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+团购到了，我们在分装，有空的可以来107 06-02自取，会比较快。
+需要送货的也可以小群弹一下时间，我们好安排。
+
+*请尽快安排时间取/送，家里冰箱位置有限。
 ```
 
 - 会 @ 到本场每一位成员（按接龙顺序，包含现场加购的人），不看是否已付款——这
   条是通知取货，不是收款。
-- "小馄饨团购"这类描述这次到货是什么的短语，来自该场 `data-<日期>.json` 里的
-  `itemsLabel` 字段（新建一场团购时顺手填一下，参考上面"数据结构"部分）；没填
-  的话会退化成"{场次标签}团购"（例如"9/1团购"），不会再把所有商品名称列出来——
-  品种很多的一场如果忘了填 `itemsLabel`，也不会变成一长串读不出来的文字。
-- "06-02" 这类取货地点，存放在 `message-template.json` 的 `pickupLocation` 字
-  段里——这个一般是固定的，不需要每场都改。
-- 其余措辞同样在 `message-template.json` 里，改法和上面"复制付款消息"一样。
+- 文案统一说"团购"，不再区分具体商品种类（例如"小馄饨团购"）——2026-09-13起
+  改成通用措辞。`data-<日期>.json` 里的 `itemsLabel` 字段还在，但这条消息已经
+  不读它了；留着不影响任何东西，纯粹是历史字段。
+- "107 06-02"这类取货地点，存放在 `message-template.json` 的 `pickupLocation`
+  字段里（连楼栋号一起存成一个字符串）——这个一般是固定的，不需要每场都改。
+- 其余措辞（包括冰箱位置有限的提醒）同样在 `message-template.json` 的
+  `groupAnnouncementText` 字段里，改法和上面"复制付款消息"一样，改完直接把这
+  个 JSON 文件重新上传到仓库根目录即可，不用改 `index.html`、也不用重新部署。
 
 ## 商品查询（谁订了这个商品）
 
@@ -489,24 +476,22 @@ Paynow 93395373 /ZHAO JIE
 2. **备货清单里的任意一行也可以直接点**（不用先去下拉菜单里找），弹出同
    样的明细弹窗，点弹窗任意处关闭。
 
+弹出的明细里，总数量和小计只按**原始接龙订单**算，不受送货日调整影响
+（这是有意保留的行为，见下面"送货日调整"）；但每位买家自己那一行下面，
+现在会额外列出这个商品上发生过的调整（缺货/补款/加购等），和会员卡片上
+一样的写法，不用再去每张会员卡片里翻着找。
+
 商品种类多（三四十种起）时，默认只显示一行"📋 查看全部商品备货清单（N
 种商品）"的收起状态，点开才展开完整表格，避免刷屏；切换到别的场次会自动
 重新收起。
 
 ## 导出报告
 
-点击 **"🖨️ 导出报告（PDF/打印）"** 会直接生成一份 PDF 文件并下
-载——不论当前的筛选状态如何，都会列出所有成员，附带每人的明细、
-金额、付款状态，以及备货清单。这个表格式排版是特意和屏幕上的卡
-片式排版分开设计的，人数较多时也不会变成好几页。
-
-这个按钮以前是调用浏览器自带的 `window.print()`（打印对话框），
-但这个看板通常是在微信内置浏览器里打开、或保存到 iOS 主屏幕后
-使用，这两种环境都不支持 `window.print()`——点击按钮完全没有反
-应，也不会报错。现在改成直接用 `html2canvas` + `jsPDF`（从 CDN
-按需加载）在浏览器里生成真正的 PDF 文件并触发下载，这两种环境都
-能正常工作。生成过程中按钮会显示"正在生成 PDF…"提示，完成后浏
-览器会弹出保存/分享选项（视设备而定）。
+点击 **"🖨️ 导出报告（PDF/打印）"** 会打开浏览器的打印对话框，显
+示一份紧凑的表格版报告——不论当前的筛选状态如何，都会列出所有成
+员，附带每人的明细、金额、付款状态，以及备货清单。可以直接打印，
+或在打印对话框里选择"存为 PDF"保存文件。这个表格式排版是特意和
+屏幕上的卡片式排版分开设计的，人数较多时也不会变成好几页。
 
 ## 补充说明
 
@@ -564,18 +549,18 @@ chat), but works for any group buy once you swap in your own data.
   original 接龙, to make cross-checking against the raw WeChat thread
   easy (walk-ins added on delivery day aren't numbered, since they
   were never part of the 接龙)
-- One-tap paid-status toggle ("未付款" / "已付款 ✓" — "Unpaid" /
-  "Paid ✓"), and **paid status is shared live across everyone who
-  opens the link** (see "Shared live payment status" below)
-- Each member's card has its own **"✏️ 编辑" / "✅ 完成"** (edit)
-  toggle — no need to scroll to the bottom toolbar to enter edit mode
-  (the original toolbar button is still there too; both flip the same
-  shared edit mode)
-- **Receive/deliver status**: an independent "收/送" toggle per
+- One-tap paid-status toggle ("标记已付款" / "已付款 ✓" — "Mark
+  paid" / "Paid ✓"), and **paid status is shared live across
+  everyone who opens the link** (see "Shared live payment status"
+  below)
+- Each member's card has its own **"✏️ 编辑调整" / "完成编辑"**
+  (edit) toggle — no need to scroll to the bottom toolbar to enter
+  edit mode (the original toolbar button is still there too; both
+  flip the same shared edit mode)
+- **Packing status**: an independent "打包" (packed) toggle per
   member card, tracked separately from paid status (a member can be
-  received-not-paid or paid-not-received) — shown in the stats ticket
-  as "已收/送 X / Y 人" (this toggle used to be labeled "打包"/
-  packing; same underlying data, wording only)
+  packed-not-paid or paid-not-packed) — shown in the stats ticket as
+  "已打包 X / Y 人"
 - **Per-item sorting checkboxes**: in edit mode, every item line gets
   a ⬜/✅ tick, so several people physically pulling stock can see each
   other's progress in real time. A fully-shortaged item shows ❌
@@ -609,7 +594,7 @@ chat), but works for any group buy once you swap in your own data.
   member, ready to post to the group (see "Arrival announcement"
   below)
 - Top stats ticket: number of members, order total, collected,
-  outstanding, and received/delivered count
+  outstanding, and packed count
 - **Product lookup & stocking list**: shows the total quantity needed
   for each flavor/product. A dropdown above the stocking list shows
   **only products actually ordered this round** — picking one swaps
@@ -629,18 +614,16 @@ chat), but works for any group buy once you swap in your own data.
 - Filter by All / Unpaid / Paid, plus a **block/address dropdown**
   (107 / 109 / 印度小店 / 后门) and a **member name search box** —
   all three combine
-- A **会员 (Members)** tab, rightmost in the tab bar, showing each
-  member's currently-outstanding balance summed across every past
-  round (not their lifetime spend), sorted highest-owed first, with
-  their address and a one-tap **"💬 复制催款消息"** (copy payment
-  reminder) button; below that, a **products-still-owed** card lists
-  anyone not yet marked received/delivered and which of their items
-  are still unchecked (see "Members (outstanding balances & products
-  still owed)" below)
+- A **会员 (Members)** tab, placed after every real round's tab,
+  showing each member's currently-outstanding balance summed across
+  every past round (not their lifetime spend), sorted highest-owed
+  first
 - Supports multiple group buys — once there's more than one, tabs
-  appear (sorted by date) to switch between them; **past rounds are
-  color-coded** — green once everyone's paid, red if anyone's still
-  unpaid, uncolored for today's or future rounds
+  appear (sorted by date) to switch between them, in two centered
+  rows: real rounds + 会员 on row one, any test/v2 rounds on row
+  two; **past rounds are color-coded** — green once everyone's
+  paid, red if anyone's still unpaid, uncolored for today's or
+  future rounds
 - Automatic light/dark mode, responsive on both mobile and desktop
 - Delivery-day adjustments: shortages, refunds/surcharges, and
   walk-in extras can all be recorded right on the page, with amounts
@@ -656,17 +639,8 @@ chat), but works for any group buy once you swap in your own data.
   with the link), but never stored in a repo file and never appears
   in any payment message or announcement (see "Block/unit directory"
   below)
-- One-tap report export: generates a dense, table-formatted PDF
-  client-side and downloads it directly — works inside WeChat's
-  in-app browser and the iOS Home Screen web app too, and a large
-  round doesn't turn into several pages (see "Exporting a report"
-  below)
-- A **"🗑️ 重置测试场次"** (Reset test round) button, shown only for
-  rounds whose date ends in `-v2` (used for testing new features):
-  wipes that round's paid/received/sorted/adjustment data in Firebase
-  in one tap, behind two confirmation prompts, so you can re-test
-  without manually undoing everything by hand (see "Reset test round"
-  below)
+- One-tap report export: a dense table format you can print or save
+  as a PDF, so a large round doesn't turn into several pages
 - Toolbar **"🔄 刷新"** (Refresh) button: manually reloads the whole
   page. Saved to the iOS Home Screen as a "web app," the page opens
   full-screen with no Safari UI — including no pull-to-refresh gesture,
@@ -748,9 +722,10 @@ mistype a product's short key in someone's `items`):
 }
 ```
 
-- `itemsLabel` (optional) — a short phrase for what this round is (e.g. "小馄饨团购"),
-  used only by the "📢 复制到货通知" button at the top of the page. If omitted, it falls
-  back to `"{round label}团购"` (e.g. "9/1团购"), never to a list of every product.
+- `itemsLabel` (optional) — a short phrase for what this round is (e.g. "小馄饨团购").
+  Historical field: the "📢 复制到货通知" button used to read it, but the message went
+  generic on 2026-09-13 and no longer does — harmless to leave in place, no need to
+  set it for new rounds.
 - `products` — short key → product info:
   - `label` (Chinese name) and `price` are required.
   - `unit` (optional) — defaults to `"盒"` (box); set it explicitly (e.g. `"kg"`) for
@@ -867,7 +842,7 @@ Firestore (an `adjustments` collection, one document per round) as a
 second layer on top of the frozen original order, so there's always
 a clean record of what was ordered vs. what was actually charged.
 
-**Fastest everyday path:** once in edit mode (tap "✏️ 编辑" on
+**Fastest everyday path:** once in edit mode (tap "✏️ 编辑调整" on
 any member card, or the same button in the bottom toolbar — the
 first time on a device needs the edit PIN), **tap the item line
 directly**. This opens the matching inline editor — plain stepper,
@@ -898,14 +873,12 @@ These editing actions are all temporarily unavailable once a round has
 **auto-locked after full payment** — see "Auto-lock after full payment"
 below.
 
-## Receiving/delivery and sorting
+## Packing and sorting
 
-- **Receive/deliver**: each member's card has its own "收/送" toggle,
-  independent of paid status — stored in its own `packedStatus`
+- **Packing**: each member's card has its own "打包" (packed) toggle,
+  independent of "标记已付款" — stored in its own `packedStatus`
   collection, tappable by anyone without unlocking edit mode. The
-  stats ticket shows "已收/送 X / Y 人". (This toggle used to be
-  labeled "打包"/packing; the label changed, the underlying data and
-  mechanics didn't.)
+  stats ticket shows "已打包 X / Y 人".
 - **Sorting checkboxes**: in edit mode, every item line gets a ⬜/✅
   tick, so several people physically pulling stock at once can see
   each other's progress — stored in `sortedItems`, likewise live and
@@ -921,12 +894,12 @@ Once **every member in a round has been marked paid**, the page
 automatically locks that round: no more marking/unmarking paid, no
 delivery-day adjustments, and no adding walk-in buyers — this
 prevents an accidental change once a group buy is already settled.
-Receiving/delivery and sorting stay available even while locked.
+Packing and sorting stay available even while locked.
 
 - The locked state is **shared by everyone** — it lives in Firebase,
   same as paid status, not just on one device, and a page reload
   doesn't clear it.
-- Once locked, the bottom toolbar's "✏️ 编辑" button becomes
+- Once locked, the bottom toolbar's "✏️ 编辑调整" button becomes
   **"🔓 解锁"** (Unlock). Tapping it and entering the edit PIN (the
   same `EDIT_PIN` used for delivery-day adjustments) unlocks it for
   everyone, instantly. This always requires re-entering the PIN, even
@@ -946,43 +919,29 @@ tab always keeps its own dark "active" highlight regardless of color.
 This is based on the original 接龙 roster only — walk-ins added via
 adjustments aren't factored in yet, a known, low-stakes limitation.
 
-## Reset test round
+## Round tab grouping (real vs. test rounds)
 
-Any round whose date ends in `-v2` (used for testing new features,
-e.g. 9/11测试(v2)) gets a **"🗑️ 重置测试场次"** (Reset test round)
-button in the toolbar. Tapping it clears that round's paid, receive/
-deliver, sorting, and adjustment data in Firebase in one go (the
-`paidStatus`, `packedStatus`, `sortedItems`, and `adjustments`
-documents for that round), so you can re-test without undoing every
-entry by hand. It's guarded by two sequential confirmation prompts to
-prevent an accidental tap, and both the button and the confirmations
-only ever appear for `-v2` rounds — real rounds are never affected by
-this button.
+The tab bar renders as two rows (this project is used mainly on
+phone/tablet, so a fixed two-row split reads more cleanly than
+relying on wrapping): row one is every real round (newest→oldest)
+plus the **"会员"** tab, all centered; row two is any test/v2
+rounds (newest→oldest), also centered — it simply doesn't appear
+when there's no test round.
 
-## Members (outstanding balances & products still owed)
+A round counts as "test" using the exact same rule the Members
+tab's balance calc already used: its label contains "测试", or its
+date isn't a plain `YYYY-MM-DD` (a "-v2"-style suffix, for
+example). No extra data field needed — labeling a round "测试"
+something is enough, same as 9/11测试(v2).
 
-The rightmost tab, **"会员"**, holds two cards:
+## Members (outstanding balances)
 
-- **Outstanding balances**: sums each member's currently-unpaid total
-  across every past round (not their lifetime spend), sorted
-  highest-owed first, with their address (🏠) shown next to their
-  name where set. Each row has a **"💬 复制催款消息"** (Copy payment
-  reminder) button that copies a cross-round nudge showing just the
-  combined total owed (no per-round breakdown) — separate from the
-  per-round "💬 复制付款消息" button, with its own wording in
-  `message-template.json`.
-- **Products still owed**: lists members not yet marked
-  received/delivered for a round, grouped by round, with exactly
-  which of their items are still unchecked (fully-refunded shortages
-  are excluded). A member drops off this card the moment they're
-  marked received/delivered for that round, even if a line was left
-  unchecked — being marked received/delivered is trusted at that
-  point.
-
-Both cards are computed the first time you open the tab (not on every
-page load) and cached for the rest of the session. Rounds with a
-"测试" (test) marker in the date, like 9/10测试(v2), are excluded from
-both so test data never pollutes a real balance or owed-items list.
+Sums each member's currently-unpaid total across every past round
+(not their lifetime spend), sorted highest-owed first. It's
+computed the first time you open the tab (not on every page load)
+and cached for the rest of the session. Rounds with a "测试" (test)
+marker in the date, like 9/10测试(v2), are excluded so test data
+never pollutes a real balance.
 
 ## Block/unit directory
 
@@ -1100,22 +1059,27 @@ per-member payment message above:
 ```
 @小明 @小华 @阿强 ... (every member in this round, in 接龙 order)
 
-小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+团购到了，我们在分装，有空的可以来107 06-02自取，会比较快。
+需要送货的也可以小群弹一下时间，我们好安排。
+
+*请尽快安排时间取/送，家里冰箱位置有限。
 ```
 
 - @mentions every member of the current round (in 接龙 order, including anyone added
   as a walk-in), regardless of paid status — this is a pickup notice, not a payment
   request.
-- The "小馄饨团购" part (what arrived) comes from that round's `data-<date>.json` —
-  set its `itemsLabel` field when creating a new round (see "Data schema" above); if
-  left unset it falls back to `"{round label}团购"` (e.g. "9/1团购"), never to a list
-  of every product — so a round with dozens of distinct items doesn't turn into an
-  unreadable wall of text if `itemsLabel` gets forgotten.
-- The pickup location ("06-02") lives in `message-template.json`'s `pickupLocation`
-  field — this is normally a fixed setting for your building/unit, not something you
-  change every round.
-- The rest of the wording lives in `message-template.json` too, same as the payment
-  message above.
+- The wording is now generic ("团购") and no longer calls out what specifically
+  arrived (e.g. "小馄饨团购") — changed 2026-09-13. `data-<date>.json`'s `itemsLabel`
+  field still exists but this message no longer reads it; it's harmless to leave in
+  place, just unused going forward.
+- The pickup location ("107 06-02") lives in `message-template.json`'s
+  `pickupLocation` field, building number folded into the same string — this is
+  normally a fixed setting for your building/unit, not something you change every
+  round.
+- The rest of the wording (including the limited-fridge-space reminder) lives in
+  `message-template.json`'s `groupAnnouncementText` field, same as the payment
+  message above — edit that file and re-upload it to the repo root; no `index.html`
+  change or redeploy needed.
 
 ## Product lookup (who ordered what)
 
@@ -1129,6 +1093,13 @@ breakdown:
    to find it in the dropdown first — pops up the same breakdown; tap
    anywhere on it to close.
 
+The total/subtotal shown are always original-order-only, unaffected by
+delivery-day adjustments (see "Delivery-day adjustments" below — that's
+intentional). Each buyer's own row now also lists any adjustment
+(shortage/refund/walk-in add) on that specific product, same wording as
+their member card, so you don't have to go hunting through every
+member's card to find who a correction was on.
+
 When a round has a lot of distinct products (30-40+), the full list
 starts **collapsed** behind a "📋 查看全部商品备货清单（N 种商品）"
 summary to avoid a wall of tables — it re-collapses on every round
@@ -1136,23 +1107,13 @@ switch.
 
 ## Exporting a report
 
-**"🖨️ 导出报告（PDF/打印）"** (Export report) generates a PDF
-client-side and downloads it directly — every member regardless of
-the current filter, with their itemized order, amount, and paid
-status, plus the stocking list. This table layout is deliberately
+**"🖨️ 导出报告（PDF/打印）"** (Export report) opens the browser's
+print dialog with a dense, table-formatted report — every member
+regardless of the current filter, with their itemized order, amount,
+and paid status, plus the stocking list. Print it directly, or choose
+"Save as PDF" in the dialog. This table layout is deliberately
 separate from the on-screen card layout so a large round doesn't turn
-into several pages.
-
-This button used to call the browser's own `window.print()` dialog.
-That silently did nothing in the two environments this dashboard is
-actually opened in most — WeChat's in-app browser and the iOS
-Home-Screen web app — since neither exposes `window.print()` at all,
-with no error to signal it. It's now built with `html2canvas` +
-`jsPDF` (loaded on demand from a CDN) to render the same styled
-report straight to an actual PDF file entirely in the browser, no
-server round-trip involved, which works in both environments. A
-"正在生成 PDF…" status shows while it builds, then the browser's own
-save/share sheet appears once the file is ready (varies by device).
+into several pages of paper.
 
 ## Notes
 

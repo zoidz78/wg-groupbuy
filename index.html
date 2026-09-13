@@ -87,7 +87,8 @@
     margin: 0;
   }
 
-  .buyTabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  .buyTabsWrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .buyTabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
   .buyTab {
     padding: 7px 16px; font-size: 13px; font-weight: 600;
     border: 1px solid var(--line); background: var(--paper); color: var(--muted);
@@ -99,10 +100,6 @@
      there's never a conflict between "this is open" and "this is selected". */
   .buyTab.completed:not(.active) { border-color: var(--green-btn); color: var(--green-btn); }
   .buyTab.pending:not(.active) { border-color: var(--red); color: var(--red); }
-  /* Pure visual spacer between the 成员 tab and the test/v2 round tabs that
-     follow it — roughly one tab's width, so the test tabs read as a
-     separate group instead of a continuation of the real rounds. */
-  .buyTabGap { width: 44px; }
 
   .ticket, .card {
     background: var(--paper);
@@ -545,7 +542,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.19.0";
+    const APP_VERSION = "1.20.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // Same two-signal test-round check computeOverdueByMember()/
@@ -2662,13 +2659,16 @@
     }
 
     // Shared markup for the top round-tab bar, used by both the normal round
-    // view and the 会员 tab's own copy of it. Layout: real rounds (newest→
-    // oldest) — 成员 tab — a one-tab-wide visual gap — test rounds (newest→
-    // oldest). GROUP_BUYS is already ordered [main rounds..., test
-    // rounds...] (see the boot sort), so splitting it at `mainCount` here
-    // keeps each tab's `data-index` equal to its real position in that
-    // array — existing click handlers (`data-index` → loadGroupBuy(i)) don't
-    // need to change at all.
+    // view and the 会员 tab's own copy of it. Two explicit rows (this is a
+    // mobile/tablet-first app, so a guaranteed row break reads better than
+    // relying on flex-wrap to happen to land in the right place): row 1 is
+    // real rounds (newest→oldest) plus 成员; row 2 is test/v2 rounds
+    // (newest→oldest), only rendered when at least one exists. Both rows
+    // center their own contents independently. GROUP_BUYS is already
+    // ordered [main rounds..., test rounds...] (see the boot sort), so
+    // splitting it at `mainCount` keeps each tab's `data-index` equal to
+    // its real position in that array — existing click handlers
+    // (`data-index` → loadGroupBuy(i)) don't need to change at all.
     // `activeIdx`/`membersActive` mirror the two call sites' previous
     // inline markup exactly: the round view marks the current round tab
     // active and colors it by roundStatus; the 会员 view's own copy never
@@ -2686,11 +2686,12 @@
         return `<div class="buyTab ${activeIdx === i ? "active" : ""} ${statusCls}" role="tab" tabindex="0" aria-selected="${activeIdx === i ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>`;
       };
       return `
-        <div class="buyTabs" role="tablist">
-          ${mainTabs.map((gb, i) => tabHtml(gb, i)).join("")}
-          <div class="buyTab ${membersActive ? "active" : ""}" role="tab" tabindex="0" aria-selected="${membersActive ? "true" : "false"}" data-view="members">${t("membersTabLabel")}</div>
-          ${testTabs.length ? `<div class="buyTabGap" aria-hidden="true"></div>` : ""}
-          ${testTabs.map((gb, i) => tabHtml(gb, mainCount + i)).join("")}
+        <div class="buyTabsWrap" role="tablist">
+          <div class="buyTabs">
+            ${mainTabs.map((gb, i) => tabHtml(gb, i)).join("")}
+            <div class="buyTab ${membersActive ? "active" : ""}" role="tab" tabindex="0" aria-selected="${membersActive ? "true" : "false"}" data-view="members">${t("membersTabLabel")}</div>
+          </div>
+          ${testTabs.length ? `<div class="buyTabs">${testTabs.map((gb, i) => tabHtml(gb, mainCount + i)).join("")}</div>` : ""}
         </div>
       `;
     }

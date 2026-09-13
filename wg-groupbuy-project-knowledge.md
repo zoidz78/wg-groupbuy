@@ -83,9 +83,9 @@ Steps:
    quantity per unit, and grand total; sanity-check against any delivery minimum
    mentioned in the message.
 5. Write `data-<date>.json` per the schema below. Use the date embedded in the message
-   if there is one; otherwise ask, don't assume. Also set `itemsLabel` to a short phrase
-   for this round (e.g. "小馄饨团购") unless the raw product labels already read fine
-   joined together — it's what the "📢 复制到货通知" button (A4) uses to say what arrived.
+   if there is one; otherwise ask, don't assume. `itemsLabel` is optional and no longer
+   needs setting (see A4) — the "📢 复制到货通知" wording went generic on 2026-09-13 and
+   doesn't read it anymore.
 6. Add a new entry to `manifest.json`: `{ "date": "...", "label": "M/D", "file": "data-<date>.json" }`.
    Newest date goes first.
 7. Get both files into the live repo (commit + push if this session has repo access;
@@ -115,10 +115,10 @@ Steps:
 ```
 
 - `groupName` stays `"WG团购群"` across rounds unless told otherwise.
-- `itemsLabel` (optional) — a short phrase for this round used only by the "📢 复制到货通知"
-  group announcement button (see A4), e.g. "小馄饨团购". Set it whenever the round's raw
-  product labels wouldn't read naturally joined together (most rounds); omit it only when
-  there's just one or two products and the label alone reads fine.
+- `itemsLabel` (optional, dormant since 2026-09-13) — a short phrase for this round, e.g.
+  "小馄饨团购". Used to feed the "📢 复制到货通知" group announcement button (see A4) before
+  its wording went generic; not read by anything in `index.html` anymore, but harmless to
+  set or leave out. No need to fill it in for new rounds.
 - No `productLabel` or delivery-note field — removed from the display by request;
   don't reintroduce unless asked.
 - All page UI text is Mandarin — keep any new strings in Mandarin to match.
@@ -560,46 +560,47 @@ Tapping it copies (`buildGroupAnnouncement()` in `index.html`):
 ```
 @Caroline 琛琛 @^_^Wu @W_W @Peter @Sherry Liu ... @等放假ing @木木三の柒
 
-小馄饨团购到啦，欢迎来06-02自取，需要送货小群联系～
+团购到了，我们在分装，有空的可以来107 06-02自取，会比较快。
+需要送货的也可以小群弹一下时间，我们好安排。
+
+*请尽快安排时间取/送，家里冰箱位置有限。
 ```
 
 - One `@`-mention per member, in 接龙 order (original order first, then any walk-ins added via
   adjustments), space-separated on one line — matches how WG团购群 already posts these. Everyone
   gets mentioned regardless of paid status; this message is about pickup, not payment.
-- A blank line, then a short note: what arrived, where to collect, and to use the small delivery
-  group chat if delivery is needed instead of pickup.
+- A blank line, then the announcement body from `message-template.json`.
 - Shows "已复制 ✓" for 1.5s after copying, same pattern as A3's button.
+
+**Wording went generic (2026-09-13):** the message no longer names what arrived (was
+"{arrived}到啦，欢迎来{location}自取，需要送货小群联系～", e.g. "小馄饨团购到啦…") — now it's
+always the same "团购到了" wording regardless of round contents, plus an extra line about pinging
+the small group for a delivery time and a fridge-space reminder. **`buildGroupAnnouncement()`
+itself was not touched for this** — the whole change lives in `message-template.json`'s
+`groupAnnouncementText` field, since `{arrived}`/`itemsLabel` simply isn't referenced by the new
+template string anymore (an unused `{placeholder}` substitution is harmless — `fillTemplate()`
+only fills placeholders that are actually present in the text).
 
 **Data sources:**
 - Member list: `DATA.orders` (+ walk-in names from `adjustments`) — same list and order used
   everywhere else on the page (factored into `allMemberNamesInOrder()`, shared logic with
   `render()`'s member list and with the A5 auto-lock check).
-- `{arrived}` (what showed up, e.g. "小馄饨团购"): reads the round's `data-<date>.json` top-level
-  `itemsLabel` field if set — **this is optional and round-specific, so add it each time a new
-  round's data file is created** when the product list doesn't already read naturally on its own
-  (e.g. 8 wonton-flavor labels joined together would be unreadable as an announcement). If
-  `itemsLabel` isn't set, it falls back to `"{round label}团购"` (e.g. "9/1团购") — **never** to a
-  list of every product. (This used to join every product's label with "、"; a big produce round
-  with 50+ distinct items turned that into an unreadable wall of text when `itemsLabel` was
-  forgotten, so the fallback was changed to the date-based phrase instead. Still set `itemsLabel`
-  when you can — "小馄饨团购到啦" reads better than "9/7团购到啦" — but forgetting it is no longer
-  a real problem.)
-- `{location}` (pickup spot, e.g. "06-02"): `pickupLocation` in `message-template.json` — this is
-  a fixed setting for this deployment (their actual unit), not per-round, so it normally only needs
-  setting once.
+- `{location}` (pickup spot, now "107 06-02" — building number folded into the same string):
+  `pickupLocation` in `message-template.json` — a fixed setting for this deployment, not
+  per-round, so it normally only needs setting once.
 - The rest of the wording (`groupAnnouncementText`, `mentionPrefix`, `mentionSeparator`) also lives
   in `message-template.json`, same reasoning as A3 — reword without touching `index.html`.
 
-**No new JSON file was needed** — this reuses `message-template.json` (added fields:
-`mentionPrefix`, `mentionSeparator`, `pickupLocation`, `groupAnnouncementText`) and the existing
-`data-<date>.json` schema (added one new optional field: `itemsLabel`).
+**`itemsLabel` is now a dormant field.** `data-<date>.json`'s optional `itemsLabel` (e.g. "小馄饨
+团购") used to feed `{arrived}` above; since the wording went generic it's no longer read by
+anything in `index.html`. Harmless to leave set on old rounds or to keep filling in out of habit,
+but **no longer needed when creating a new round** — the "remember `itemsLabel`" reminder that used
+to live in section A's new-round checklist has been removed accordingly. If this message is ever
+made round-specific again, `itemsLabel` is still there ready to be wired back in.
 
-### When adding a new round (A, above), remember `itemsLabel`
-
-Section A's "adding a new round" steps should now also include: set a short `itemsLabel` in the
-new `data-<date>.json` if the round's products don't already read well joined together (most
-rounds will want this — it's rare for raw product labels to double as a natural announcement
-phrase).
+**No new JSON file was needed for this button originally** — it reuses `message-template.json`
+(fields: `mentionPrefix`, `mentionSeparator`, `pickupLocation`, `groupAnnouncementText`) and
+`data-<date>.json`'s (now-dormant) `itemsLabel` field.
 
 ---
 
@@ -684,6 +685,71 @@ decorative feature.
 
 ---
 
+## A5c. Round tab grouping and two-row layout (2026-09-13)
+
+The `.buyTabs` bar changed from one flex row (real + test rounds interleaved by date,
+成员 tab hardcoded last) to two explicit rows, rendered by a new shared function,
+`renderBuyTabsBar()`:
+
+- **Row 1:** every real round (newest→oldest) + the 成员 tab.
+- **Row 2:** every test/v2 round (newest→oldest) — only rendered at all when at least
+  one exists.
+- Both rows use `justify-content: center` independently (`.buyTabsWrap` is a column
+  flex container holding two `.buyTabs` row divs).
+
+**"Test round" is decided by a new shared helper, not a new data field:**
+
+```js
+function isTestRound(gb) {
+  return gb.date.length !== 10 || (gb.label || "").includes("测试");
+}
+```
+
+This is the exact same two-signal check `computeOverdueByMember()`/
+`computeOwedProductsByMember()` (A6/Members) already used inline — pulled out into one
+function so the tab-bar grouping, the boot sort, and the Members-tab exclusion can never
+drift apart. **No `manifest.json` schema change was needed or made** — a round becomes
+"test" for every one of these purposes just by getting a "测试"-labeled or non-plain-date
+`date` key, same convention 9/11测试(v2) already used.
+
+**Boot sort also changed, fixing a real bug:** `GROUP_BUYS` used to be one
+`.sort((a,b) => b.date.localeCompare(a.date))` across all rounds. A "-v2"-style date key
+is a *longer string* than its real counterpart with the same prefix (e.g.
+`"2026-09-11-v2"` > `"2026-09-11"` lexically), so a test round could sort as "newest" and
+become `GROUP_BUYS[0]` — meaning the site could **boot straight into a test round**
+instead of the newest real one. Fixed by sorting real and test rounds as two separate
+groups (`isTestRound()` again) and concatenating real-first:
+
+```js
+const mainRounds = all.filter(gb => !isTestRound(gb)).sort((a, b) => b.date.localeCompare(a.date));
+const testRounds = all.filter(gb => isTestRound(gb)).sort((a, b) => b.date.localeCompare(a.date));
+GROUP_BUYS = mainRounds.concat(testRounds);
+```
+
+`GROUP_BUYS[0]` (the boot default) and every other "newest round" assumption elsewhere in
+the file now reliably mean the newest **real** round.
+
+**`data-index` stays meaningful:** since `GROUP_BUYS` is ordered `[main rounds...,
+test rounds...]`, `renderBuyTabsBar()` slices it at `mainCount` to build each row, so a
+tab's `data-index` always equals its actual position in `GROUP_BUYS` — the existing
+`data-index` → `loadGroupBuy(i)` click handler needed no changes.
+
+**One prior design note this supersedes:** the 1.11.0 log entry below describes 成员 as
+"positioned as the rightmost tab, after the oldest real round" — that's no longer the
+layout; 成员 now sits at the end of row 1 (after real rounds, before any test rounds),
+not necessarily the visually-last tab overall.
+
+**Renamed-9/1 note:** 9/1's round (`data-2026-09-01.json`) was relabeled "9/1测试(v2)" to
+reflect it was really an early test round, without changing its `date` key. Its `date`
+stays `"2026-09-01"` (not `"2026-09-01-v2"`) specifically so Firestore's `paidStatus` /
+`adjustments` / `packedStatus` / `sortedItems` docs (keyed by `date`) keep pointing at its
+real, already-recorded payment history — only the *label* carries "测试", which is enough
+to route it into row 2 via `isTestRound()`. Don't rename a round's `date` key to add it to
+the test row unless its Firestore history genuinely doesn't matter — prefer a
+"测试"-labeled `date` change only.
+
+---
+
 ## A6. Member block/unit directory (for organizing deliveries)
 
 Each member can have a block/unit number on file (free text, e.g. "12栋 06-02"),
@@ -763,8 +829,13 @@ product.
    nothing from `products` that got zero orders appears as an option).
    Picking one swaps the panel below from the full stocking list into
    `renderProductMembers()`'s output for just that product: every buyer's
-   name and quantity (via `effectiveItems()`, so it reflects delivery-day
-   adjustments the same way the stocking list itself does), plus a subtotal.
+   name and original-order quantity, plus a subtotal — **not**
+   `effectiveItems()`; this total is deliberately original-order-only, same
+   reasoning as the always-visible 备货清单 (see the "ORIGINAL orders"
+   comment in `render()`) — delivery-day corrections don't move it.
+   (An earlier version of this doc incorrectly said this used
+   `effectiveItems()`; it never has — corrected 2026-09-13, see below for
+   what actually surfaces adjustments here.)
    Picking the first option ("📋 全部商品（本轮备货清单）", value `""`) — or
    just never touching the dropdown — shows the full list again
    (`renderAllProductsList()`).
@@ -796,6 +867,24 @@ dropdown, or tap its row in the stocking list either while a specific product
 is already selected or while viewing the full list — all backed by the same
 `renderProductMembers()` function, so there's exactly one place to fix a bug
 in that breakdown, not three.
+
+### Per-buyer adjustment lines (2026-09-13)
+
+`renderProductMembers()` now also lists, under each buyer's own line, any item-type
+adjustment on that exact product — reusing `adjustmentLineHtml()` (the same formatting
+and `editMode`-gated 撤销 button the member card's own item lines use), filtered to
+`a.type === "item" && a.itemKey === key` via `adjustmentsForMember(m.name)`. Reason: this
+view previously only showed the original order, so seeing whether a product had any
+delivery-day corrections meant opening every member's card one at a time to find them —
+now it's visible right where you're already looking.
+
+- The top total/subtotal are **unchanged** — still original-order-only (see above).
+- A buyer with an adjustment adding this product but no original order for it (e.g. a
+  walk-in add) is now included in the list too (previously excluded outright, since the
+  old buyer filter was `.filter(x => x.qty)`), shown with "—" in place of a quantity.
+- Because the undo button reuses `adjustmentLineHtml()` verbatim, undoing an adjustment
+  from this popup works exactly like undoing it from the member's own card — same
+  `.adjUndo` global click handler, no separate wiring needed.
 
 ---
 
@@ -905,6 +994,30 @@ label doesn't match any keyword in `product-emoji-map.json`. Extend the map (see
 
 **A fully-paid round won't let you add an adjustment or new buyer:** it's auto-locked
 (see A5) — tap "🔓 解锁" in the toolbar and enter the edit PIN.
+
+**Wrong product pasted mid-接龙, right price but wrong pack size/version** (real
+incident, 9/10 round, fixed 2026-09-13): a member copy-pasted the wrong product line
+while replying in the 接龙 thread, so several buyers' orders got keyed against
+辽宁巨峰(3串/箱) (`grape_jufeng_ln`) when the actual product delivered was 辽宁巨峰
+家庭版(4串/箱) (`grape_jufeng_family`) — same $24.80 box price, so the dollar amounts
+looked fine, but the proportional fraction denominator was wrong (÷3 instead of ÷4),
+producing a suspicious non-whole total (four people's bunch-shares summed to 1.33
+boxes instead of a clean 1.0). **Tell-tale sign to check for on any proportional
+grape product:** do the fractions for one box sum to something other than a whole
+number? If so, check whether the total bunch count actually matches a *different*
+box-size product in the catalog before assuming a stray extra buyer or bad math.
+**Fix:** add the correct product to that round's `products` map, re-key each affected
+buyer's `items` entry to it, and recompute each fraction against the *correct* box's
+bunch count (2 bunches ÷ 4 instead of 2 bunches ÷ 3, etc.) — the dollar total per
+buyer is usually unchanged since it's still `fraction × same box price`. Drop the
+wrong product from that round's `products` map entirely if, as here, none of its
+other uses were legitimate. **Before applying a fix like this, check whether any of
+the affected buyers already have a Firestore `adjustments/{date}` entry keyed to the
+*wrong* `itemKey`** — re-keying the base order without also migrating a matching
+adjustment orphans that adjustment (it'll stop rendering/attaching to anything).
+Same class of risk as the `mango_pzh` cross-round key-reuse caution in the domain
+rules — always audit a product key swap against what's already recorded before
+applying it, not just against the round's `products`/`orders` data.
 
 **The whole page is blank/frozen and nothing is clickable, with a
 `TypeError: ... amountDelta.toFixed` (or similar) error in the browser console:**
@@ -1192,6 +1305,9 @@ alongside every edit, in the same response.
 
 | Version | What changed |
 |---|---|
+| 1.20.0 | Tab bar changed from one flex row to two explicit rows (this project is used mainly on phone/tablet — a guaranteed row break reads more reliably than relying on flex-wrap): row 1 is real rounds + 成员, row 2 is test/v2 rounds (only rendered when one exists), both centered independently. Replaces 1.18.0's single-row "gap spacer" approach — `.buyTabGap` removed, `renderBuyTabsBar()` now wraps two `.buyTabs` rows in a new `.buyTabsWrap` column container instead. See A5c. |
+| 1.19.0 | `renderProductMembers()` (商品查询 dropdown/search detail panel and the 备货清单 popup — both already shared this one function) now lists each buyer's item-type adjustments on that product too, via the existing `adjustmentLineHtml()`, instead of only the original order — no more hunting through every member's card to find a correction on one product. Total/subtotal stay original-order-only, unchanged. A buyer with an adjustment but no original order for this product (e.g. a walk-in add) is now included too, shown with "—" instead of a quantity. See A7. |
+| 1.18.0 | **Round tab reorganization (see A5c for full detail).** New shared `isTestRound(gb)` helper (test = "测试" in label, or a non-plain-`YYYY-MM-DD` date) reused by both the boot sort and the new `renderBuyTabsBar()` tab-bar renderer — real rounds now always sort/group ahead of test rounds. Fixes a real latent bug: a "-v2"-style date could previously sort as "newest" under a plain string comparison, meaning the site could boot straight into a test round instead of the newest real one. `manifest.json`: 9/1 relabeled "9/1测试(v2)" (its `date`/file deliberately left unchanged — see A5c for why). **Undocumented version:** `APP_VERSION` was found at `1.17.0` with no corresponding log entry when this file was next edited (2026-09-13) — cause unknown; add a note here if you find out what it was. |
 | 1.16.0 | **#5 — new "待收/送商品" (owed-products) card on the 会员 tab.** Cross-round, same lazy/cached pattern as `computeOverdueByMember()` (`computeOwedProductsByMember()`), but for physical fulfillment instead of money. Confirmed gating rule: a member drops off this card entirely once their 收/送 (`packedStatus`) is marked for that round — trusted at that point even if a line was left unchecked. While still un-收/送'd, every ORIGINAL-order item (`m.items` — walk-in-added items never get a sort checkbox in the UI either, so they're correctly left out here too, matching what's actually on-screen) that isn't fully shortaged (❌, current qty ≈ 0 — already covered by the refund/shortage flow, nothing left to hand over) and isn't yet checked off in `sortedItems` (⬜) counts as still owed. Sub-rows group by round date/label, then list the specific unchecked product(s), newest-last. Excludes test/v2 rounds the same two ways `computeOverdueByMember()` already does. |
 | 1.15.0 | **#4 — payment-reminder copy button on the 会员 (Members/overdue) tab.** New `buildReminderMessage(name, overdueData)`, separate from `buildMemberMessage()`: greets the member, lists every past round they still owe from (reusing 1.14.0's per-round `byDate` breakdown — round label + amount, one line each), then a combined-total line and an optional closing line, all worded via new `message-template.json` fields (`reminderDateLine`, `reminderTotalLine`, `reminderClosing`) so wording stays editable there like the other two message builders. Deliberately cross-round and summary-only (no item-level detail) — this is a nudge, not a receipt. Button reuses the existing `.copyMsgBtn` styling/copied-feedback pattern with its own `reminderCopiedFor` state so it doesn't collide with the per-round payment-message button's `copiedFor`. |
 | 1.14.0 | **#1-#3 from the new work-list.** (a) Renamed the 打包/已打包 toggle to 收/送・已收/送 — same `packedStatus` collection and toggle mechanics, label-only change, now framed as tracking delivery/collection rather than packing. (b) 会员 (Members) tab: each row now shows the member's address (🏠, from the existing `memberInfo` directory — same data already shown in the round view, no new source) beside their name. (c) `computeOverdueByMember()` now keeps each member's per-round breakdown instead of collapsing straight to one number — `overdueByMember[name]` is `{ total, byDate: [{date, label, amount}] }` — and the Members tab renders one indented sub-row per group-buy date/label under each member's total, sorted oldest-to-newest. |
