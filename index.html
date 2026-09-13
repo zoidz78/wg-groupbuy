@@ -426,7 +426,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, getDoc, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+    import { getFirestore, doc, onSnapshot, getDoc, setDoc, deleteDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAmfejtmHiICRpYbQsnSGfzDrq7qkWendo",
@@ -689,6 +689,7 @@
       updatedByAdjustments: { zh: "已按调整记录更新（含短缺/退款/现场加购）", en: "Updated per adjustment records (incl. shortages/refunds/walk-ins)" },
       refreshBtn: { zh: "🔄 刷新", en: "🔄 Refresh" },
       exportReportBtn: { zh: "🖨️ 导出报告（PDF/打印）", en: "🖨️ Export report (PDF/print)" },
+      resetTestRoundBtn: { zh: "🗑️ 重置测试场次", en: "🗑️ Reset test round" },
       unlockBtn: { zh: "🔓 解锁", en: "🔓 Unlock" },
       cancelUnlockBtn: { zh: "取消解锁", en: "Cancel unlock" },
       unitsPanelBtn: { zh: "🏠 门牌管理", en: "🏠 Address directory" },
@@ -1507,6 +1508,37 @@
     // disappearing with no trace.
     function invalidAdjustmentEntries() {
       return Object.entries(adjustments).filter(([id, e]) => e && e.member && !isValidAdjustmentShape(e));
+    }
+
+    // Wipes every piece of live state for one round (paid marks, packed
+    // marks, sort marks, adjustments) so a test round can be replayed from
+    // a blank slate. Hard-gated to dateKeys ending "-v2" in code, not just
+    // in the button's visibility below — this is destructive and
+    // unrecoverable, and a mis-click on a REAL round would erase live
+    // payment records for actual buyers, so the check stays even if a
+    // future caller reaches this function some other way. Two separate
+    // window.confirm() prompts (not a custom in-app dialog) so a single
+    // stray tap or double-click can never slip through both.
+    async function resetTestRound(dateKey) {
+      if (!dateKey || !dateKey.endsWith("-v2")) {
+        storageDebug = "重置仅限测试场次使用（日期需以 -v2 结尾）";
+        render();
+        return;
+      }
+      if (!window.confirm(`确定要重置测试场次「${dateKey}」吗？\n\n此操作会清除该场次的全部付款状态、打包状态、排序标记与调整记录。`)) return;
+      if (!window.confirm(`再次确认：真的要清空「${dateKey}」的所有测试数据吗？\n\n此操作无法撤销。`)) return;
+      try {
+        await Promise.all([
+          deleteDoc(paidDocRef(dateKey)),
+          deleteDoc(packedDocRef(dateKey)),
+          deleteDoc(sortedItemsDocRef(dateKey)),
+          deleteDoc(adjustmentsDocRef(dateKey)),
+        ]);
+        storageDebug = "";
+      } catch (e) {
+        storageDebug = `重置出错：${e.message}`;
+      }
+      render();
     }
 
     async function cleanupInvalidAdjustments(dateKey) {
@@ -2878,6 +2910,7 @@
           ${!roundLocked && editMode ? `<div class="toolBtn" id="addWalkinBtn" role="button" tabindex="0">${openAdjustFormFor === "__walkin__" ? "取消新增" : "+ 新增买家"}</div>` : ""}
           ${!roundLocked && editMode ? `<div class="toolBtn" id="bulkToggleBtn" role="button" tabindex="0">${showBulkPanel ? t("bulkImportOn") : t("bulkImportOff")}</div>` : ""}
           ${!roundLocked && editMode ? `<div class="toolBtn" id="unitsToggleBtn" role="button" tabindex="0">${showUnitsPanel ? t("collapseUnitsBtn") : t("unitsPanelBtn")}</div>` : ""}
+          ${GROUP_BUYS[activeIndex] && GROUP_BUYS[activeIndex].date.endsWith("-v2") ? `<div class="toolBtn" id="resetTestRoundBtn" role="button" tabindex="0">${t("resetTestRoundBtn")}</div>` : ""}
         </div>
 
         ${showPinInput && !editUnlocked ? `
@@ -3010,6 +3043,10 @@
         productOverlayEl.addEventListener("click", () => { selectedProductOverlay = null; render(); });
       }
       document.getElementById("exportReportBtn").addEventListener("click", exportReport);
+      const resetTestRoundBtn = document.getElementById("resetTestRoundBtn");
+      if (resetTestRoundBtn) {
+        resetTestRoundBtn.addEventListener("click", () => resetTestRound(GROUP_BUYS[activeIndex].date));
+      }
       // Home-screen-saved web apps on iOS run full-screen with no Safari
       // chrome, so the pull-down-to-refresh gesture (which belongs to
       // Safari's UI, not the page) isn't available — this button is the
@@ -3301,7 +3338,7 @@
           </table>
           <div class="printSectionTitle">备货清单</div>
           <table class="printTable">
-            <thead><tr><th>口味</th><th>数量</th><th>金额</th></tr></thead>
+            <thead><tr><th>产品</th><th>数量</th><th>金额</th></tr></thead>
             <tbody>
               ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
                 // isUnverified() here too — see the matching comment on the
@@ -3392,7 +3429,7 @@
     function renderAllProductsList(flavorTotals, grandUnitTotals, grandTotal) {
       return `
         <div class="flavorGrid">
-          <div class="h">口味</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
+          <div class="h">产品</div><div class="h flavorQty">数量</div><div class="h flavorAmt">金额</div>
           ${Object.entries(DATA.products).filter(([k]) => flavorTotals[k] > 0).map(([k, info]) => {
             // isUnverified() (not a bare `info.unverified` check) so a
             // product missing its `price` is caught here too, even if
