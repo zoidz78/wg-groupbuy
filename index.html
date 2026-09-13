@@ -99,6 +99,10 @@
      there's never a conflict between "this is open" and "this is selected". */
   .buyTab.completed:not(.active) { border-color: var(--green-btn); color: var(--green-btn); }
   .buyTab.pending:not(.active) { border-color: var(--red); color: var(--red); }
+  /* Pure visual spacer between the 成员 tab and the test/v2 round tabs that
+     follow it — roughly one tab's width, so the test tabs read as a
+     separate group instead of a continuation of the real rounds. */
+  .buyTabGap { width: 44px; }
 
   .ticket, .card {
     background: var(--paper);
@@ -541,9 +545,21 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.17.0";
+    const APP_VERSION = "1.18.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
+    // Same two-signal test-round check computeOverdueByMember()/
+    // computeOwedProductsByMember() already used inline (a date key that
+    // isn't a plain "YYYY-MM-DD", or a label containing "测试") — pulled out
+    // into one shared function so the tab bar's main/test grouping (see
+    // render()) and the boot-time sort below stay in permanent agreement
+    // with what "test round" already means everywhere else in this file.
+    // No new manifest field needed: a round becomes "test" for every one of
+    // these purposes just by getting a "测试"-labeled or "-v2"-style date key,
+    // same as 9/11测试(v2) already was.
+    function isTestRound(gb) {
+      return gb.date.length !== 10 || (gb.label || "").includes("测试");
+    }
     // The 会员 (Members/overdue) tab — a separate view from the normal
     // per-round display, so `currentView` gates which one render() builds.
     // `overdueByMember` is null until first computed (lazily, only when the
@@ -2645,6 +2661,40 @@
       render();
     }
 
+    // Shared markup for the top round-tab bar, used by both the normal round
+    // view and the 会员 tab's own copy of it. Layout: real rounds (newest→
+    // oldest) — 成员 tab — a one-tab-wide visual gap — test rounds (newest→
+    // oldest). GROUP_BUYS is already ordered [main rounds..., test
+    // rounds...] (see the boot sort), so splitting it at `mainCount` here
+    // keeps each tab's `data-index` equal to its real position in that
+    // array — existing click handlers (`data-index` → loadGroupBuy(i)) don't
+    // need to change at all.
+    // `activeIdx`/`membersActive` mirror the two call sites' previous
+    // inline markup exactly: the round view marks the current round tab
+    // active and colors it by roundStatus; the 会员 view's own copy never
+    // marked a round tab active or colored (only 成员 itself was active) —
+    // preserved as-is via `includeStatus`/`activeIdx=null` rather than
+    // changed as a side effect of this refactor.
+    function renderBuyTabsBar({ activeIndex: activeIdx = null, membersActive = false, includeStatus = false } = {}) {
+      const mainCount = GROUP_BUYS.reduce((n, gb) => n + (isTestRound(gb) ? 0 : 1), 0);
+      const mainTabs = GROUP_BUYS.slice(0, mainCount);
+      const testTabs = GROUP_BUYS.slice(mainCount);
+      const tabHtml = (gb, i) => {
+        const statusCls = includeStatus
+          ? `${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}`
+          : "";
+        return `<div class="buyTab ${activeIdx === i ? "active" : ""} ${statusCls}" role="tab" tabindex="0" aria-selected="${activeIdx === i ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>`;
+      };
+      return `
+        <div class="buyTabs" role="tablist">
+          ${mainTabs.map((gb, i) => tabHtml(gb, i)).join("")}
+          <div class="buyTab ${membersActive ? "active" : ""}" role="tab" tabindex="0" aria-selected="${membersActive ? "true" : "false"}" data-view="members">${t("membersTabLabel")}</div>
+          ${testTabs.length ? `<div class="buyTabGap" aria-hidden="true"></div>` : ""}
+          ${testTabs.map((gb, i) => tabHtml(gb, mainCount + i)).join("")}
+        </div>
+      `;
+    }
+
     function render() {
       const app = document.getElementById("app");
       // Defense in depth: every current caller already only calls render()
@@ -2667,12 +2717,7 @@
             <h1 class="shopName">${DATA.groupName || "团购"}</h1>
           </div>
 
-          <div class="buyTabs" role="tablist">
-            ${GROUP_BUYS.map((gb, i) => `
-              <div class="buyTab" role="tab" tabindex="0" aria-selected="false" data-index="${i}">${gb.label || gb.date}</div>
-            `).join("")}
-            <div class="buyTab active" role="tab" tabindex="0" aria-selected="true" data-view="members">${t("membersTabLabel")}</div>
-          </div>
+          ${renderBuyTabsBar({ membersActive: true })}
 
           <div class="card membersTabView">
             <div class="sectionTitle" style="margin-top:0">${t("membersTabTitle")}</div>
@@ -2839,12 +2884,7 @@
 
         <div class="announceBtn${announceCopied ? " copied" : ""}" id="announceBtn" role="button" tabindex="0">${announceCopied ? t("copiedCheck") : t("copyAnnounceBtn")}</div>
 
-        <div class="buyTabs" role="tablist">
-          ${GROUP_BUYS.map((gb, i) => `
-            <div class="buyTab ${i === activeIndex ? "active" : ""} ${roundStatus[gb.date] === "completed" ? "completed" : ""} ${roundStatus[gb.date] === "pending" ? "pending" : ""}" role="tab" tabindex="0" aria-selected="${i === activeIndex ? "true" : "false"}" data-index="${i}">${gb.label || gb.date}</div>
-          `).join("")}
-          <div class="buyTab" role="tab" tabindex="0" aria-selected="false" data-view="members">${t("membersTabLabel")}</div>
-        </div>
+        ${renderBuyTabsBar({ activeIndex, includeStatus: true })}
 
         ${countUnverifiedLines(members) > 0 ? `
           <div class="warnBanner">⚠️ 本团有 ${countUnverifiedLines(members)} 项商品价格/品种缺失或待确认（已标黄），暂不计入总额，请核实后更新。</div>
@@ -3854,10 +3894,20 @@
     })();
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
+    // Real rounds always sort ahead of test rounds (each group newest-first
+    // internally) — previously a plain date-string sort could put a
+    // "-v2"-style test date ahead of the real round it was cloned from
+    // (e.g. "2026-09-11-v2" > "2026-09-11" lexically), which meant the site
+    // could boot straight into a test round instead of the newest real one.
+    // GROUP_BUYS[0] below, and every "newest round" assumption elsewhere in
+    // this file, now reliably means the newest REAL round.
     fetch(noCacheUrl(MANIFEST_URL), NO_STORE)
       .then(r => { if (!r.ok) throw new Error("manifest.json: HTTP " + r.status); return r.json(); })
       .then(manifest => {
-        GROUP_BUYS = (manifest.groupBuys || []).slice().sort((a, b) => b.date.localeCompare(a.date));
+        const all = (manifest.groupBuys || []).slice();
+        const mainRounds = all.filter(gb => !isTestRound(gb)).sort((a, b) => b.date.localeCompare(a.date));
+        const testRounds = all.filter(gb => isTestRound(gb)).sort((a, b) => b.date.localeCompare(a.date));
+        GROUP_BUYS = mainRounds.concat(testRounds);
         if (!GROUP_BUYS.length) throw new Error("manifest.json 里没有任何 groupBuys 条目");
         activeIndex = 0;
         return fetch(noCacheUrl(GROUP_BUYS[0].file), NO_STORE)
