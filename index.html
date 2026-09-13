@@ -293,6 +293,27 @@
     display: flex; align-items: center; justify-content: center;
     padding: 20px; z-index: 50;
   }
+
+  /* Quick jump-to-top/bottom overlay. Fixed to the viewport (not .page) so
+     it stays put through every render() re-draw of #app. Sits below the
+     productOverlay/modal z-index (50) since a modal covering it briefly is
+     fine, but above ordinary page content. Bottom offset clears the iOS
+     home-indicator safe area via env(safe-area-inset-bottom); falls back to
+     0 on browsers that don't support env(). */
+  .scrollNav {
+    position: fixed; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 10px; z-index: 40;
+  }
+  .scrollNavBtn {
+    width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); font-size: 18px; line-height: 1;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .scrollNavBtn.isVisible { opacity: 0.85; pointer-events: auto; transform: translateY(0); }
+  .scrollNavBtn:active { opacity: 1; transform: scale(0.94); }
   .productOverlayCard {
     background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
     padding: 18px 18px 16px; max-width: 380px; width: 100%; max-height: 80vh;
@@ -437,6 +458,11 @@
 <body>
   <div class="page" id="app"></div>
 
+  <div class="scrollNav" id="scrollNav">
+    <button type="button" class="scrollNavBtn" id="scrollTopBtn" aria-label="回到顶部">↑</button>
+    <button type="button" class="scrollNavBtn" id="scrollBottomBtn" aria-label="跳到底部">↓</button>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
     import { getFirestore, doc, onSnapshot, getDoc, setDoc, deleteDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
@@ -515,7 +541,7 @@
     // (section A9) — bumped alongside every non-trivial index.html edit, in
     // the same commit/response, so the Project's stored copy can always be
     // checked against what's actually deployed before editing blind.
-    const APP_VERSION = "1.16.0";
+    const APP_VERSION = "1.17.0";
     let GROUP_BUYS = [];
     let activeIndex = 0;
     // The 会员 (Members/overdue) tab — a separate view from the normal
@@ -3788,6 +3814,44 @@
         subscribeToRound(GROUP_BUYS[activeIndex].date);
       }
     });
+
+    // Jump-to-top / jump-to-bottom buttons. Deliberately set up once here
+    // rather than inside render(): the buttons live outside #app in the
+    // static body markup, so they'd otherwise need re-wiring on every
+    // re-render for no benefit. Visibility is toggled on scroll rather than
+    // shown permanently, so they don't clutter the screen when there's
+    // nowhere useful to jump to.
+    (function setupScrollNav() {
+      const topBtn = document.getElementById("scrollTopBtn");
+      const bottomBtn = document.getElementById("scrollBottomBtn");
+      if (!topBtn || !bottomBtn) return;
+
+      const NEAR_EDGE_PX = 120; // hide a button once its destination is already this close
+
+      function updateVisibility() {
+        const scrollY = window.scrollY || document.documentElement.scrollTop;
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        topBtn.classList.toggle("isVisible", scrollY > NEAR_EDGE_PX);
+        bottomBtn.classList.toggle("isVisible", maxScroll - scrollY > NEAR_EDGE_PX);
+      }
+
+      topBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+      bottomBtn.addEventListener("click", () =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" })
+      );
+
+      window.addEventListener("scroll", updateVisibility, { passive: true });
+      // Content height changes on every render() (tab switches, expanding a
+      // member card, etc.), which can flip whether a button should show
+      // even with scroll position unchanged — recheck after each resize/DOM
+      // settle via a lightweight ResizeObserver on #app instead of hooking
+      // every render() call site.
+      const appEl = document.getElementById("app");
+      if (appEl && "ResizeObserver" in window) {
+        new ResizeObserver(updateVisibility).observe(appEl);
+      }
+      updateVisibility();
+    })();
 
     // Boot: fetch the manifest listing all group buys, sort newest first, load the most recent.
     fetch(noCacheUrl(MANIFEST_URL), NO_STORE)
