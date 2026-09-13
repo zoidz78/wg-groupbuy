@@ -1,0 +1,177 @@
+{
+  "groupName": "WG团购群",
+  "itemsLabel": "小馄饨团购",
+  "products": {
+    "sig": {
+      "label": "招牌鲜肉馄饨",
+      "price": 6.5,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "corn": {
+      "label": "玉米鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "mush": {
+      "label": "香菇鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "seaweed": {
+      "label": "紫菜鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "chive": {
+      "label": "韭菜鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "shrimp": {
+      "label": "鲜虾鲜肉馄饨",
+      "price": 7.2,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "salted": {
+      "label": "咸蛋黄鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    },
+    "century": {
+      "label": "皮蛋鲜肉馄饨",
+      "price": 6.8,
+      "unit": "盒",
+      "piecesPerUnit": 20
+    }
+  },
+  "orders": [
+    {
+      "name": "Starry",
+      "items": {
+        "sig": 1,
+        "seaweed": 1,
+        "shrimp": 1,
+        "salted": 2,
+        "century": 1
+      }
+    },
+    {
+      "name": "wyh",
+      "items": {
+        "century": 1,
+        "shrimp": 1,
+        "seaweed": 1
+      }
+    },
+    {
+      "name": "Peter",
+      "items": {
+        "mush": 1,
+        "seaweed": 1
+      }
+    },
+    {
+      "name": "coralreefs",
+      "items": {
+        "sig": 1,
+        "seaweed": 1,
+        "salted": 1,
+        "mush": 1
+      }
+    },
+    {
+      "name": "sinsin",
+      "items": {
+        "salted": 1,
+        "century": 1
+      }
+    },
+    {
+      "name": "Christian Ruth",
+      "items": {
+        "sig": 1,
+        "corn": 1,
+        "mush": 1
+      }
+    },
+    {
+      "name": "ᥫᩣ",
+      "items": {
+        "corn": 1,
+        "seaweed": 2
+      }
+    },
+    {
+      "name": "士多啤梨",
+      "items": {
+        "sig": 1,
+        "corn": 1,
+        "mush": 2
+      }
+    },
+    {
+      "name": "傀儡娃娃",
+      "items": {
+        "century": 1,
+        "seaweed": 1,
+        "mush": 1,
+        "salted": 1
+      }
+    },
+    {
+      "name": "weiwei",
+      "items": {
+        "sig": 2
+      }
+    },
+    {
+      "name": "なな",
+      "items": {
+        "salted": 1
+      }
+    },
+    {
+      "name": "陈小Sun而已",
+      "items": {
+        "sig": 1,
+        "mush": 1
+      }
+    },
+    {
+      "name": "孟溪",
+      "items": {
+        "sig": 1,
+        "shrimp": 1
+      }
+    },
+    {
+      "name": "wggg",
+      "items": {
+        "salted": 1,
+        "seaweed": 1,
+        "mush": 1
+      }
+    },
+    {
+      "name": "💤",
+      "items": {
+        "salted": 1,
+        "sig": 1
+      }
+    },
+    {
+      "name": "Choies",
+      "items": {
+        "sig": 1,
+        "seaweed": 1
+      }
+    }
+  ]
+}
