@@ -88,6 +88,9 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   幕、以"网页 App"方式打开时没有 Safari 那个下拉刷新的手势（这个
   手势属于 Safari 的界面外壳，全屏网页 App 里没有），这个按钮就是
   用来代替它的（详见下方"排查：主屏幕网页 App 没法下拉刷新"）
+- 右下角有一对 **↑ / ↓ 快捷按钮**，一键跳到页面顶部或底部——人数
+  多、列表长的场次滚动起来更方便；已经接近顶部/底部时对应的按钮
+  会自动隐藏，不常驻占屏幕
 
 ## 文件说明
 
@@ -620,6 +623,11 @@ chat), but works for any group buy once you swap in your own data.
   since that belongs to Safari's chrome, not the page itself — so this
   button is the reliable substitute (see "Troubleshooting: Home Screen
   web app won't pull-to-refresh" below)
+- A pair of **↑ / ↓ jump buttons** in the bottom-right corner scroll
+  straight to the top or bottom of the page — handy on a long round
+  with lots of members. Each button hides itself once you're already
+  close to that end, so they don't sit on screen when there's nowhere
+  useful to jump
 
 ## Files
 
