@@ -422,6 +422,10 @@
   .printAmt { text-align: right; font-family: "SF Mono", Menlo, Consolas, monospace; white-space: nowrap; }
   .printStatus { text-align: center; white-space: nowrap; }
   .printShortRow td { text-decoration: line-through; color: #888; }
+  .printItemRow { display: flex; justify-content: space-between; gap: 8px; }
+  .printItemRow + .printItemRow { margin-top: 1px; }
+  .printItemTotal { font-weight: 700; border-top: 1px solid #ccc; margin-top: 3px; padding-top: 2px; }
+  .printItemShort, .printItemShort span { text-decoration: line-through; color: #888; }
   @media print {
     body { background: #fff; padding: 8px; color: #000; }
     .page > *:not(.printOnly) { display: none !important; }
@@ -3280,22 +3284,28 @@
     // that product's own segment, not lumped in afterward regardless of
     // which product it belongs to.
     function printItemsLine(m) {
-      const adjText = (a) => {
+      // One flex row per line: label on the left, price right-aligned in a
+      // single column — so every item's price, every adjustment's dollar
+      // effect, and the closing 合计 line all land in the same column,
+      // instead of the amounts trailing at ragged positions after
+      // variable-length item names.
+      const row = (label, amount, cls) => `<div class="printItemRow${cls ? ` ${cls}` : ""}"><span>${label}</span><span class="printAmt">${amount}</span></div>`;
+      const adjRow = (a) => {
         // "weight" entries are informational only — no amountDelta at all by
-        // design (see the "实际到手重量" adjustment type) — so they must be
-        // handled separately, same as adjustmentLineHtml()/buildMemberMessage()
-        // already do, instead of falling into the amountDelta branch below.
+        // design (see the "实际到手重量" adjustment type) — so they get an
+        // empty amount column rather than falling into the amountDelta
+        // branch below, same as adjustmentLineHtml()/buildMemberMessage().
         if (a.type === "weight") {
           const info = a.itemKey && DATA.products[a.itemKey];
-          return `${info ? emojiLabel(info) : ""}实收${formatQty(a.actualGrams)}g`;
+          return row(`${info ? emojiLabel(info) : ""}实收${formatQty(a.actualGrams)}g`, "");
         }
+        const amount = a.amountDelta >= 0 ? `+${formatAmt(a.amountDelta)}` : formatAmt(a.amountDelta);
         if (a.type === "item" && a.itemKey && DATA.products[a.itemKey]) {
           const info = DATA.products[a.itemKey];
           const qtySign = a.qtyDelta >= 0 ? "+" : "";
-          return `${emojiLabel(info)}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`;
+          return row(`${emojiLabel(info)}${qtySign}${formatQty(a.qtyDelta)}${unitOf(a.itemKey)}${a.note ? `[${a.note}]` : ""}`, amount);
         }
-        const sign = a.amountDelta >= 0 ? "+" : "";
-        return `${sign}$${a.amountDelta.toFixed(2)}${a.note ? `[${a.note}]` : ""}`;
+        return row(a.note || "调整", amount);
       };
       const adjByOriginalItem = {};
       const trailingAdjustments = [];
@@ -3309,18 +3319,25 @@
       const parts = Object.entries(m.items).flatMap(([k, qty]) => {
         const info = DATA.products[k];
         if (!info) return [];
-        const ownText = isUnverified(k)
+        const label = isUnverified(k)
           ? `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}(待确认)`
           : `${emojiLabel(info)}x${formatQty(qty)}${unitOf(k)}`;
+        const amount = isUnverified(k) ? "待确认" : formatAmt(info.price * qty);
         // Only the original ordered line gets struck through, not the
-        // adjustment text right after it (that's the correction itself —
+        // adjustment row right after it (that's the correction itself —
         // striking it too would make the correction look voided as well).
         const hasShortage = (adjByOriginalItem[k] || []).some(a => a.type === "item" && a.qtyDelta < 0);
-        const ownPart = hasShortage ? `<span style="text-decoration:line-through;color:#888">${ownText}</span>` : ownText;
-        return [ownPart, ...(adjByOriginalItem[k] || []).map(adjText)];
+        const ownRow = row(label, amount, hasShortage ? "printItemShort" : "");
+        return [ownRow, ...(adjByOriginalItem[k] || []).map(adjRow)];
       });
-      const adjParts = trailingAdjustments.map(adjText);
-      return [...parts, ...adjParts].join("、") || "—";
+      const adjParts = trailingAdjustments.map(adjRow);
+      if (!parts.length && !adjParts.length) return "—";
+      // The closing line: same column, so it visually reads as the column's
+      // running total rather than a separate number — this is the same
+      // figure already shown in the row's own 金额 column, repeated here so
+      // the itemized block is self-contained (matches the 复制付款消息 shape).
+      const totalRow = row("合计", formatAmt(m.total), "printItemTotal");
+      return [...parts, ...adjParts, totalRow].join("");
     }
 
     // The only thing actually shown when printing (see the @media print rule,
