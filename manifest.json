@@ -1,12 +1,5 @@
 {
-  "version": 1,
-  "updatedAt": "2026-09-14T17:09:52.474Z",
   "groupBuys": [
-    {
-      "date": "2026-09-19",
-      "label": "9/15",
-      "file": "data-2026-09-19.json"
-    },
     {
       "date": "2026-09-14",
       "label": "9/14",
