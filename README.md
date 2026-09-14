@@ -3,7 +3,7 @@
 一个简单的、自托管的收据风格看板，用于追踪团购订单和收款情况。为
 WG团购群制作，但换一套数据后也可用于任何团购。
 
-**在线地址：** https://zoidz78.github.io/wg-groupbuy/
+**在线地址：** https://wggrpbuy.cc
 
 ## 功能
 
@@ -557,8 +557,9 @@ Paynow 93395373 /ZHAO JIE
 ## 托管方式
 
 本仓库通过 **GitHub Pages** 提供服务（Settings → Pages → Deploy from
-branch → `main` / root）。推送到 `main` 分支后，线上页面会在一分钟
-左右自动更新。
+branch → `main` / root），绑定了自定义域名 **wggrpbuy.cc**（仓库根目
+录的 `CNAME` 文件 + 域名注册商那边指向 GitHub Pages 的 DNS 记录）。
+推送到 `main` 分支后，线上页面会在一分钟左右自动更新。
 
 ---
 
@@ -568,7 +569,7 @@ A simple, self-hosted, receipt-style dashboard for tracking group-buy
 orders and payment status. Built for WG团购群 (the "WG Group Buy"
 chat), but works for any group buy once you swap in your own data.
 
-**Live site:** https://zoidz78.github.io/wg-groupbuy/
+**Live site:** https://wggrpbuy.cc
 
 ## Features
 
@@ -1240,5 +1241,7 @@ works as a plain file download in both of those environments.
 ## Hosting
 
 This repo is served via **GitHub Pages** (Settings → Pages → Deploy
-from branch → `main` / root). Pushing to the `main` branch updates
-the live site automatically within about a minute.
+from branch → `main` / root), with the custom domain **wggrpbuy.cc**
+pointed at it (a `CNAME` file in the repo root + DNS records at the
+domain registrar pointing to GitHub Pages). Pushing to the `main`
+branch updates the live site automatically within about a minute.

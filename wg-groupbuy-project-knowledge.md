@@ -9,10 +9,11 @@ week's group buy" or "set this whole thing up for a different group."
 A receipt-style payment-collection dashboard for tracking group-buy (团购/接龙)
 orders and who's paid. Live for WG团购群 at:
 
-**https://zoidz78.github.io/wg-groupbuy/**
+**https://wggrpbuy.cc**
 
 Stack: a single static `index.html` (generic, reads `manifest.json` + one
-`data-<date>.json` per round) hosted on **GitHub Pages**, with paid/unpaid status
+`data-<date>.json` per round) hosted on **GitHub Pages** (custom domain
+`wggrpbuy.cc` via a repo-root `CNAME` file + DNS at the registrar), with paid/unpaid status
 synced live across every viewer via **Firebase Firestore**.
 
 Files in this project:
