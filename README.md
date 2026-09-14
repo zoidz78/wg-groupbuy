@@ -95,6 +95,20 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   多、列表长的场次滚动起来更方便；已经接近顶部/底部时对应的按钮
   会自动隐藏，不常驻占屏幕
 
+## 外观：配色与顶部横幅（2026-09-13 更新）
+
+浅色模式改用石板灰/翡翠绿配色（emerald/slate），和未来客户端、管理端页面
+统一风格；**深色模式完全没有改动**，跟以前一样。标题"WG团购群"现在是一
+个通栏的绿色横幅（居中对齐），横幅背景色用的是翡翠绿-600（`#059669`，
+和团购接龙下单页 `index_html.txt` 的页头颜色完全一致），语言切换按钮
+（中文/English）也在横幅里面而不是横幅上方，避免顶部出现对不齐的空隙；
+横幅刻意不带圆角，避免和下方 📢 按钮的直角在两侧交界处露出背景色的豁口。
+付款状态里"已付款 ✓"这类正向状态用的是另一个绿色（翡翠绿-500，
+`#10b981`）——和横幅的绿色故意不是同一个色号，二者语义不同（品牌主色
+vs. 状态提示色）。这些颜色都在 CSS 变量里（`--primary` 是横幅色，
+`--green`/`--green-btn` 是状态色），改配色只需要改这几个变量，不用碰
+HTML 结构。
+
 ## 文件说明
 
 | 文件 | 作用 |
@@ -685,6 +699,24 @@ chat), but works for any group buy once you swap in your own data.
   with lots of members. Each button hides itself once you're already
   close to that end, so they don't sit on screen when there's nowhere
   useful to jump
+
+## Appearance: color palette and top banner (updated 2026-09-13)
+
+Light mode moved to a slate/emerald color scheme, to match the look of
+future client-facing and admin pages. **Dark mode is completely
+unchanged** — same as it's always been. The "WG团购群" title is now a
+full-width green banner (centered), using Emerald-600 (`#059669`) — the
+exact same header color as the order-intake form page
+(`index_html.txt`). The language toggle (中文/English) now sits inside
+the banner rather than above it, so there's no misaligned gap at the top
+edge; the banner is deliberately square-cornered (no rounded corners),
+since a rounded corner there exposed a sliver of background at the seam
+with the square-cornered 📢 button below it. The "已付款 ✓" paid-status
+color is a *different* green (Emerald-500, `#10b981`) — deliberately not
+the same shade as the banner, since they mean different things (brand
+color vs. a status indicator). Both live as CSS variables (`--primary`
+for the banner, `--green`/`--green-btn` for status colors), so a future
+palette change only touches those variables, not the HTML structure.
 
 ## Files
 

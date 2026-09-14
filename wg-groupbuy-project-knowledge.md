@@ -689,6 +689,77 @@ decorative feature.
 
 ---
 
+## A5d. Light-mode palette and green banner header (2026-09-13)
+
+Light mode's `:root` CSS variables were swapped to a slate/emerald palette, to
+match a set of future client-facing/admin pages. **Dark mode's `@media
+(prefers-color-scheme: dark)` block was deliberately left untouched** at every
+step of this — confirmed pixel-identical, not just "mostly the same."
+
+**Variable mapping (light `:root` only):**
+
+| Variable | Old | New |
+|---|---|---|
+| `--bg` | `#efe7d8` | `#f1f5f9` |
+| `--paper` | `#fffcf6` | `#ffffff` |
+| `--ink` | `#2b2420` | `#1e293b` |
+| `--muted` | `#756a58` | `#64748b` |
+| `--line` | `#ddd2bd` | `#e2e8f0` |
+| `--green` / `--green-btn` | `#5c7a5e` / `#4f7f5b` | `#10b981` (both — was two close shades of the same green, now one) |
+
+`--red`, `--pack-btn`, and the `--warn-*` set were left alone — none were in
+the reference mapping given for this change, and there was nothing to
+translate them to. The `--muted`-on-`--paper` contrast comment was re-verified
+against the new white background (~4.6:1, still clears WCAG AA) rather than
+left pointing at stale numbers from the old palette.
+
+**Selected tabs and the 📢 announcement CTA stayed on `--ink`** (now
+slate-800) rather than moving to a colored "primary" fill — asked explicitly
+and the answer was to keep the existing dark-neutral-fill look, just
+recolored, not introduce a new visual pattern for active/primary elements.
+
+**New `--primary` variable, `#059669` (Emerald-600), separate from
+`--green`/`--green-btn`'s Emerald-500:** added specifically for the new title
+banner (below), after comparing directly against the real reference file
+(`index_html.txt`, the order-intake form) and finding it uses **two**
+distinct greens — Emerald-600 for nearly everything (header, buttons, active
+tab, price text) and Emerald-500 *only* for the input focus ring. The banner
+first shipped reusing `--green-btn` (Emerald-500) by mistake — wrong shade,
+caught once the actual reference file was checked instead of going on the
+mapping table alone. `--primary` is also declared inside the dark-mode block,
+pinned to dark mode's existing `--green-btn` value (`#4f7f5b`) — not a new
+color, purely so introducing the variable doesn't change dark mode's
+rendering now that something references it.
+
+**Title banner ("WG团购群"):** `.shopHead` gained a `.banner` modifier class
+— background `var(--primary)`, white text, centered, full-bleed left/right/top
+via negative margin (`margin: -20px -14px 18px`, canceling `body`'s own
+padding) — applied only to the two on-screen views (round view, 会员 view).
+**Deliberately not applied** to the PDF export's title (print stays plain
+black/white — no colored background wasting ink or looking odd in grayscale)
+or the load-error fallback screen (a green "success"-coded banner behind an
+error message would send the wrong signal).
+
+Two things had to be fixed after the first version shipped, both from
+comparing actual screenshots against the intended full-bleed look:
+
+1. **Top-edge gap:** the 中文/English language toggle was still rendered as a
+   sibling *above* `.shopHead.banner`, in the plain body background — so only
+   the banner bled to the edges, leaving the toggle inset above it with a
+   visible gap/seam. Fixed by moving `.langPillWrap` to be the banner's first
+   child instead of a preceding sibling, so nothing sits outside it and the
+   whole block (toggle + title) bleeds together, top included.
+2. **Bottom-corner notches:** the banner originally had rounded bottom
+   corners (`border-radius: 0 0 22px 22px`), but the 📢 button directly below
+   it is a normal inset card (`border-radius: 10px`, not bled to the edges) —
+   at the banner's bottom-left/right corners, the curve pulled the green in
+   just enough to expose a sliver of plain background before the
+   square-cornered button started underneath. Fixed by dropping the
+   border-radius entirely — the banner is now a plain flush rectangle with no
+   curve to create that mismatch.
+
+---
+
 ## A5c. Round tab grouping and two-row layout (2026-09-13)
 
 The `.buyTabs` bar changed from one flex row (real + test rounds interleaved by date,
@@ -1398,6 +1469,12 @@ alongside every edit, in the same response.
 
 | Version | What changed |
 |---|---|
+| 1.24.1 | "WG团购群" title centered in the banner (was left-aligned). |
+| 1.24.0 | New `--primary: #059669` (Emerald-600) variable for the title banner, replacing the mistaken reuse of `--green-btn` (Emerald-500) — caught by comparing against the actual reference file rather than a mapping table alone. `--primary` also added to the dark-mode block, pinned to the existing dark `--green-btn` value, so dark mode's rendering doesn't change. See A5d. |
+| 1.23.2 | Dropped the title banner's bottom border-radius entirely — the rounded corners exposed background slivers where they met the square-cornered 📢 button below. Plain rectangle now. See A5d. |
+| 1.23.1 | Moved the 中文/English language toggle inside the title banner (was a sibling above it) — fixes a gap at the top edge where the toggle stayed inset while only the banner bled to the screen edges. See A5d. |
+| 1.23.0 | New green title banner for "WG团购群" (`.shopHead.banner`), full-bleed on the two on-screen views only (not the PDF export or error-fallback screen). See A5d. |
+| 1.22.0 | Light-mode palette swap to slate/emerald (`--bg`, `--paper`, `--ink`, `--muted`, `--line`, `--green`/`--green-btn`) — dark mode untouched. Active tabs/📢 button kept their existing dark-neutral fill, just recolored to the new slate-800, per explicit choice not to introduce a colored "primary" fill at that point. See A5d for the full mapping table. |
 | 1.21.1 | Icon-only fix: "📋 复制清单（下单用）" → "💬 复制清单（下单用）" — 📋 was already the 商品查询/备货清单 expand-collapse icon on the same card, so a second, different-meaning 📋 button right next to it read as confusing; 💬 matches the other one-tap copy-to-clipboard button, 💬复制付款消息. No behavior change. |
 | 1.21.0 | New "📋 复制清单（下单用）" button under the 商品查询 dropdown — one-tap plain-text copy of the stocking list, formatted for pasting into a supplier order chat. See A7c. |
 | 1.20.0 | Tab bar changed from one flex row to two explicit rows (this project is used mainly on phone/tablet — a guaranteed row break reads more reliably than relying on flex-wrap): row 1 is real rounds + 成员, row 2 is test/v2 rounds (only rendered when one exists), both centered independently. Replaces 1.18.0's single-row "gap spacer" approach — `.buyTabGap` removed, `renderBuyTabsBar()` now wraps two `.buyTabs` rows in a new `.buyTabsWrap` column container instead. See A5c. |
