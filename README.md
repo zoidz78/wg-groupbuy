@@ -59,7 +59,9 @@ WG团购群制作，但换一套数据后也可用于任何团购。
   以直接点击**，同样会弹出这份认购明细，点击弹窗任意处关闭。商品
   很多（三四十种起）时，完整清单默认**收起**，显示成一行"📋 查看
   全部商品备货清单（N 种商品）"，点开再看，避免一屏全是密密麻麻
-  的表格；切换场次会自动重新收起
+  的表格；切换场次会自动重新收起。下拉菜单下方有一个常驻的
+  **"💬 复制清单（下单用）"** 按钮，一键复制纯文字商品清单，方便
+  直接粘贴给供应商下单（详见下方"商品查询"）
 - **缺货/退货明细（供索赔）卡片**：只要本场有商品被记录为短少，
   就会在商品查询下方自动出现这张卡片，按商品汇总短了多少、该退多
   少钱、影响了谁（附备注），损失最大的排最前面，并给出应退合计；
@@ -486,6 +488,23 @@ Paynow 93395373 /ZHAO JIE
 种商品）"的收起状态，点开才展开完整表格，避免刷屏；切换到别的场次会自动
 重新收起。
 
+下拉菜单下方常驻一个 **"💬 复制清单（下单用）"** 按钮（不需要先展开完整
+列表），一键复制一份纯文字的商品清单，方便直接粘贴给供应商下单：
+
+```
+产品 · 数量 · 金额
+
+🥟 招牌鲜肉馄饨 · $6.50/盒
+10盒 · $65.00
+🥟 玉米鲜肉馄饨 · $6.80/盒
+3盒 · $20.40
+
+合计 · 13盒 · $85.40
+```
+
+和屏幕上的备货清单一样，只按**原始接龙订单**算（不受送货日调整影响），
+价格未确认的商品显示"（待确认）"且不计入合计。
+
 ## 导出报告
 
 点击 **"🖨️ 导出报告（PDF/打印）"** 会直接生成并下载一份 PDF 文
@@ -605,7 +624,7 @@ chat), but works for any group buy once you swap in your own data.
   member, ready to post to the group (see "Arrival announcement"
   below)
 - Top stats ticket: number of members, order total, collected,
-  outstanding, and packed count
+  outstanding, and received/delivered (收/送) count
 - **Product lookup & stocking list**: shows the total quantity needed
   for each flavor/product. A dropdown above the stocking list shows
   **only products actually ordered this round** — picking one swaps
@@ -615,7 +634,10 @@ chat), but works for any group buy once you swap in your own data.
   anywhere on the popup to close it. When a round has a lot of
   distinct products (30-40+), the full list starts **collapsed**
   behind a "📋 查看全部商品备货清单（N 种商品）" summary line, to
-  avoid a wall of tables — it re-collapses whenever you switch rounds
+  avoid a wall of tables — it re-collapses whenever you switch rounds.
+  A **"💬 复制清单（下单用）"** button sits below the dropdown at all
+  times, copying a plain-text product list ready to paste into a
+  supplier's order chat (see "Product lookup" below)
 - **Shortage/refund summary card**: whenever a round has any item
   recorded as short on delivery, a "缺货/退货明细（供索赔）" card
   appears below the product lookup, aggregating the shortfall by
@@ -1117,6 +1139,26 @@ When a round has a lot of distinct products (30-40+), the full list
 starts **collapsed** behind a "📋 查看全部商品备货清单（N 种商品）"
 summary to avoid a wall of tables — it re-collapses on every round
 switch.
+
+A **"💬 复制清单（下单用）"** ("Copy order list") button sits below the
+dropdown at all times (no need to expand the full list first), and
+copies a plain-text product list formatted for pasting straight into
+a supplier's order chat:
+
+```
+产品 · 数量 · 金额
+
+🥟 招牌鲜肉馄饨 · $6.50/盒
+10盒 · $65.00
+🥟 玉米鲜肉馄饨 · $6.80/盒
+3盒 · $20.40
+
+合计 · 13盒 · $85.40
+```
+
+Same rule as the on-screen stocking list: original-order-only (unaffected by
+delivery-day adjustments), and any product with no confirmed price shows
+"（待确认）" and is left out of the total.
 
 ## Exporting a report
 

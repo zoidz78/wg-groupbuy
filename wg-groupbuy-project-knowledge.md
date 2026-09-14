@@ -936,6 +936,48 @@ line up regardless of item-name length instead of trailing at ragged positions.
 
 ---
 
+## A7c. Copy stocking list as plain-text order (2026-09-13)
+
+A **"💬 复制清单（下单用）"** button sits under the 商品查询 dropdown, always
+rendered (not gated behind `showFullStockList`), copying a plain-text product
+list formatted for pasting straight into a supplier's WeChat/order chat:
+
+```
+产品 · 数量 · 金额
+
+🥟 招牌鲜肉馄饨 · $6.50/盒
+10盒 · $65.00
+🥟 玉米鲜肉馄饨 · $6.80/盒
+3盒 · $20.40
+
+合计 · 13盒 · $85.40
+```
+
+`buildStockListOrderText()` (self-contained, same pattern as
+`buildGroupAnnouncement()`/`buildMemberMessage()` — recomputes from `DATA`
+rather than reading render()'s local closure vars, so it stays correct
+regardless of what's currently expanded/selected on screen):
+
+- Rebuilds `flavorTotals`/`grandUnitTotals` from `DATA.orders` only — same
+  "ORIGINAL orders, never `effectiveItems()`" rule as the on-screen 备货清单
+  and `renderProductMembers()` (see A7) — this is a supplier order list, not
+  a running tally of delivery-day corrections.
+- Per product: `emojiLabel(info) · $price/unit`, then `qty+unit · $amount`,
+  using the exact same `formatQty()`/`emojiLabel()` helpers the on-screen
+  list uses, so the numbers can never drift from what's shown on screen.
+- `isUnverified()` products get `（待确认）` in place of the price/amount and
+  are excluded from 合计 — matches `renderAllProductsList()`'s handling.
+- Closing line: `合计 · {formatUnitTotals(grandUnitTotals)} · ${grandTotal}` —
+  `formatUnitTotals()` already joins mixed units with "+" (e.g. "45盒 +
+  3kg") if a round mixes unit types, same helper the on-screen grand-total
+  row and the print report use.
+
+Copy mechanics (transient `stockListCopied` state, `.copied` CSS variant,
+1.5s revert) mirror `announceCopied`/📢复制到货通知 exactly — reused
+`copyTextToClipboard()`, no new clipboard logic.
+
+---
+
 ## B. Setting up a brand-new dashboard from scratch (a different group)
 
 `index.html` is fully generic — it only knows about `manifest.json`, the
@@ -1356,6 +1398,8 @@ alongside every edit, in the same response.
 
 | Version | What changed |
 |---|---|
+| 1.21.1 | Icon-only fix: "📋 复制清单（下单用）" → "💬 复制清单（下单用）" — 📋 was already the 商品查询/备货清单 expand-collapse icon on the same card, so a second, different-meaning 📋 button right next to it read as confusing; 💬 matches the other one-tap copy-to-clipboard button, 💬复制付款消息. No behavior change. |
+| 1.21.0 | New "📋 复制清单（下单用）" button under the 商品查询 dropdown — one-tap plain-text copy of the stocking list, formatted for pasting into a supplier order chat. See A7c. |
 | 1.20.0 | Tab bar changed from one flex row to two explicit rows (this project is used mainly on phone/tablet — a guaranteed row break reads more reliably than relying on flex-wrap): row 1 is real rounds + 成员, row 2 is test/v2 rounds (only rendered when one exists), both centered independently. Replaces 1.18.0's single-row "gap spacer" approach — `.buyTabGap` removed, `renderBuyTabsBar()` now wraps two `.buyTabs` rows in a new `.buyTabsWrap` column container instead. See A5c. |
 | 1.19.0 | `renderProductMembers()` (商品查询 dropdown/search detail panel and the 备货清单 popup — both already shared this one function) now lists each buyer's item-type adjustments on that product too, via the existing `adjustmentLineHtml()`, instead of only the original order — no more hunting through every member's card to find a correction on one product. Total/subtotal stay original-order-only, unchanged. A buyer with an adjustment but no original order for this product (e.g. a walk-in add) is now included too, shown with "—" instead of a quantity. See A7. |
 | 1.18.0 | **Round tab reorganization (see A5c for full detail).** New shared `isTestRound(gb)` helper (test = "测试" in label, or a non-plain-`YYYY-MM-DD` date) reused by both the boot sort and the new `renderBuyTabsBar()` tab-bar renderer — real rounds now always sort/group ahead of test rounds. Fixes a real latent bug: a "-v2"-style date could previously sort as "newest" under a plain string comparison, meaning the site could boot straight into a test round instead of the newest real one. `manifest.json`: 9/1 relabeled "9/1测试(v2)" (its `date`/file deliberately left unchanged — see A5c for why). |
