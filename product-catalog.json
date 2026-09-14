@@ -569,6 +569,7 @@
       "lastRound": "2026-09-10",
       "weighMode": "proportional",
       "gramsPerUnit": 2800,
+      "piecesPerUnit": 3,
       "active": true
     },
     "grape_nina": {
@@ -594,6 +595,7 @@
       "aka": [
         "小光头辽宁巨峰"
       ],
+      "note": "CAUTION: coincidentally shares the same $19.8 price and ~2.8kg box weight as grape_jufeng_ln (辽宁巨峰(3串/箱)) but is a genuinely different product — do not merge or confuse the two. Unlike grape_jufeng_ln's fixed 3 bunches/2.8kg box, this one has no fixed bunch count or fixed box weight (the label's '左右' means approximate); a box can arrive as one big ~2.8kg bunch or several smaller bunches, split among buyers by weighing whatever's actually in that specific box. Deliberately has no gramsPerUnit/piecesPerUnit — don't add either; the proportional editor's bunch-weight÷actual-box-total-weight calculation is the correct (and only) way to split this one.",
       "lastPrice": 19.8,
       "lastRound": "2026-09-10",
       "weighMode": "proportional",
@@ -1256,6 +1258,7 @@
       "unit": "箱",
       "lastPrice": 18,
       "lastRound": "2026-09-10",
+      "piecesPerUnit": 12,
       "active": true
     },
     "soy_sauce_light": {
@@ -1395,9 +1398,175 @@
       "lastPrice": 24.8,
       "weighMode": "proportional",
       "gramsPerUnit": 3800,
+      "piecesPerUnit": 4,
       "aka": [
         "辽宁巨峰家庭版"
       ],
+      "active": true
+    },
+    "dumpling_chive_pork": {
+      "label": "韭菜猪肉水饺(1kg/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 12.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_celery_pork": {
+      "label": "芹菜猪肉水饺(1kg/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 12.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_chicken_mushroom": {
+      "label": "鸡肉香菇水饺(1kg/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 12.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_mushroom_pork": {
+      "label": "香菇猪肉水饺(1kg/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 13.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_pickled_pork": {
+      "label": "酸菜猪肉水饺(1kg/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 13.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_onion_beef": {
+      "label": "洋葱牛肉水饺(1kg/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 14.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_cuttlefish": {
+      "label": "墨鱼水饺(1kg/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 17.9,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "xlb_truffle": {
+      "label": "黑松露小笼包(425g/袋)",
+      "category": "Frozen",
+      "unit": "袋",
+      "lastPrice": 12,
+      "weighMode": "weight",
+      "gramsPerUnit": 425,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list. Smaller 425g pack, NOT the 1kg xlb_soup — does not qualify for the vendor's buy-1kg-get-a-snack promo. Not yet used in an actual dated round.",
+      "active": true
+    },
+    "pumpkin_cake": {
+      "label": "南瓜饼(1kg/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 14,
+      "weighMode": "weight",
+      "gramsPerUnit": 1000,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list. A pastry, not a 水饺/小笼包 — despite being 1kg, does not qualify for the vendor's buy-1kg-dumpling-get-a-snack promo. Not yet used in an actual dated round.",
+      "active": true
+    },
+    "wonton_pork_plain": {
+      "label": "鲜肉馄饨(550g/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 12,
+      "weighMode": "weight",
+      "gramsPerUnit": 550,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list. Distinct from the existing 招牌鲜肉馄饨 (key `sig`, $6.5/盒, no stated weight) — different vendor/pack/price, not a relabel. Not yet used in an actual dated round.",
+      "active": true
+    },
+    "wonton_shrimp_pork": {
+      "label": "虾仁猪肉馄饨(550g/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 13,
+      "weighMode": "weight",
+      "gramsPerUnit": 550,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list. Distinct from the existing 鲜虾鲜肉馄饨 (key `shrimp`, $7.2/盒) — different vendor/pack/price, not a relabel. Not yet used in an actual dated round.",
+      "active": true
+    },
+    "zibo_pancake": {
+      "label": "淄博小饼(10片/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 4,
+      "piecesPerUnit": 10,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "chive_box": {
+      "label": "韭菜盒子(8片/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 9,
+      "piecesPerUnit": 8,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "soup_bun_pork": {
+      "label": "猪肉灌汤包(4粒/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 6,
+      "piecesPerUnit": 4,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "veggie_mushroom_bun": {
+      "label": "香菇青菜包(4粒/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 6,
+      "piecesPerUnit": 4,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "laotongguan_pancake": {
+      "label": "老潼关千层饼(10片/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 12,
+      "piecesPerUnit": 10,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list; not yet used in an actual dated round.",
+      "active": true
+    },
+    "dumpling_cabbage_pork_flawed": {
+      "label": "瑕疵白菜猪肉水饺(500g/包)",
+      "category": "Frozen",
+      "unit": "包",
+      "lastPrice": 5,
+      "weighMode": "weight",
+      "gramsPerUnit": 500,
+      "note": "Added 2026-09-14 from 永樂水饺 vendor price list. A discounted/cosmetic-defect version of dumpling_cabbage_pork (500g pack at $5, vs. the regular 1kg pack at $12.9) — kept as its own key per project convention (different price/pack size, never overload an existing key). Does not qualify for the buy-1kg-get-a-snack promo (not a full 1kg pack, and already discounted). Not yet used in an actual dated round.",
       "active": true
     }
   }
