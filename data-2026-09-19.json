@@ -1,0 +1,137 @@
+{
+  "groupName": "WG团购群",
+  "products": {
+    "apple_envy": {
+      "label": "Envy苹果(5粒/份)",
+      "price": 10.5,
+      "unit": "份",
+      "piecesPerUnit": 5
+    },
+    "apple_nz_danshuo": {
+      "label": "新西兰丹烁苹果(5粒/份)",
+      "price": 9,
+      "unit": "份",
+      "piecesPerUnit": 5
+    },
+    "apple_yunnan_cherry": {
+      "label": "云南樱桃小苹果",
+      "price": 12.8,
+      "unit": "箱"
+    },
+    "asparagus": {
+      "label": "芦笋(500g/份)",
+      "price": 7.8,
+      "unit": "份",
+      "weighMode": "weight",
+      "gramsPerUnit": 500
+    },
+    "beef_jinqian_jian": {
+      "label": "小条金钱腱",
+      "price": 18,
+      "unit": "kg",
+      "weighMode": "weight"
+    },
+    "beef_shank": {
+      "label": "五香卤牛腱肉",
+      "price": 18,
+      "unit": "份"
+    },
+    "beef_short_rib": {
+      "label": "牛肋条",
+      "price": 22,
+      "unit": "kg",
+      "weighMode": "weight"
+    },
+    "beef_tendon_plain": {
+      "label": "普通牛腱",
+      "price": 12,
+      "unit": "kg",
+      "weighMode": "weight"
+    },
+    "chili_oil_yao": {
+      "label": "幺麻子藤椒油",
+      "price": 9.2,
+      "unit": "瓶"
+    },
+    "flour": {
+      "label": "Baker's Choice特级面粉",
+      "price": 3,
+      "unit": "袋"
+    },
+    "lettuce_youmai": {
+      "label": "油麦菜(300g*2袋/份)",
+      "price": 4,
+      "unit": "份"
+    },
+    "milk_hokkaido_12": {
+      "label": "北海道原味牛乳(12盒/箱)",
+      "price": 22,
+      "unit": "箱",
+      "piecesPerUnit": 12
+    },
+    "soda_dayao": {
+      "label": "大窑橙诺汽水(480ml*12瓶/箱)",
+      "price": 18,
+      "unit": "箱",
+      "piecesPerUnit": 12
+    },
+    "beef_patty_angus": {
+      "label": "美国安格斯牛肉饼(130g*6片/包)",
+      "price": 10,
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 780,
+      "piecesPerUnit": 6
+    },
+    "beef_roll_fat": {
+      "label": "肥牛卷(300g/盒)",
+      "price": 9.8,
+      "weighMode": "weight",
+      "gramsPerUnit": 300
+    },
+    "beef_slice_tender": {
+      "label": "嫩滑牛肉片(1kg/包)",
+      "price": 19,
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000
+    },
+    "chicken_popcorn": {
+      "label": "香脆鸡米花(1kg/包)",
+      "price": 12,
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 1000
+    }
+  },
+  "orders": [
+    {
+      "name": "Zoidz",
+      "items": {
+        "apple_envy": 1,
+        "apple_yunnan_cherry": 1,
+        "beef_jinqian_jian": 1,
+        "beef_short_rib": 2,
+        "chili_oil_yao": 1
+      }
+    },
+    {
+      "name": "ZJ",
+      "items": {
+        "apple_yunnan_cherry": 1,
+        "apple_nz_danshuo": 1,
+        "asparagus": 1,
+        "beef_jinqian_jian": 1
+      }
+    },
+    {
+      "name": "Ping",
+      "items": {
+        "beef_roll_fat": 1,
+        "soda_dayao": 1,
+        "milk_hokkaido_12": 1,
+        "lettuce_youmai": 1
+      }
+    }
+  ]
+}
