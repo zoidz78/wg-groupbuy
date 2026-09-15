@@ -19,6 +19,11 @@
       "label": "原味猫山王冰皮月饼",
       "price": 30,
       "unit": "盒"
+    },
+    "gift_insulated_bag": {
+      "label": "保温袋(月饼赠品)",
+      "price": 0,
+      "unit": "个"
     }
   },
   "orders": [
@@ -31,7 +36,8 @@
     {
       "name": "Caroline 琛琛",
       "items": {
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
@@ -43,13 +49,15 @@
     {
       "name": "wyh",
       "items": {
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
       "name": "ᥫᩣ",
       "items": {
-        "mooncake_maoshanwang": 3
+        "mooncake_maoshanwang": 3,
+        "gift_insulated_bag": 3
       }
     },
     {
@@ -61,7 +69,8 @@
     {
       "name": "Starry",
       "items": {
-        "mooncake_maoshanwang": 2
+        "mooncake_maoshanwang": 2,
+        "gift_insulated_bag": 2
       }
     },
     {
@@ -79,7 +88,8 @@
     {
       "name": "Lesleyᓩ",
       "items": {
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
@@ -87,6 +97,7 @@
       "items": {
         "beef_sirloin_teys_mb2": 1,
         "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1,
         "chicken_gambang": 1
       }
     },
@@ -95,14 +106,16 @@
       "items": {
         "beef_sirloin_teys_mb2": 2,
         "chicken_gambang": 1,
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
       "name": "半江渔火",
       "items": {
         "beef_sirloin_teys_mb2": 2,
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
@@ -115,7 +128,8 @@
       "name": "CiCi颖💃",
       "items": {
         "beef_sirloin_teys_mb2": 4,
-        "mooncake_maoshanwang": 1
+        "mooncake_maoshanwang": 1,
+        "gift_insulated_bag": 1
       }
     },
     {
