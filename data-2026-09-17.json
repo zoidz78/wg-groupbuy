@@ -1,0 +1,147 @@
+{
+  "groupName": "WG团购群",
+  "itemsLabel": "TEYS黑安格斯西冷牛排 & 猫山王月饼团购",
+  "products": {
+    "beef_sirloin_teys_mb2": {
+      "label": "Chilled TEYS澳洲黑安格斯MB2西冷牛排(约200g/份)",
+      "price": 12.5,
+      "unit": "份",
+      "weighMode": "weight",
+      "gramsPerUnit": 200
+    },
+    "chicken_gambang": {
+      "label": "甘榜鸡",
+      "price": 13,
+      "unit": "kg",
+      "weighMode": "weight"
+    },
+    "mooncake_maoshanwang": {
+      "label": "原味猫山王冰皮月饼",
+      "price": 30,
+      "unit": "盒"
+    }
+  },
+  "orders": [
+    {
+      "name": "ZJ",
+      "items": {
+        "beef_sirloin_teys_mb2": 4
+      }
+    },
+    {
+      "name": "Caroline 琛琛",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "Rongli",
+      "items": {
+        "beef_sirloin_teys_mb2": 4
+      }
+    },
+    {
+      "name": "wyh",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "ᥫᩣ",
+      "items": {
+        "mooncake_maoshanwang": 3
+      }
+    },
+    {
+      "name": "大燕子🐣⛄️❄️",
+      "items": {
+        "beef_sirloin_teys_mb2": 2
+      }
+    },
+    {
+      "name": "Starry",
+      "items": {
+        "mooncake_maoshanwang": 2
+      }
+    },
+    {
+      "name": "may",
+      "items": {
+        "beef_sirloin_teys_mb2": 2
+      }
+    },
+    {
+      "name": "孟溪",
+      "items": {
+        "beef_sirloin_teys_mb2": 4
+      }
+    },
+    {
+      "name": "Lesleyᓩ",
+      "items": {
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "Xian",
+      "items": {
+        "beef_sirloin_teys_mb2": 1,
+        "mooncake_maoshanwang": 1,
+        "chicken_gambang": 1
+      }
+    },
+    {
+      "name": "等放假ing",
+      "items": {
+        "beef_sirloin_teys_mb2": 2,
+        "chicken_gambang": 1,
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "半江渔火",
+      "items": {
+        "beef_sirloin_teys_mb2": 2,
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "Peter",
+      "items": {
+        "beef_sirloin_teys_mb2": 2
+      }
+    },
+    {
+      "name": "CiCi颖💃",
+      "items": {
+        "beef_sirloin_teys_mb2": 4,
+        "mooncake_maoshanwang": 1
+      }
+    },
+    {
+      "name": "小美",
+      "items": {
+        "beef_sirloin_teys_mb2": 2
+      }
+    },
+    {
+      "name": "Yang Yan",
+      "items": {
+        "beef_sirloin_teys_mb2": 5,
+        "chicken_gambang": 1
+      }
+    },
+    {
+      "name": "A🍓肉肉（肉在努力版）",
+      "items": {
+        "beef_sirloin_teys_mb2": 2
+      }
+    },
+    {
+      "name": "HanMin",
+      "items": {
+        "beef_sirloin_teys_mb2": 4
+      }
+    }
+  ]
+}
