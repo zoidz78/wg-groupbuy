@@ -24,6 +24,14 @@
       "label": "保温袋(月饼赠品)",
       "price": 0,
       "unit": "个"
+    },
+    "beef_patty_angus": {
+      "label": "美国安格斯牛肉饼(130g*6片/包)",
+      "price": 10,
+      "unit": "包",
+      "weighMode": "weight",
+      "gramsPerUnit": 780,
+      "piecesPerUnit": 6
     }
   },
   "orders": [
@@ -121,7 +129,8 @@
     {
       "name": "Peter",
       "items": {
-        "beef_sirloin_teys_mb2": 2
+        "beef_sirloin_teys_mb2": 2,
+        "beef_patty_angus": 1
       }
     },
     {
@@ -155,6 +164,12 @@
       "name": "HanMin",
       "items": {
         "beef_sirloin_teys_mb2": 4
+      }
+    },
+    {
+      "name": "Christian Ruth",
+      "items": {
+        "beef_patty_angus": 1
       }
     }
   ]
