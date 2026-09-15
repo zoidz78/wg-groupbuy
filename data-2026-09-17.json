@@ -84,7 +84,8 @@
     {
       "name": "may",
       "items": {
-        "beef_sirloin_teys_mb2": 2
+        "beef_sirloin_teys_mb2": 2,
+        "chicken_gambang": 1
       }
     },
     {
@@ -170,6 +171,12 @@
       "name": "Christian Ruth",
       "items": {
         "beef_patty_angus": 1
+      }
+    },
+    {
+      "name": "安安",
+      "items": {
+        "beef_sirloin_teys_mb2": 1
       }
     }
   ]
